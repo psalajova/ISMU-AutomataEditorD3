@@ -119,12 +119,12 @@ function initToolbox() {
     .attr("rx" , 7)
     .attr("class", "toolbox-rect");
   
-  createToolboxButton(toolbox, 10, 10, "zoom-in.png")
+  createToolboxButton(toolbox, 10, 10, "icons/zoom-in.png")
     .on("click", zoomIn);
-  createToolboxButton(toolbox, 50, 10, "reset-zoom.png")
-  .on("click", resetZoom);
-  createToolboxButton(toolbox, 90, 10, "zoom-out.png")
-  .on("click", zoomOut);
+  createToolboxButton(toolbox, 50, 10, "icons/reset-zoom.png")
+    .on("click", resetZoom);
+  createToolboxButton(toolbox, 90, 10, "icons/zoom-out.png")
+    .on("click", zoomOut);
 }
 
 //graph function
@@ -388,6 +388,7 @@ function getCoordinates(oldXy) {
   };
 }
 
+// zoom
 function svgZoomed({ transform }) {
   svgGroup.attr("transform", transform);
 }
@@ -404,6 +405,7 @@ function zoomOut(){
   svg.transition().call(zoom.scaleBy, 0.7);
 }
 
+//state dragging
 function stateDragstart(event, d) {
   graphState.mouseDownState = d;
   toggleStateSelection(d3.select(this), event, d);
@@ -418,9 +420,7 @@ function stateDragmove(event, d) {
     
     if (connecting_node.size() > 0) { //if mouse is hovering over some state
       if (connecting_node.data()[0].id == d.id) { //self-loop
-        temporaryEdgePath.attr("d", 
-          getAtoAPathDefinition(d.x, d.y - graphConsts.nodeRadius, 
-            d.x, d.y - graphConsts.nodeRadius));
+        temporaryEdgePath.attr("d", getNewSelfloopDefinition(d.x, d.y - graphConsts.nodeRadius, d.x, d.y - graphConsts.nodeRadius, d));
       }
       else {
         temporaryEdgePath.attr(
@@ -442,9 +442,7 @@ function stateDragmove(event, d) {
     d.y = event.y;
     d3.select(this).attr("transform", "translate(" + d.x + "," + d.y + ")");
 
-    if (d.initial) {
-      repositionInitArrow(d);
-    }
+    if (d.initial) { repositionInitArrow(d); }
 
     updateOutgoingEdges(d);
     updateIncommingEdges(d);
@@ -504,22 +502,33 @@ function repositionInitArrow(d) {
 function updateOutgoingEdges(stateData) {
   edgeGroups
     .filter(function (edgeData) { 
-      return edgeData.source.id === stateData.id && edgeData.source != edgeData.target; 
+      return edgeData.source.id === stateData.id; 
     })
     .each( function(edgeData, index) {
-      var str = d3.select(this).select("path").attr("d").split(" ");
-      
-      str[1] = stateData.x;
-      str[2] = stateData.y;
-
-      str[4] = ((+str[1] + (+str[6]))/2) + edgeData.dx;
-      str[5] = ((+str[2] + (+str[7]))/2) + edgeData.dy;
-
-      var tx = (+str[4] + (+((+str[1] + (+str[6]))/2)))/2;
-      var ty = (+str[5] + (+((+str[2] + (+str[7]))/2)))/2;
-
-      d3.select(this).select("path").attr("d", str.join(" "));
-
+      var tx, ty, newDef;
+      if (edgeData.source == edgeData.target) {
+        var def = "M " + stateData.x + " " + stateData.y + " C "
+				+ cubicControlPoints(stateData.x, stateData.y, edgeData.angle)
+                + " " + stateData.x +" " + stateData.y;
+        var s = def.split(" ");
+        var tx = (+s[4] + +s[6] + +s[1]) / 3;
+        var ty = (+s[5] + +s[7] + +s[2]) / 3;
+        newDef = def;        
+      }
+      else {
+        var str = d3.select(this).select("path").attr("d").split(" ");
+        str[1] = stateData.x;
+        str[2] = stateData.y;
+  
+        str[4] = ((+str[1] + (+str[6]))/2) + edgeData.dx;
+        str[5] = ((+str[2] + (+str[7]))/2) + edgeData.dy;
+  
+        tx = (+str[4] + (+((+str[1] + (+str[6]))/2)))/2;
+        ty = (+str[5] + (+((+str[2] + (+str[7]))/2)))/2;
+  
+        newDef = str.join(" ");
+      }
+      d3.select(this).select("path").attr("d", newDef);
       moveEdgeRect(d3.select(this).select("rect"), tx, ty);
       moveEdgeText(d3.select(this).select("text"), tx, ty + 5);
     });
@@ -569,6 +578,21 @@ function moveEdgeText(text, x, y) {
     .attr("y", y);
 }
 
+function getEdgeRectPosition(pathDefinitinAttribute, isSelfloop) {
+    var str = pathDefinitinAttribute.split(" "), tx, ty;
+  
+    if (isSelfloop) {
+        tx = (+str[4] + +str[6] + +str[1]) / 3;
+        ty = (+str[5] + +str[7] + +str[2]) / 3;
+    }
+    else {
+        tx = (+str[4] + (+((+str[1] + (+str[6]))/2)))/2;
+        ty = (+str[5] + (+((+str[2] + (+str[7]))/2)))/2;
+    }
+    return {tx, ty};
+  }
+
+//path dragging
 function pathDragstart(event, d) {
   graphState.mouseDownEdge = d;
   toggleEdgeSelection(d3.select(this), event, d);
@@ -584,17 +608,10 @@ function pathDragmove(event, d) {
     .select("path")
     .attr("d", repositionPathCurve(d, event.x, event.y, oldPathDefinition));
 
-    //TODO reposition rect
-  var rCoords = repositionPathRect(edgeG.select("path").attr("d"));
+  var coords = getEdgeRectPosition(edgeG.select("path").attr("d"), d.source == d.target);
 
-  edgeG.select("rect")
-    .attr("x", rCoords.tx)
-    .attr("y", rCoords.ty);
-
-  //reposition text
-  edgeG.select("text")
-    .attr("x", rCoords.tx)
-    .attr("y", rCoords.ty);
+  moveEdgeRect(edgeG.select("rect"), coords.tx, coords.ty);
+  moveEdgeText(edgeG.select("text"), coords.tx, coords.ty + 5);
 }
 
 function pathDragend(event, d) {
@@ -616,7 +633,8 @@ function addEdge(from, to, symbols) {
     target: to,
     symbols: symbols,
     dx : 0,
-    dy: 0
+    dy: 0,
+    angle: 0
   };
   edgeIdCounter++;
   edgesData.push(newEdgeData);
@@ -637,43 +655,45 @@ function addEdge(from, to, symbols) {
   //events
   //if (!jeProhlizecistranka()) {}
   newEdges
-    //.on("mousedown", edgeMouseDown)
     .call(dragPath);
 
-  //svg
   newEdges
     .append("svg:path")
     .style("marker-end", "url(#end-arrow)")
     .classed(graphConsts.edgePathClass, true)
     .attr("d", function (d) {
       if (d.source.id == d.target.id) {
-        return getSelfloopPathDefinition(d.source.x, d.source.y);
+        return getNewSelfloopDefinition(d.source.x, d.source.y, d.source.x, d.source.y, d);
       }
       else {
         return getStraightPathDefinition(d.source.x, d.source.y, d.target.x, d.target.y);
       }
     });
 
-  var coordsX = midpoint(from.x, to.x);
-  var coordsY = midpoint(from.y, to.y);
-
   newEdges
     .append("rect")
     .classed(graphConsts.edgeRectClass, true)
-    .attr("x", coordsX)
-    .attr("y", coordsY)
-    .attr("width", 25)
+    .attr("rx", 6.5)
     .attr("height", 20);
 
   newEdges
     .append("text")
     .classed(graphConsts.edgeTextClass, true)
-    .text(function (d) {
-      return d.symbols;
-    })
-    .attr("text-anchor", "middle")
-    .attr("x", coordsX + 10)
-    .attr("y", coordsY + 15);
+    .text(function (d) { return d.symbols; })
+    .attr("text-anchor", "middle");
+
+  newEdges.each( function(edgeData, index) {
+      var rect = d3.select(this).select("rect");
+      var text = d3.select(this).select("text");
+
+      rect.attr("width", text.node().getComputedTextLength() + 8);
+
+      var dAttr = d3.select(this).select("path").attr("d");
+      var coords = getEdgeRectPosition(dAttr, edgeData.source == edgeData.target);
+
+      moveEdgeRect(rect, coords.tx, coords.ty);
+      moveEdgeText(text, coords.tx, coords.ty + 5);
+    });
 
   updateEdgeGroups();
 }
@@ -689,34 +709,17 @@ function checkNewEdgeValidity() {
 
 //path repositioning functions
 function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
-  if (edgeData.source == edgeData.target) { //self-loop
-    return getNewSelfloopDefinition(mouseX, mouseY, oldPathDefinition);
+  if (edgeData.source == edgeData.target) {
+    var str = oldPathDefinition.split(" ");
+    return getNewSelfloopDefinition(str[1], str[2], mouseX, mouseY, edgeData);
   }
   else {
-    return getNewPathDefinition(edgeData.id, mouseX, mouseY, oldPathDefinition); 
+    return getNewPathDefinition(edgeData.id, mouseX, mouseY, oldPathDefinition, edgeData); 
   }
-}
-
-function getNewSelfloopDefinition(mouseX, mouseY, oldPathDefinition) {
-  var str = oldPathDefinition.split(" ");
-
-  var sqrtt = distBetween(str[1], str[2], mouseX, mouseY);
-  if (sqrtt == 0) {
-    sqrtt = 0.001;
-  }
-  var angle = Math.acos((mouseX - str[1]) / sqrtt);
-  if (mouseY > str[2]) {
-    angle = -angle;
-  }
-
-  return "M " + str[1] + " " + str[2] + " C "
-    + cubicControlPoints(str[1], str[2], angle)
-    + " " + str[1] +" " + str[2];
-
 }
 
 //move path (drag)
-function getNewPathDefinition(edgeID, mouseX, mouseY, pathD) {
+function getNewPathDefinition(edgeID, mouseX, mouseY, pathD, edgeData) {
   //M100 250 Q250 250 400 250
   
   var str = pathD.split(" ");
@@ -726,7 +729,10 @@ function getNewPathDefinition(edgeID, mouseX, mouseY, pathD) {
   str[4] = ( ( +str[1] + ( +str[6] ) ) / 2 ) + dx;
   str[5] = ( ( +str[2] + ( +str[7] ) ) / 2 ) + dy;
 
-  //??
+  //update dx, dy data
+  edgeData.dx = dx;
+  edgeData.dy = dy;
+  /*
   edgesData
     .filter(function (d) {
       return d.id == edgeID;
@@ -734,20 +740,19 @@ function getNewPathDefinition(edgeID, mouseX, mouseY, pathD) {
     .map(function (d) {
       d.dx = dx;
       d.dy = dy;
-    });
-  //??
+    });*/
 
   return str.join(" ");
 }
 
-function getAtoAPathDefinition(x1, y1, x2, y2) {
-  var distance = distBetween(x1, y1, x1, y1), angle;
+function getNewSelfloopDefinition(x1, y1, x2, y2, edgeData) {
+  var distance = distBetween(x1, y1, x2, y2), angle;
   if (distance == 0) {
     dist = 0.001; 
   }
 
   if (x1 == x2 && y1 == y2) { 
-    angle = 0;
+    angle = 1.57;
   } else {
     angle = Math.acos( (x2 - x1) / distance);
   }
@@ -755,6 +760,7 @@ function getAtoAPathDefinition(x1, y1, x2, y2) {
   if (y1 < y2) {
     angle = -angle;
   }
+  edgeData.angle = angle;
 
   return "M " + x1 + " " + y1 + " C "
     + cubicControlPoints(x1, y1, angle)
@@ -766,19 +772,6 @@ function getStraightPathDefinition(x1, y1, x2, y2) {
     midpoint(x1, x2) +  " " +
     midpoint(y1, y2) +  " " + 
     x2 + " " + y2 ;
-}
-
-function getSelfloopPathDefinition(x, y) {
-  return getAtoAPathDefinition(x, y, x, y);
-}
-
-function repositionPathRect(pathD) {
-  var str = pathD.split(" ");
-
-  var tx = (+str[4] + (+((+str[1] + (+str[6]))/2)))/2;
-  var ty = (+str[5] + (+((+str[2] + (+str[7]))/2)))/2;
-
-  return {tx, ty};
 }
 
 //state functions
@@ -1057,13 +1050,23 @@ function getAtoBAtt(x1, y1, x2, y2) {
 }
 
 function cubicControlPoints(x, y, d) {
-  var mult = 90;
-  var div = 4.5;
+  var mult = 110;
+  var div = 5;
 
-  var x1 = +x + (Math.sin(d + Math.PI / div) * mult);
-  var y1 = +y - (Math.cos(d + Math.PI / div) * mult);
-  var x2 = +x + (Math.sin(d - Math.PI / div) * mult);
-  var y2 = +y - (Math.cos(d - Math.PI / div) * mult);
+  var x1 = +x + (Math.cos(d + Math.PI / div) * mult);
+  var y1 = +y - (Math.sin(d + Math.PI / div) * mult);
+  var x2 = +x + (Math.cos(d - Math.PI / div) * mult);
+  var y2 = +y - (Math.sin(d - Math.PI / div) * mult);
 
   return x1 + " " + y1 + " " + x2 + " " + y2;
+}
+
+
+function repositionArrowMarker(line, distance ) {
+    var pathLength = line.node().getTotalLength();
+    var pathPoint = line.node().getPointAtLength(pathLength - distance);
+    var pathPoint2 = line.node().getPointAtLength(pathLength - distance - 0.01);
+    //TODO
+    line.markerline.setAttribute("d", "M" + pathPoint2.x + " " + pathPoint2.y + " L " + pathPoint.x + " " + pathPoint.y);
+
 }
