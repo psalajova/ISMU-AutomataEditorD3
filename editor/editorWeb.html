@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="d3.v6.min.js"></script>
+    <style>
+        .menu-button {
+            color: white;
+            border: 4px solid #4537c4;
+            background: #4537c4;
+            font-size: 16px;
+            padding: 15px 32px;
+            text-decoration: none;
+            display: inline-block;
+            text-transform: uppercase;
+            /*display: inline-block;*/
+            transition: all 0.4s ease 0s;
+            margin-right: 10px;
+        }
+        .menu-button:hover {
+            color: #ffffff;
+            background: #152296;
+            border: 4px solid #152296;
+            transition: all 0.4s ease 0s;
+        }
+
+        #questionDiv {
+            background-color: white;
+        }
+
+        #graphDiv {
+            display: inline-block;
+            background-color: white;
+            resize: both;
+            overflow: hidden;
+            min-width: 600px;
+            min-height: 400px;
+            width: 600px;
+            height: 400px;
+        }
+
+        #textArea {
+            display: none;
+        }
+
+        #hintDiv {
+            margin-bottom: 0px;
+        }
+
+        .hint-paragraph {
+            background-color: white;
+            line-height: 19px ;
+            font-family: Tahoma, Verdana, Segoe;
+            font-size: 13px;
+            margin-top: 0 ;
+            margin-bottom: 0 ;
+        }
+
+        .slide-Inactive {
+            height: 0;
+            transition: 0.3s;
+        }
+
+        .slide-Active {
+            height: 150px;
+        }
+
+        #svg-rect {
+            fill: #e9eaea;
+        }
+
+        .toolbox-rect{
+            width: 130px;
+            height: 50px;
+            fill: #e9eaead0;
+            stroke: rgba(0, 0, 0, 0.315);
+            stroke-width: 1px;
+        }
+
+        .toolbox-button {
+            opacity: 0.4;
+        }
+
+        .toolbox-button:hover {
+            opacity: 1;
+            cursor: pointer;
+        }
+
+        #temporary-arrow-end {
+            fill: red;
+        }
+
+        /*  states  ------------------------------------------------------------ */
+        .state-group circle{
+            fill: #f6fbff;
+            stroke: #333;
+            stroke-width: 2px;
+        }
+
+        .state-group:hover circle{
+            fill: #c8eef1;
+        }
+        .state-group.selected circle{
+            fill: #7ed8de
+        }
+
+        /*  edges ------------------------------------------------------------ */
+        .edge-group.selected path{
+            stroke: #7ed8de;
+        }
+     
+        .edge-path {
+            fill: none;
+            stroke: rgb(49, 49, 49);
+            stroke-width: 4.1px;
+            cursor: default;
+        }
+
+        .edge-path.hidden{
+           stroke-width: 0;
+        }
+
+        .edge-group:hover path{
+            stroke: rgb(94, 196, 204);
+        }
+
+        .edge-rect {
+            fill: white;
+            stroke: rgb(49, 49, 49);
+            stroke-width: 1;
+        }
+        .edge-text, .state-text {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 15;
+            cursor: default;
+        }
+
+
+    </style>
+</head>
+
+<body>
+    <script src="editor.js"></script>
+    <script>
+        initialise("q0", "DFA");
+    </script>
+</body>
+
+</html>
