@@ -38,6 +38,7 @@
             min-height: 400px;
             width: 600px;
             height: 400px;
+            border-top: 5px solid #ffffff;
         }
 
         #textArea {
@@ -46,15 +47,19 @@
 
         #hintDiv {
             margin-bottom: 0px;
+            margin-top: 10px;
+            width: 600px;
+            background-color: #e9eaea;
         }
 
         .hint-paragraph {
-            background-color: white;
+            background-color: rgba(255, 255, 255, 0);
             line-height: 19px ;
-            font-family: Tahoma, Verdana, Segoe;
-            font-size: 13px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
             margin-top: 0 ;
             margin-bottom: 0 ;
+            margin-left: 10px;
         }
 
         .slide-Inactive {
@@ -66,13 +71,46 @@
             height: 150px;
         }
 
+        #hintButton {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            text-align: left;
+            width: 594px;
+            margin: 3px 3px 3px 3px;
+            border: 1px solid transparent;
+            background: #c7c7c7;
+        }
+
+        /* context menus ------------------------------- */
+        .context-menu-button {
+            width: 100%;
+            background-color: #bdbdbd;
+            border: none;
+            margin: 0;
+            padding: 10px;
+            text-align: left;
+            font-size: 12px;
+        }
+
+        .context-menu-button:hover {
+            background-color: #cecece;
+        }
+
+        .context-menu {
+            display: none;
+            position: absolute;
+            width: 110px;
+            background-color: #bdbdbd;
+            border-radius: 3px;
+        }
+
         #svg-rect {
             fill: #e9eaea;
         }
 
         .toolbox-rect{
-            width: 130px;
-            height: 50px;
+            width: 142px;
+            height: 70px;
             fill: #e9eaead0;
             stroke: rgba(0, 0, 0, 0.315);
             stroke-width: 1px;
@@ -117,12 +155,16 @@
         .edge-path {
             fill: none;
             stroke: rgb(49, 49, 49);
-            stroke-width: 4.1px;
+            stroke-width: 3.3px;
             cursor: default;
         }
 
-        .edge-path.hidden{
+        .edge-path.hidden {
            stroke-width: 0;
+        }
+
+        .edge-marker-path {
+            stroke-width: 2.1px;
         }
 
         .edge-rect {
