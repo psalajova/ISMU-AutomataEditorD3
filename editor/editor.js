@@ -13,6 +13,7 @@ var graphState,
   edgeGroups,
   stateIdCounter = 0;
 var temporaryEdgePath,
+  temporaryEdgeG,
   zoom,
   edgeIdCounter = 0;
 var stateG, edgeG;
@@ -40,14 +41,13 @@ var setAsInitialText = "Nastaviť ako počiatočný";
 
 var hints = {
   HINT_ADD_STATE : "<b>pridanie noveho stavu:</b> double click na platno",
-  HINT_ADD_STATE : "<b>pridanie noveho stavu:</b> double click na platno",
-  HINT_ADD_STATE : "<b>pridanie noveho stavu:</b> double click na platno",
-  HINT_ADD_TRANSITION : "<b>pridanie noveho prechodu:</b> stlacte SHIFT a zacnite tahat stav",
+  HINT_ADD_TRANSITION : "<b>pridanie noveho prechodu:</b> SHIFT + tahat stav",
   HINT_SELECT_ELEMENT : "<b>vybratie stavu/prechodu:</b> click stav/prechod",
   HINT_UNSELECT_ELEMENT : "<b>zrusenie vybratia stavu/prechodu:</b> click na platno",
-  HINT_DELETE_ELEMENT : "<b>vymazanie stavu/prechodu:</b> right click na stav + \"" + deleteStateText + "\" || click na stav/prechod + del / backspace",
-  HINT_TOGGLE_ACCEPTING_STATE : "<b>oznacenie a odznacenie stavu ako akceptujuceho:</b> double click na stav",
-  HINT_TOGGLE_INITIAL_STATE : "<b>oznacenie stavu ako inicialneho:</b> right click na stav + \"" + setAsInitialText + "\""
+  HINT_DELETE_ELEMENT : "<b>vymazanie stavu/prechodu:</b> right click -> \"" + deleteStateText + "\", alebo click na stav/prechod + del / backspace",
+  HINT_RENAME_ELEMENT : "<b>premenovanie stavu/prechodu:</b> right click -> \"" + renameStateText + "\"",
+  HINT_TOGGLE_INITIAL_STATE : "<b>oznacenie stavu ako inicialneho:</b> right click -> \"" + setAsInitialText + "\"",
+  HINT_TOGGLE_ACCEPTING_STATE : "<b>oznacenie a odznacenie stavu ako akceptujuceho:</b> double click na stav"
 }
 
 function initialise(id, type) {
@@ -213,13 +213,22 @@ function initGraph() {
   svgGroup = svg.append("svg:g").classed("graph-svg-group", true);
 
   //"temporary" path when creating edges
-  temporaryEdgePath = svgGroup
+  temporaryEdgeG = svgGroup.append("g").attr("id", "temporary edge group");
+
+  temporaryEdgePath = temporaryEdgeG
     .append("svg:path")
     .attr("class", graphConsts.edgePathClass + " dragline hidden")
     .attr("d", "M0,0L0,0")
     .style("marker-end", "url(#temporary-arrow-end)");
 
-  //init-arrow
+    //MARKER ???
+  temporaryEdgeG
+    .append("svg:path")
+    .classed(graphConsts.edgeMarkerClass, true)
+    //.attr("marker-end", "url(#Triangle" + aLine.parentSvg.divId + ')')
+    .attr("marker-end", "url(#end-arrow)");
+  
+    //init-arrow
   svgGroup
     .append("svg:path")
     .attr("class", graphConsts.edgePathClass + " init-arrow")
@@ -372,17 +381,18 @@ function stateDragmove(event, d) {
       }
       else {
         temporaryEdgePath.attr(
-          "d", "M" + d.x + "," + d.y + "L" 
-          + connecting_node.data()[0].x + "," 
-          + connecting_node.data()[0].y
-        );
+          "d", getStraightPathDefinition(d.x, d.y, 
+            connecting_node.data()[0].x ,connecting_node.data()[0].y) );
       }
+      temporaryEdgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", false);
+      repositionMarker(temporaryEdgeG);
       
     } else { //not hovering above any state
+      temporaryEdgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", true);
+
       temporaryEdgePath.attr(
-        "d", "M" + d.x + "," + d.y + "L" 
-        + d3.pointer(event, svgGroup.node())[0] + "," 
-        + d3.pointer(event, svgGroup.node())[1]
+        "d", getStraightPathDefinition(d.x, d.y, 
+          d3.pointer(event, svgGroup.node())[0] ,d3.pointer(event, svgGroup.node())[1])
       );
     }
   }
@@ -402,28 +412,20 @@ function stateDragmove(event, d) {
 
 function stateDragend(event, d) {
   temporaryEdgePath.classed("hidden", true);
+  temporaryEdgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", true);
 
   //creating new edge
   if ( graphState.creatingEdge && graphState.mouseDownState && graphState.mouseOverState) {
 
     //TODO checking syntax
     var transitionSymbols = checkEdgeSymbolsValidity(addTransitionPrompt);
-    addEdge(graphState.mouseDownState, graphState.mouseOverState, transitionSymbols);
+    if (transitionSymbols != null) {
+      addEdge(graphState.mouseDownState, graphState.mouseOverState, transitionSymbols);
+    }
     removeSelectionFromState();
     graphState.lastKeyDown = -1;
   } 
-  else {
-    //toggleStateSelection(d3.select(this), event, d);
-    /*
-    if (graphState.justDragged) {
-      // dragged, not clicked
-      graphState.justDragged = false;
-    } else {
-      // clicked, not dragged
-      toggleStateSelection(d3.select(this), event, d);
-    }
-    */
-  }
+
   graphState.creatingEdge = false;
   graphState.mouseDownState = null;
 }
@@ -547,8 +549,6 @@ function pathDragstart(event, d) {
 }
 
 function pathDragmove(event, d) {
-  graphState.justDragged = true;
-
   var edgeG = d3.select(this);
   var oldPathDefinition = edgeG.select("." + graphConsts.edgePathClass).attr("d");
 
@@ -564,16 +564,8 @@ function pathDragmove(event, d) {
 }
 
 function pathDragend(event, d) {
-  
-  /*
-  if (graphState.justDragged) {
-    graphState.justDragged = false;
-  }
-  else { // clicked, not dragged
-    toggleEdgeSelection(d3.select(this), event, d);
-  }
-  */
 }
+
 
 function addEdge(from, to, symbols) {
   var newEdgeData = {
@@ -982,6 +974,7 @@ function removeSelectionFromEdge() {
 function renameEdge(edgeData) {
   var newSymbols = checkEdgeSymbolsValidity(addTransitionPrompt, edgeData.symbols);
 
+  if (newSymbols == null) return;
   edgesData
     .filter(function (ed) {
       return ed.id == edgeData.id;
@@ -1036,7 +1029,7 @@ function showElem(element) {
 
 function clickGraph() {
   hideElem(textArea);
-  //generateGraphFromText();
+  //generateGraphFromText()??;
   showElem(graphDiv);
   showElem(hintDiv);
 }
@@ -1044,12 +1037,11 @@ function clickGraph() {
 function clickText() {
   hideElem(graphDiv);
   hideElem(hintDiv);
-  generateTextFromGraph();
+  generateTextFromData();
   showElem(textArea);
 }
 
 function clickHintButton() {
-  //showElem(document.getElementById("hintContentDiv"));
   var hintContentDiv = document.getElementById("hintContentDiv");
   hintContentDiv.classList.toggle("slide-Active");
   if (hintContentDiv.classList.contains("slide-Active")) {
@@ -1085,7 +1077,7 @@ function createToolboxButton(g, x, y, src) {
 }
 
 /* Updating functions ------------------------------------------ */
-function generateTextFromGraph() {
+function generateTextFromData() {
   var result = "";
   var acceptingStates = [];
 
@@ -1215,7 +1207,7 @@ function createEdgeContextMenu() {
 }
 
 function deleteEdgeHandler() {
-
+  deleteEdge(graphState.selectedEdge);
   hideElem(edgeContextMenuDiv);
 }
 
@@ -1243,10 +1235,30 @@ function checkEdgeSymbolsValidity(promptText, prevSymbols = null) {
   else {
     result = prompt(promptText, prevSymbols);
   }
+  if (result == null) return null;
 
-  // TODO ak je \e => ε
-  
+  var incorrect;
 
+  do {
+    incorrect = false;
+    var symbols = result.split(",");
+    symbols = symbols.filter(function(item, pos) {return symbols.indexOf(item) == pos;});
+    symbols.forEach(function(item, i) { if (item == "\\e") symbols[i] = "ε"; });
+    result = symbols.toString();
+
+    if (result == "") {
+      result = prompt("Chyba: Nelze přidat prázdný přechod! " + promptText, result);
+      incorrect = true;
+    }
+    if (!incorrect) { //if incorrect != false
+      if (incorrectGraphTransitionsSyntax(result))
+			{
+				result = prompt("Chyba: Nevyhovující syntax! " + promptText, result);
+				incorrect = true;
+			}
+    }
+  }
+  while (incorrect && result != null);
   return result;
 }
 
@@ -1301,4 +1313,15 @@ function repositionMarkerTo(path, markerPath, distance) {
     var pathPoint2 = path.node().getPointAtLength(pathLength - distance - 0.01);
     markerPath.attr("d", "M" + pathPoint2.x + " " + pathPoint2.y + " L " + pathPoint.x + " " + pathPoint.y);
 
+}
+
+//syntax
+function graphTransitionsSyntax()
+{
+	return /^(([a-zA-Z0-9]+)|(ε)|(\\e))(,(([a-zA-Z0-9]+)|(ε)|(\\e)))*$/;
+}
+
+function incorrectGraphTransitionsSyntax(val)
+{
+	return (!graphTransitionsSyntax().test(val))
 }
