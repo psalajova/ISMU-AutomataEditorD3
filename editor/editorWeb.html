@@ -29,29 +29,29 @@
             background-color: white;
         }
 
-        #graphDiv {
+        .graphDiv {
             display: inline-block;
             background-color: white;
             resize: both;
             overflow: hidden;
-            min-width: 600px;
-            min-height: 400px;
-            width: 600px;
-            height: 400px;
+            min-width: 800px;
+            min-height: 500px;
+            width: 800px;
+            height: 500px;
             border-top: 5px solid #ffffff;
         }
 
-        #textArea {
+        .textArea {
             display: none;
             width: 500px;
             height: 100px;
         }
 
-        #hintDiv {
+        .hint-content-div {
             margin-bottom: 0px;
             margin-top: 10px;
-            width: 600px;
-            background-color: #e9eaea;
+            width: 800px;
+            background-color: #cfcfcf;
         }
 
         .hint-paragraph {
@@ -73,11 +73,11 @@
             height: 158px;
         }
 
-        #hintButton {
+        .hintButton {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 14px;
             text-align: left;
-            width: 594px;
+            width: 794px;
             margin: 3px 3px 3px 3px;
             border: 1px solid transparent;
             background: #c7c7c7;
@@ -106,7 +106,7 @@
             border-radius: 3px;
         }
 
-        #svg-rect {
+        .svg-rect {
             fill: #e9eaea;
         }
 
@@ -128,7 +128,7 @@
         }
 
         #temporary-arrow-end {
-            fill: red;
+            fill: black;
         }
 
         /*  states  ------------------------------------------------------------ */
@@ -187,9 +187,15 @@
 
 <body>
     <script src="editor.js"></script>
-    <script>
-        initialise("q0", "DFA");
-    </script>
+    <script> initialise("q0", "DFA"); </script>
+    -----------------------------------------------------
+    <br>
+    <script> initialise("q1", "NFA"); </script>
+    -----------------------------------------------------
+    <br>
+    <script>initialise("q2", "DFA");</script>
+        
+    
 </body>
 
 </html>
