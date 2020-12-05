@@ -83,7 +83,7 @@ function initialise(id, type) {
   var tableButton = document.createElement("button");
   tableButton.innerText = tableMenuButton;
   tableButton.setAttribute("class", menuButtonClass);
-  //tableButton.addEventListener("click", function() { clickTable(questionDiv)} );
+  tableButton.addEventListener("click", function() { clickTable(questionDiv)} );
 
   questionDiv.appendChild(graphButton);
   questionDiv.appendChild(textButton);
@@ -114,7 +114,8 @@ function initialise(id, type) {
   var textArea = document.createElement("textarea");
   textArea.setAttribute("class", "textArea");
 
-  //TODO : tableDiv
+  var tableDiv = document.createElement("div");
+  tableDiv.setAttribute("class", "tableDiv");
 
   questionDiv.appendChild(hintDiv);
   questionDiv.hintDiv = hintDiv;
@@ -125,8 +126,8 @@ function initialise(id, type) {
   questionDiv.appendChild(textArea);
   questionDiv.textArea = textArea;
 
-  //questionDiv.appendChild(tableDiv);
-  //questionDiv.tableDiv = tableDiv;
+  questionDiv.appendChild(tableDiv);
+  questionDiv.tableDiv = tableDiv;
 
   document.body.appendChild(questionDiv);
 
@@ -1294,6 +1295,7 @@ function clickGraph(questionDiv) {
   //prejst vsetky stavy 
   //a ak stav nie je inicialny && nie je akceptujuci && nema ziadne prechody z neho aj do neho tak vymazat
   hideElem(questionDiv.textArea);
+  hideElem(questionDiv.tableDiv);
   //generateGraphFromText()??;
 
   if (questionDiv.lastEdited == "text") {
@@ -1306,10 +1308,14 @@ function clickGraph(questionDiv) {
 }
 
 function clickTable(questionDiv) {
+  hideElem(questionDiv.graphDiv);
+  hideElem(questionDiv.hintDiv);
+  hideElem(questionDiv.textArea);
   if (questionDiv.lastEdited == "text") {
     updateDataFromText(questionDiv);
   }
-  
+  showElem(questionDiv.tableDiv);
+  questionDiv.lastEdited = "table";
 }
 
 function clickText(questionDiv) {
