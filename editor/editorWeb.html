@@ -3,220 +3,26 @@
 
 <head>
     <meta charset="utf-8">
+
     <script src="d3.v6.min.js"></script>
-    <style>
-        .menu-button {
-            color: white;
-            border: 4px solid #4537c4;
-            background: #4537c4;
-            font-size: 16px;
-            padding: 15px 32px;
-            text-decoration: none;
-            display: inline-block;
-            text-transform: uppercase;
-            /*display: inline-block;*/
-            transition: all 0.4s ease 0s;
-            margin-right: 10px;
-        }
-        .menu-button:hover {
-            color: #ffffff;
-            background: #152296;
-            border: 4px solid #152296;
-            transition: all 0.4s ease 0s;
-        }
-
-        #questionDiv {
-            background-color: white;
-        }
-
-        .graphDiv {
-            display: inline-block;
-            background-color: white;
-            resize: both;
-            overflow: hidden;
-            min-width: 800px;
-            min-height: 500px;
-            width: 800px;
-            height: 500px;
-            border-top: 5px solid #ffffff;
-        }
-
-        .textArea {
-            display: none;
-            width: 500px;
-            height: 100px;
-        }
-
-        .tableDiv {
-            display: none;
-        }
-
-        .hint-content-div {
-            margin-bottom: 0px;
-            margin-top: 10px;
-            width: 800px;
-            background-color: #cfcfcf;
-        }
-
-        .hint-paragraph {
-            background-color: rgba(255, 255, 255, 0);
-            line-height: 19px ;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 12px;
-            margin-top: 0 ;
-            margin-bottom: 0 ;
-            margin-left: 10px;
-        }
-
-        .slide-Inactive {
-            height: 0;
-            transition: 0.3s;
-        }
-
-        .slide-Active {
-            height: 158px;
-        }
-
-        .hintButton {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 14px;
-            text-align: left;
-            width: 794px;
-            margin: 3px 3px 3px 3px;
-            border: 1px solid transparent;
-            background: #c7c7c7;
-        }
-
-        /* context menus ------------------------------- */
-        .context-menu-button {
-            width: 100%;
-            background-color: #bdbdbd;
-            border: none;
-            margin: 0;
-            padding: 10px;
-            text-align: left;
-            font-size: 12px;
-        }
-
-        .context-menu-button:hover {
-            background-color: #cecece;
-        }
-
-        .context-menu {
-            display: none;
-            position: absolute;
-            width: 110px;
-            background-color: #bdbdbd;
-            border-radius: 3px;
-        }
-
-        .svg-rect {
-            fill: #e9eaea;
-        }
-
-        .toolbox-rect{
-            width: 142px;
-            height: 70px;
-            fill: #e9eaead0;
-            stroke: rgba(0, 0, 0, 0.315);
-            stroke-width: 1px;
-        }
-
-        .toolbox-button {
-            opacity: 0.4;
-        }
-
-        .toolbox-button:hover {
-            opacity: 1;
-            cursor: pointer;
-        }
-
-        #temporary-arrow-end {
-            fill: black;
-        }
-
-        /*  states  ------------------------------------------------------------ */
-        .state-group circle{
-            fill: #f6fbff;
-            stroke: #333;
-            stroke-width: 2px;
-        }
-
-        .state-group.mouse-over-node circle{
-            fill:#C4E4F5;
-        }
-        .state-group.invalid-connection circle{
-            fill:#ff766c;
-        }
-
-        .state-group.selected circle{
-            fill:#7AC1EB;
-        }
-
-        .state-fullname-rect {
-            fill: #4646468c;
-            /*stroke-width: 1px;
-            stroke: #1a1a1a7e;*/
-        }
-
-        .state-fullname-text {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 15;
-            cursor: default;
-            fill: #ebebeb;
-        }
-
-        /*  edges ------------------------------------------------------------ */
-        .edge-group.mouse-over-node path{
-            stroke:#8DC2E0;
-        }
-
-        .edge-group.selected path{
-            stroke:#68B3DE;
-        }
-     
-        .edge-path {
-            fill: none;
-            stroke: rgb(49, 49, 49);
-            stroke-width: 3.3px;
-            cursor: default;
-        }
-
-        .edge-path.hidden, .edge-marker-path.hidden {
-           stroke-width: 0;
-        }
-
-        .edge-marker-path {
-            stroke-width: 2.1px;
-        }
-        
-        .edge-rect {
-            fill: white;
-            stroke: rgb(107, 107, 107);
-            stroke-width: 1;
-        }
-
-        .edge-text, .state-text {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 15;
-            cursor: default;
-        }
 
 
-    </style>
+
+    <link rel="stylesheet" type="text/css" href="editorStyle.css">
 </head>
 
 <body>
+    <script src="languages/SK.js"></script>
+
     <script src="editor.js"></script>
+    
     <script> initialise("q0", "DFA"); </script>
     -----------------------------------------------------
     <br>
     <script> initialise("q1", "NFA"); </script>
     -----------------------------------------------------
     <br>
-    <script>initialise("q2", "EFA");</script>
-        
-    
+    <script> initialise("q2", "EFA"); </script>
 </body>
 
 </html>

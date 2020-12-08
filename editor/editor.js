@@ -1,7 +1,7 @@
 
 var menuButtonClass = "menu-button";
 
-var graphConsts = {
+const graphConsts = {
   selectedClass: "selected",
   mouseOverClass: "mouse-over-node",
   stateGroupClass: "state-group",
@@ -18,45 +18,24 @@ var graphConsts = {
   nodeRadius: 30,
   nodeStrokeWidth: 2.1,
 };
+
+const tableClasses = {
+  myTable : "myTable",
+  myCell : "myCell",
+  columnHeader : "column-header-cell",
+  rowHeader : "row-header-cell",
+  innerCell : "inner-cell",
+  cellDiv : "cell-div",
+  inactiveCell : "inactive-cell", //tc
+  selectedCell : "selected-cell",
+  incorrectCell : "incorrect-cell",
+  deleteButton : "delete-button-cell",
+  addButton : "add-button-cell"
+}
 var activeQuestionDiv;
 var SELECTED_SVG_ELEMENT;
 
-// -------------
-// language, to be imported
-// -------------
-var graphMenuButton = "Graf";
-var textMenuButton = "Text";
-var tableMenuButton = "Tabuľka";
-var hintLabel = "Nápoveda";
-var addTransitionPrompt = "Zadajte symboly prechodu:";
-var renameStatePrompt = "Zadajte názov stavu:";
-var stateNameAlreadyExistsPrompt = "Chyba: Takto pojmenovaný stav již existuje! ";
-var edgeAlreadyExistsAlert = "Prechod medzi týmito stavmi už existuje. Ak chcete pridať prechod pod nejakým symbolom, upravte symboly existujúceho prechodu.";
-//state context menu
-var addTransitionText = "Pridať prechod";
-var renameStateText = "Premenovať";
-var deleteStateText = "Odstrániť";
-var setAsInitialText = "Nastaviť ako počiatočný";
-var setStateAsAcceptingText = "Akceptujúci stav";
-
-var renameEdgeText = "Upravit symboly prechodu";
-
-var hints = {
-  HINT_ADD_STATE : "<b>pridanie noveho stavu:</b> double click na platno",
-  HINT_ADD_TRANSITION : "<b>pridanie noveho prechodu:</b> SHIFT + tahat stav",
-  HINT_SELECT_ELEMENT : "<b>vybratie stavu/prechodu:</b> click stav/prechod",
-  HINT_UNSELECT_ELEMENT : "<b>zrusenie vybratia stavu/prechodu:</b> click na platno",
-  HINT_DELETE_ELEMENT : "<b>vymazanie stavu/prechodu:</b> right click -> \"" + deleteStateText + "\", alebo click na stav/prechod + del / backspace",
-  HINT_RENAME_ELEMENT : "<b>premenovanie stavu/prechodu:</b> right click",
-  HINT_TOGGLE_INITIAL_STATE : "<b>oznacenie stavu ako inicialneho:</b> right click -> \"" + setAsInitialText + "\"",
-  HINT_TOGGLE_ACCEPTING_STATE : "<b>oznacenie a odznacenie stavu ako akceptujuceho:</b> double click na stav"
-}
-
-function importLanguage() {}
-
 function initialise(id, type) {
-  importLanguage();
-
   //questionDiv == wp !
   //var questionDiv = document.getElementById(id); // v ISe uz bude existovat div s id
 
@@ -133,7 +112,9 @@ function initialise(id, type) {
 
   createStateContextMenu(questionDiv);
   createEdgeContextMenu(questionDiv);
+
   initGraph(questionDiv);
+  initTable(questionDiv);
 
   //document.getElementsByClassName("form").on("submit", function () { generateTextFromData(questionDiv); });
 }
@@ -290,18 +271,22 @@ function initGraph(questionDiv) {
   questionDiv.graphDiv.stateIdCounter = 0;
   questionDiv.graphDiv.edgeIdCounter = 0;
   initInitialState(questionDiv);
+}
 
-  /*
-  d3.select(window)
-    .on("keydown", function(event, d) {
-      windowKeyDown(event, d);
-    })
-    .on("keyup", function() {
-      windowKeyUp(questionDiv.graphDiv.graphState);} 
-    );*/
-
-
-  //initToolbox();
+function initTable(questionDiv) {
+  var table = document.createElement("table");
+  table.setAttribute("class", tableClasses.myTable);
+  table.selectedCell = null;
+	table.questionDiv = questionDiv;
+  questionDiv.tableDiv.table = table;
+  questionDiv.tableDiv.appendChild(table);
+  
+  //error alert paragraph
+  var alertP = document.createElement("p");
+  alertP.setAttribute("class", "alert alert-danger");
+  hideElem(alertP);
+  questionDiv.tableDiv.alertText = alertP;
+  questionDiv.tableDiv.appendChild(alertP);
 }
 
 function initInitialState(questionDiv) {
@@ -309,7 +294,7 @@ function initInitialState(questionDiv) {
     id: questionDiv.graphDiv.stateIdCounter,
     title: "S0",
     x: 100,
-    y: 150,
+    y: 100,
     initial: true,
     accepting: false,
   };
@@ -335,79 +320,6 @@ var dragState = d3
   .on("end", stateDragend);
 
 document.addEventListener('keydown', windowKeyDown);
-
-function rectClick(event, d) {
-  event.preventDefault();
-  var graphDiv;
-  if (d3.select(this).node().tagName == "svg") {
-    graphDiv = d3.select(this).node().parentNode;
-  }
-  else {
-    graphDiv = d3.select(this).node().parentGraphDiv;
-  }
-
-  removeSelectionFromState(graphDiv);
-  removeSelectionFromEdge(graphDiv);
-
-  hideElem(graphDiv.stateContextMenuDiv);
-  hideElem(graphDiv.edgeContextMenuDiv);
-
-  hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
-  if (graphDiv.graphState.creatingEdge) {
-    graphDiv.graphState.creatingEdge = false;
-    enableAllDragging(graphDiv.svg);
-  }
-  
-  //TODO: init selection of multiple elements
-}
-
-function rectDblclick(event, d) {
-  var graphDiv = d3.select(this).node().parentGraphDiv;
-  var coords = getCoordinates(d3.pointer(event), graphDiv.svg.svgGroup);
-
-  //if we clicked on other svg elements do nothing
-  if (event.srcElement.tagName == "rect") {
-    addState(graphDiv.parentNode, newStateData(graphDiv.parentNode, null, coords.x, coords.y, false, false));
-  }
-}
-
-function svgMousemove(event, data) {
-  var graphDiv = d3.select(this).node().parentNode;
-
-  if (graphDiv.graphState.creatingEdge) {
-    var temporaryEdgePath = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePathClass);
-    temporaryEdgePath.classed("hidden", false);
-
-    var targetState = graphDiv.graphState.mouseOverState;
-    var sourceState = graphDiv.graphState.mouseDownState;
-    var mouseX = d3.pointer(event, graphDiv.svg.svgGroup.node())[0];
-    var mouseY = d3.pointer(event, graphDiv.svg.svgGroup.node())[1];
-
-    //if mouse is hovering over some state
-    if (graphDiv.graphState.mouseOverState) {
-      /*if (getEdgeGroupNode(graphDiv.parentNode, sourceState.title, targetState.title) != null) {
-        getStateGroupById(graphDiv.parentNode, targetState.id).node().InvalidEdge = true;
-      }*/
-      //self-loop  
-      if (targetState.id == sourceState.id) {
-        toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
-        temporaryEdgePath.attr("d", getNewSelfloopDefinition(sourceState.x, sourceState.y, mouseX, mouseY, temporaryEdgePath.node()));
-      }
-      else { // snap to state
-        temporaryEdgePath.attr(
-          "d", getStraightPathDefinition(sourceState.x, sourceState.y, targetState.x, targetState.y));
-      }
-      graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", false);
-      repositionMarker(graphDiv.svg.svgGroup.temporaryEdgeG);
-    }
-    //not hovering above any state
-    else { 
-      graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", true);
-      temporaryEdgePath.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, mouseX, mouseY));
-    }
-
-  }
-}
 
 function windowKeyDown(event) {
   // SELECTED_SVG_ELEMENT is alaways either a stateGroup or an edgeGroup
@@ -440,6 +352,73 @@ function windowKeyDown(event) {
   }
 }
 
+function rectClick(event, d) {
+  event.preventDefault();
+  var graphDiv;
+  if (d3.select(this).node().tagName == "svg") {
+    graphDiv = d3.select(this).node().parentNode;
+  }
+  else {
+    graphDiv = d3.select(this).node().parentGraphDiv;
+  }
+
+  removeSelectionFromState(graphDiv);
+  removeSelectionFromEdge(graphDiv);
+
+  hideElem(graphDiv.stateContextMenuDiv);
+  hideElem(graphDiv.edgeContextMenuDiv);
+
+  hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
+  if (graphDiv.graphState.creatingEdge) {
+    graphDiv.graphState.creatingEdge = false;
+    enableAllDragging(graphDiv.svg);
+  }
+  
+  //TODO: init selection of multiple elements???
+}
+
+function rectDblclick(event, d) {
+  var graphDiv = d3.select(this).node().parentGraphDiv;
+  var coords = getCoordinates(d3.pointer(event), graphDiv.svg.svgGroup);
+
+  //if we clicked on other svg elements do nothing
+  if (event.srcElement.tagName == "rect") {
+    addState(graphDiv.parentNode, newStateData(graphDiv.parentNode, null, coords.x, coords.y, false, false));
+  }
+}
+
+function svgMousemove(event, data) {
+  var graphDiv = d3.select(this).node().parentNode;
+
+  if (graphDiv.graphState.creatingEdge) {
+    var temporaryEdgePath = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePathClass);
+    temporaryEdgePath.classed("hidden", false);
+
+    var targetState = graphDiv.graphState.mouseOverState;
+    var sourceState = graphDiv.graphState.mouseDownState;
+    var mouseX = d3.pointer(event, graphDiv.svg.svgGroup.node())[0];
+    var mouseY = d3.pointer(event, graphDiv.svg.svgGroup.node())[1];
+
+    //if mouse is hovering over some state
+    if (graphDiv.graphState.mouseOverState) {
+      if (targetState.id == sourceState.id) {
+        toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
+        temporaryEdgePath.attr("d", getNewSelfloopDefinition(sourceState.x, sourceState.y, mouseX, mouseY, temporaryEdgePath.node()));
+      }
+      else { // snap to state
+        temporaryEdgePath.attr( "d", getStraightPathDefinition(sourceState.x, sourceState.y, targetState.x, targetState.y));
+      }
+      graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", false);
+      repositionMarker(graphDiv.svg.svgGroup.temporaryEdgeG);
+    }
+    //mouse is not hovering above any state
+    else { 
+      graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", true);
+      temporaryEdgePath.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, mouseX, mouseY));
+    }
+  }
+}
+
 
 // zoom {& drag svg}
 function svgZoomed({ transform }) {
@@ -464,7 +443,6 @@ function zoomOut(){
 }
 
 
-//state dragging
 function stateDragstart(event, d) {
   var graphDiv = d3.select(this).node().parentGraphDiv;
   graphDiv.graphState.justDragged = false;
@@ -492,7 +470,7 @@ function stateDragmove(event, d) {
   updateIncommingEdges(graphDiv.svg.svgGroup.edgeGroups, d); 
 }
 
-function stateDragend(event, d) { }
+function stateDragend(event, d) {}
 
 
 function hideEdge(edgeG){
@@ -522,8 +500,6 @@ function repositionInitArrow(graphDiv, stateData) {
         stateData.y
     );
 }
-
-
 
 function updateOutgoingEdges(edgeGroups, stateData) {
   edgeGroups
@@ -634,7 +610,7 @@ function pathDragstart(event, d) {
 
 function pathDragmove(event, d) {
   var edgeG = d3.select(this);
-  var graphDiv = edgeG.node().parentGraphDiv;
+  //var graphDiv = edgeG.node().parentGraphDiv;
   var oldPathDefinition = edgeG.select("." + graphConsts.edgePathClass).attr("d");
 
   edgeG
@@ -650,7 +626,6 @@ function pathDragmove(event, d) {
 
 function pathDragend(event, d) {
 }
-
 
 function addEdge(questionDiv, from, to, symbols) {
   var temporaryEdgePath = questionDiv.graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePathClass);
@@ -725,12 +700,12 @@ function addEdge(questionDiv, from, to, symbols) {
     .attr("text-anchor", "middle");
   
   repositionMarker(newEdge);
-  updateEdgeRectAndText(questionDiv, newEdge);
+  updateEdgeRectAndText(newEdge);
 
   updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
 }
 
-function updateEdgeRectAndText(questionDiv, edgesSelection) {
+function updateEdgeRectAndText(edgesSelection) {
   edgesSelection
     .each( function(ed) {
       var rect = d3.select(this).select("rect");
@@ -1116,9 +1091,8 @@ function removeSelectionFromEdge(graphDiv) {
     .classed(graphConsts.selectedClass, false);
   graphDiv.graphState.selectedEdge = null;
 }
-//(questionDiv, questionDiv.graphDiv.graphState.selectedEdge
+
 function renameEdge(questionDiv, edgeData, symbols = null) {
-  console.log("renameEdge symbols arg:" +  symbols);
   if (symbols == null) {
     symbols = getNewEdgeSymbols(addTransitionPrompt, edgeData.symbols);
   }
@@ -1141,7 +1115,7 @@ function renameEdge(questionDiv, edgeData, symbols = null) {
       return symbols; 
     });
   
-  updateEdgeRectAndText(questionDiv, edgeGroup);
+  updateEdgeRectAndText(edgeGroup);
 }
 
 // - edge delete functions
@@ -1312,16 +1286,16 @@ function clickTable(questionDiv) {
   hideElem(questionDiv.hintDiv);
   hideElem(questionDiv.textArea);
   if (questionDiv.lastEdited == "text") {
-    updateDataFromText(questionDiv);
+    //updateDataFromText(questionDiv);
   }
   showElem(questionDiv.tableDiv);
-  questionDiv.lastEdited = "table";
 }
 
 function clickText(questionDiv) {
   hideElem(questionDiv.graphDiv);
   hideElem(questionDiv.hintDiv);
-  //hideElem(questionDiv.tableDiv);
+  hideElem(questionDiv.tableDiv);
+
   generateTextFromData(questionDiv);
   showElem(questionDiv.textArea);
   questionDiv.lastEdited = "text";
@@ -1493,6 +1467,7 @@ function updateDataFromText(questionDiv){
         else if (questionDiv.type == "EFA") {
           matches = str.match(/\([a-zA-Z0-9]+,(([a-zA-Z0-9])+|(\\e))\)={[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*}/g);
         }
+        //matches moze byt null! osetrit
         matches.forEach(element => {
           var state1 = element.substring(1, element.indexOf(","));
           var sym = element.substring(element.indexOf(",") + 1, element.indexOf(")"));
@@ -1542,7 +1517,7 @@ function updateDataFromText(questionDiv){
 
   var currentStates = questionDiv.statesData; // uz by mali byt updatenute (pridane nove stavy)
   currentStates.forEach(data => {
-    if (!statesPresent.includes(data.title)) {
+    if (!statesPresent.has(data.title)) {
       deleteState(questionDiv, data);
     }
     else {
@@ -1550,8 +1525,8 @@ function updateDataFromText(questionDiv){
         setNewStateAsInitial(questionDiv, data);
       }
 
-      if ((!finalStates.includes(data.title) && data.accepting == true)
-        || (finalStates.includes(data.title) && data.accepting == false)) {
+      if ((!finalStates.has(data.title) && data.accepting == true)
+        || (finalStates.has(data.title) && data.accepting == false)) {
         toggleAcceptingState(data, getStateGroupById(data.id));
       }
     }
