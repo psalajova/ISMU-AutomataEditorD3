@@ -20,22 +20,22 @@ const graphConsts = {
 };
 
 const tableConsts = {
-  MIN_CELL_WIDTH : 50;
-}
+  MIN_CELL_WIDTH : "50px"
+};
 
 const tableClasses = {
   myTable : "myTable",
   myCell : "myCell",
-  columnHeader : "column-header-cell",
-  rowHeader : "row-header-cell",
+  columnHeader : "column-header-cell", //ch
+  rowHeader : "row-header-cell", //rh
   innerCell : "inner-cell",
-  inputcellDiv : "cell-div",
+  inputcellDiv : "cell-div", //myCellDiv
   noselectCell : "noselect",
   inactiveCell : "inactive-cell", //tc
   selectedCell : "selected-cell",
-  incorrectCell : "incorrect-cell",
-  deleteButton : "delete-button-cell",
-  addButton : "add-button-cell"
+  incorrectCell : "incorrect-cell", //incorrect
+  deleteButton : "delete-button-cell", //deleteButton
+  addButton : "add-button-cell" //addButton
 }
 var activeQuestionDiv;
 var SELECTED_SVG_ELEMENT;
@@ -273,13 +273,13 @@ function initGraph(questionDiv) {
     .classed("state-fullname-text", true)
     .style("visibility", "hidden");
 
-  questionDiv.graphDiv.stateIdCounter = 0;
+  questionDiv.graphDiv.stateIdCounter = -1;
   questionDiv.graphDiv.edgeIdCounter = 0;
   initInitialState(questionDiv);
 }
 
 function initTableDiv(questionDiv) {
-  initTable(questionDiv);
+  createTable(questionDiv);
   
   //error alert paragraph
   var alertP = document.createElement("p");
@@ -291,8 +291,8 @@ function initTableDiv(questionDiv) {
 
 function initInitialState(questionDiv) {
   var initialData = {
-    id: questionDiv.graphDiv.stateIdCounter,
-    title: "S0",
+    id: generateId(questionDiv),
+    title: generateTitle(questionDiv),
     x: 100,
     y: 100,
     initial: true,
@@ -388,7 +388,7 @@ function rectDblclick(event, d) {
 
   //if we clicked on other svg elements do nothing
   if (event.srcElement.tagName == "rect") {
-    addState(graphDiv.parentNode, newStateData(graphDiv.parentNode, null, coords.x, coords.y, false, false, false));
+    addState(graphDiv.parentNode, newStateData(graphDiv.parentNode, null, coords.x, coords.y, false, false));
   }
 }
 
@@ -1143,7 +1143,7 @@ function renameEdgeHandler(questionDiv) {
 // ------------------------------------------------------
 // TABLE functions
 // ------------------------------------------------------
-function initTable() {
+function createTable(questionDiv) {
   var table = document.createElement("table");
   table.setAttribute("class", tableClasses.myTable);
   table.selectedCell = null;
@@ -1155,21 +1155,88 @@ function initTable() {
 
 function createTableFromData(questionDiv) {
   var oldTable = questionDiv.tableDiv.table;
-  var table = initTable();
+  var table = createTable(questionDiv);
 
-  var fstRow = table.insertRow(table.rows.length); // -1 ?
   
-  insertInactiveCell(fstRow, 0);
-  insertInactiveCell(fstRow, 1);
 
-  var states = [], symbols = [], exitStates = [];
+  table.states = [], table.exitStates = [];
+  table.symbols = [];
+  table.initState = null;
 
-  //vytvorit header row zo symbolov
-  //vytvorit stateName column
-  //  init state, accepting states
-  //fill out transition info
-  table.states = states;
-  table.symbols = symbols;
+  questionDiv.statesData.forEach(d => {
+    table.states.push(d.title);
+    if (d.initial) {
+      table.initState = d.title;
+    }
+    if (d.accepting) {
+      table.exitStates.push(d.title);
+    }
+  });
+  questionDiv.edgesData.forEach(d => {
+    d.symbols.split(',').forEach(symb => {
+      if (! table.symbols.includes(symb)) table.symbols.push(symb);
+    });
+  });
+  table.states.sort();
+  table.symbols.sort();
+
+  //create first row = consisting of 2 inactive cells
+  var row1 = table.insertRow(table.rows.length); // -1 ?
+  insertInactiveCell(row1, 0);
+  insertInactiveCell(row1, 1);
+
+  var row2 = table.insertRow(table.rows.length);
+  insertInactiveCell(row2, 0);
+  var cell = insertInactiveCell(row2, 1);
+  addResizable(table, cell);
+
+  // filling out columns' headers from symbols and delete buttons above them
+  table.symbols.forEach(symb => {
+    insertColumnDeleteButton(table, row1);
+    insertColumnHeader(row2, symb);
+  });
+  insertColumnAddButton(table, row1);
+
+  // filling out rows' headers (states' titles)
+  table.states.forEach(stateTitle => {
+    var row = table.insertRow(table.rows.length);
+    insertRowDeleteButton(table, row);
+    var headerValue = "";
+    if (table.initState == stateTitle) {
+      if (table.exitStates.includes(stateTitle)) {
+        headerValue += '↔';
+      }
+      else {
+        headerValue += '→';
+      }
+    }
+    else if (table.exitStates.includes(stateTitle)) {
+      headerValue += "←";
+    }
+    headerValue += stateTitle;
+    insertRowHeader(row, headerValue);
+
+    for (var j = 0; j < table.symbols.length; j++) {
+      console.log(row);
+      insertInnerCell(table, row);
+    }
+    
+  });
+  insertRowAddButton(table);
+
+  // filling transitions
+  questionDiv.edgesData.forEach(ed => {
+    if (questionDiv.type == "DFA") {
+      var row = table.rows[table.states.indexOf(ed.source.title) + 2];
+      ed.symbols.split(",").forEach(symb => {
+        var cell = row.cells[table.symbols.indexOf(symb) + 2];
+        cell.myDiv.value = ed.target.title;
+      });
+    }
+    else if (questionDiv.type == "NFA" || questionDiv.type == "EFA") {
+      //TODO
+    }
+  });
 
   questionDiv.tableDiv.removeChild(oldTable);
   questionDiv.tableDiv.removeChild(questionDiv.tableDiv.alertText);
@@ -1194,8 +1261,8 @@ function insertInactiveCell(row, index) {
 function insertColumnAddButton(table, row) {
   var cell = insertCellWithDiv(row, null, [tableClasses.addButton,tableClasses.noselectCell], null, "+");
   //cell.table = table;
-  cell.addEventListener("click", function(table) { 
-    //tableAddColumn(table); 
+  cell.addEventListener("click", function() { 
+    insertColumn(table);
   });
 }
 
@@ -1204,7 +1271,7 @@ function insertColumnDeleteButton(table, row) {
     [tableClasses.deleteButton, tableClasses.noselectCell],
     null, "x");
   //cell.table = table;
-  cell.addEventListener("click", function(table) { 
+  cell.addEventListener("click", function() { 
     //deleteColumn(table, this.cellIndex);  //???This???
   });
 }
@@ -1212,15 +1279,16 @@ function insertColumnDeleteButton(table, row) {
 function insertRowAddButton(table) {
   var newRow = table.insertRow(table.rows.length);
   var cell = insertCellWithDiv(newRow, 0, [tableClasses.addButton, tableClasses.noselectCell], null, "+");
-  cell.addEventListener("click", function (table) {
+  cell.addEventListener("click", function (e) {
     insertRow(table);
   })
 }
 
 function insertRowDeleteButton(table, row) {
-  var cell = insertCellWithDiv(row, 0, [tableClasses.deleteButton, tableClasses.noselectCell], null, "+");
+  var cell = insertCellWithDiv(row, 0, 
+    [tableClasses.deleteButton, tableClasses.noselectCell], null, "x");
   //cell.table = table;
-  cell.addEventListener("click", function(table) { 
+  cell.addEventListener("click", function() { 
     //deleteRow(table, this.parentNode.rowIndex);  //???This???
   });
 }
@@ -1256,6 +1324,7 @@ function insertInnerCell(table, row) {
 
 function insertRowHeader(row, name) {
   var cell = insertCell(row, row.cells.length, [tableClasses.myCell]);
+  var table = getParentByType("table", cell);
 
   var input = createInput([tableClasses.inputCellDiv, tableClasses.rowHeader], 
     name, name, table.rows[1].cells[cell.cellIndex].style.minWidth);
@@ -1281,22 +1350,8 @@ function insertColumnHeader(row, symbol) {
 
   var table = getParentByType("table", cell);
 
-  jQuery_new(cell).resizable({
-		handles: 'e',
-		resize: function() 
-		{
-			if (parseInt(this.style.width) >= tableConsts.MIN_CELL_WIDTH) 
-			{
-				this.style.minWidth = this.style.width;
-				var index = this.cellIndex;
-				//zmenenie sirky vsetkych cells v stlpci
-        for (var i = 1; i < table.rows.length - 1; i++)
-        //rename myDiv na myInput?
-        //also table.rows[i].cells[index].getElementsByTagName("INPUT")[0] should work
-					table.rows[i].cells[index].myDiv.style.width = this.style.width;
-			}
-		},
-	});
+  addResizable(table, cell);
+  //cell.style.minWidth = minCellW; ???
 
   var input = createInput([tableClasses.inputCellDiv], symbol, symbol);
 
@@ -1310,21 +1365,21 @@ function insertColumnHeader(row, symbol) {
   });
 
   cell.myDiv = input;
-  cell.appendChild(inpu);
+  cell.appendChild(input);
 }
 
-function insertRow(table, name) {
+function insertRow(table, title) {
   if (table.locked) {
     return;
   }
-  if (name == null) {
-    name = ":)";
+  if (title == null) {
+    title = "gener";
     //name = getNewStateName(table.states);
   }
   deselectCell(table);
-  table.rows(table.rows.length - 1).deleteCell(0);
+  table.rows[table.rows.length - 1].deleteCell(0);
   insertRowDeleteButton(table, table.rows[table.rows.length - 1]);
-  insertRowHeader(table.rows[table.rows.length - 1], name);
+  insertRowHeader(table.rows[table.rows.length - 1], title);
 
   for (i = 2; i < table.rows[0].cells.length - 1; i++) {
 			insertInnerCell(table, table.rows[table.rows.length - 1]);
@@ -1332,7 +1387,7 @@ function insertRow(table, name) {
   insertRowAddButton(table);
 
   // create state in graph
-  var data = newStateData(table.questionDiv, name, 0, 0, false, false, true);
+  var data = newStateData(table.questionDiv, title, 0, 0, false, false, true);
   addState(table.questionDiv, data);
 }
 
@@ -1343,7 +1398,7 @@ function insertColumn(table, symb = null) {
   deselectCell(table);
   table.rows[0].deleteCell(table.rows[0].cells.length - 1);
   insertColumnDeleteButton(table, table.rows[0]);
-  insertColumnAddButton(table, rable.rows[0]);
+  insertColumnAddButton(table, table.rows[0]);
 
   if (!symb) {
     symb = findSymbol(table);
@@ -1355,6 +1410,8 @@ function insertColumn(table, symb = null) {
     insertInnerCell(table, table.rows[i]);
   }
 }
+
+
 
 /* INPUT CHANGES */
 function tableChChanged() { }
@@ -1372,7 +1429,7 @@ function tableHeaderCellClick(evt) {
   //var table = cell.parentElement.parentElement.parentElement.parentElement;
   var table = getParentByType("table", cell);
   if (!table.locked && table.selectedCell != cell) {
-    selectDifferentCell(cell);
+    selectDifferentCell(table, cell);
 
     //HOME
     //disable/enable init and accepting buttons
@@ -1399,11 +1456,17 @@ function insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = 
   var cell = index == null ? row.insertCell(row.cells.length) : row.insertCell(index);
   cell.innerHTML = innerHtml;
 
-  cellClasslist.forEach(c => { cell.setAttribute("class", c); });
+  var cellS = d3.select(cell);
+  cellClasslist.forEach(c => {
+    cellS.classed(c, true);
+  });
 
   var div = document.createElement("div");
   if (divClasslist != null) {
-    divClasslist.forEach(dc => { div.setAttribute("class", dc); });
+    var d = d3.select(div);
+    divClasslist.forEach(dc => { 
+      d.classed(dc, true);
+    });
   }
 
   cell.appendChild(div);
@@ -1411,7 +1474,7 @@ function insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = 
 }
 
 function cellClickHandler(event) {
-  var cell = evt.target;
+  var cell = event.target;
   //var table = cell.parentElement.parentElement.parentElement.parentElement;
   var table = getParentByType("table", cell);
   if (!table.locked) {
@@ -1466,10 +1529,32 @@ function createInput(classlist, value, prevValue, width = tableConsts.MIN_CELL_W
   return input;
 }
 
-function selectDifferentCell(newCell) {
+function selectDifferentCell(table, newCell) {
   d3.select(table.selectedCell).classed(tableClasses.selectedCell, false);
   d3.select(newCell).classed(tableClasses.selectedCell, true);
   table.selectedCell = newCell;
+}
+
+function addResizable(table, cell) {
+  /*
+  jQuery_new(cell).resizable({
+		handles: 'e',
+		resize: function() 
+		{
+			if (parseInt(this.style.width) >= tableConsts.MIN_CELL_WIDTH) 
+			{
+				this.style.minWidth = this.style.width;
+				var ci = this.cellIndex;
+				//zmenenie sirky vsetkych cells v stlpci
+        for (var i = 1; i < table.rows.length - 1; i++)
+        //rename myDiv na myInput?
+        //also table.rows[i].cells[index].getElementsByTagName("INPUT")[0] should work
+					table.rows[i].cells[ci].myDiv.style.width = this.style.width;
+			}
+		},
+  });
+  */
+  //cell.style.minWidth = tableConsts.MIN_CELL_WIDTH;
 }
 
 function lockTable() {}
@@ -1496,6 +1581,7 @@ function findSymbol(table) {
 }
 
 function getParentByType(type, child) {
+  /*
   try {
     var parent = child.parentNode;
 
@@ -1512,6 +1598,8 @@ function getParentByType(type, child) {
   finally {
     return null;  
   }  
+  */
+ return child.parentElement.parentElement.parentElement;
 }
 // ------------------------------------------------------
 // Updating functions
@@ -1800,7 +1888,9 @@ function clickTable(questionDiv) {
   hideElem(questionDiv.textArea);
   if (questionDiv.lastEdited == "text") {
     //updateDataFromText(questionDiv);
+    
   }
+  createTableFromData(questionDiv);
   showElem(questionDiv.tableDiv);
 }
 
@@ -1849,8 +1939,8 @@ function createToolboxButton(g, x, y, src) {
     ;
 }
 
-function printData(array) {
-  array.forEach(function (dataItem) {
+function printData(collection) {
+  collection.forEach(function (dataItem) {
     console.log(dataItem);
   });
 }
@@ -2083,10 +2173,10 @@ function getEdgeDataById(questionDiv, id) {
   return null;
 }
 
-function newStateData(questionDiv, title, x, y, initial, accepting, isNew) {
+function newStateData(questionDiv, title, x, y, initial, accepting, isNew = false) {
   return {
-    id: ++questionDiv.graphDiv.stateIdCounter, // ..++ ?
-    title: title != null ? title : "S" + questionDiv.graphDiv.stateIdCounter,
+    id: generateId(questionDiv),
+    title: title != null ? title : generateTitle(questionDiv),
     x: x,
     y: y,
     initial: initial,
@@ -2100,7 +2190,15 @@ function getSvgTextLength(wp, string) {
   return wp.textNode.node().getComputedTextLength() + 8;
 }
 
-function stateNameIsValid(statesData, id, name) {
+function generateId(questionDiv) {
+  return ++questionDiv.graphDiv.stateIdCounter;
+}
+
+function generateTitle(questionDiv) {
+  return "S" + questionDiv.graphDiv.stateIdCounter;
+}
+
+function stateNameIsUnique(statesData, id, name) {
   for (var i = 0; i < statesData.length; i++) {
     if (statesData[i].id != id && statesData[i].title == name) {
       return false;
@@ -2110,7 +2208,6 @@ function stateNameIsValid(statesData, id, name) {
 }
 
 function getNewStateName(promptText, d, statesData) {
-
   var incorrect;
   var result = prompt(promptText, d.title);
 
@@ -2118,7 +2215,7 @@ function getNewStateName(promptText, d, statesData) {
 
   do {
     incorrect = false;
-    if (!stateNameIsValid(statesData, d.id, result)) {
+    if (!stateNameIsUnique(statesData, d.id, result)) {
       result = prompt(stateNameAlreadyExistsPrompt + " " + promptText, d.title);
       incorrect = true;
     }
