@@ -258,6 +258,7 @@
     padding: 0px 10px 0px 10px;
     text-align: center;
     font-size: 2em;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #c20202;
     cursor: pointer;
 }
@@ -272,6 +273,7 @@
     padding: 0px 10px 0px 10px;
     text-align: center;
     font-size: 2em;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #10bd00;
     text-decoration: none;
     cursor: pointer;
