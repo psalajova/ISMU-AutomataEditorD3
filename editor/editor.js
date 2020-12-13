@@ -19,20 +19,19 @@ const graphConsts = {
   nodeStrokeWidth: 2.1,
 };
 
-const tableConsts = {
-  MIN_CELL_WIDTH : "50px"
-};
+var MIN_TABLE_CELL_WIDTH = 50;
 
 const tableClasses = {
   myTable : "myTable",
   myCell : "myCell",
   columnHeader : "column-header-cell", //ch
-  rowHeader : "row-header-cell", //rh
+  rowHeader : "row-header-input", //rh
   innerCell : "inner-cell",
   inputCellDiv : "cell-div", //myCellDiv
+  inputColumnHeaderDiv : "column-header-div",
   noselectCell : "noselect",
   inactiveCell : "inactive-cell", //tc
-  selectedCell : "selected-cell",
+  selectedHeaderInput : "selected-header-input",
   incorrectCell : "incorrect-cell", //incorrect
   deleteButton : "delete-button-cell", //deleteButton
   addButton : "add-button-cell" //addButton
@@ -85,7 +84,8 @@ function initialise(id, type) {
   hintButton.addEventListener("click", function() {clickHintButton(questionDiv);});
 
   var hintContentDiv = document.createElement("div");
-  hintContentDiv.setAttribute("class", "hint-content-div slide-Inactive");
+  hintContentDiv.setAttribute("class", "hint-content-div");
+  hideElem(hintContentDiv);
   hintDiv.appendChild(hintButton);
   hintDiv.appendChild(hintContentDiv);
   hintDiv.contentDiv = hintContentDiv;
@@ -1148,7 +1148,8 @@ function createTable(questionDiv) {
   var table = document.createElement("table");
   table.setAttribute("class", tableClasses.myTable);
   table.selectedCell = null;
-	table.questionDiv = questionDiv;
+  table.questionDiv = questionDiv;
+  table.alertStatus = questionDiv.tableDiv.alertText;
   questionDiv.tableDiv.table = table;
   questionDiv.tableDiv.appendChild(table);
   return table;
@@ -1158,10 +1159,7 @@ function createTableFromData(questionDiv) {
   var oldTable = questionDiv.tableDiv.table;
   var table = createTable(questionDiv);
 
-  
-
-  table.states = [], table.exitStates = [];
-  table.symbols = [];
+  table.states = [], table.exitStates = [], table.symbols = [];
   table.initState = null;
 
   questionDiv.statesData.forEach(d => {
@@ -1173,11 +1171,13 @@ function createTableFromData(questionDiv) {
       table.exitStates.push(d.id);
     }
   });
+
   questionDiv.edgesData.forEach(d => {
     d.symbols.split(',').forEach(symb => {
       if (! table.symbols.includes(symb)) table.symbols.push(symb);
     });
   });
+
   table.states.sort();
   table.symbols.sort();
 
@@ -1226,16 +1226,26 @@ function createTableFromData(questionDiv) {
 
   // filling transitions
   questionDiv.edgesData.forEach(ed => {
-    if (questionDiv.type == "DFA") {
-      var row = table.rows[table.states.indexOf(ed.source.id) + 2];
-      ed.symbols.split(",").forEach(symb => {
-        var cell = row.cells[table.symbols.indexOf(symb) + 2];
+    var row = table.rows[table.states.indexOf(ed.source.id) + 2];
+
+    ed.symbols.split(",").forEach(symb => {
+      var cell = row.cells[table.symbols.indexOf(symb) + 2];
+
+      if (questionDiv.type == "DFA") {
         cell.myDiv.value = ed.target.id;
-      });
-    }
-    else if (questionDiv.type == "NFA" || questionDiv.type == "EFA") {
-      //TODO
-    }
+      }
+      else if (questionDiv.type == "NFA" || questionDiv.type == "EFA") {
+        var result = cell.myDiv.value.replace(/{|}/g, "");
+        if (result == "") {
+          result = ed.target.id
+        }
+        else {
+          result = result.split(",").sort().join(",");
+          result += "," + ed.target.id;
+        }
+        cell.myDiv.value = "{" + result + "}";
+      }
+    });
   });
 
   questionDiv.tableDiv.removeChild(oldTable);
@@ -1247,15 +1257,6 @@ function createTableFromData(questionDiv) {
     jQuery_new(table).find("input").prop("disabled", true).addClass("mydisabled");
   }
   */
-}
-
-function insertInactiveCell(row, index) {
-  var classes = [
-    tableClasses.myCell, 
-    tableClasses.inactiveCell, 
-    tableClasses.noselectCell
-  ];
-  return insertCellWithDiv(row, index, classes, [tableClasses.inactiveCell]);
 }
 
 function insertColumnAddButton(table, row) {
@@ -1287,43 +1288,38 @@ function insertRowAddButton(table) {
 function insertRowDeleteButton(table, row) {
   var cell = insertCellWithDiv(row, 0, 
     [tableClasses.deleteButton, tableClasses.noselectCell], null, "x");
-  //cell.table = table;
-  cell.addEventListener("click", function() { 
-    //deleteRow(table, this.parentNode.rowIndex);  //???This???
-  });
+
+  cell.addEventListener("click", function() { deleteRow(table, cell.parentNode.rowIndex); });
 }
 
 function insertInnerCell(table, row) {
   var cell = insertCell(row, row.cells.length, [tableClasses.myCell]);
 
-  var input = document.createElement("input");
-  input.value = table.questionDiv.type == "NFA" ? "{}" : "";
+  var value = table.questionDiv.type == "NFA" ? "{}" : "";
+  var input = createInput([tableClasses.inputCellDiv], value, value,
+    table.rows[1].cells[cell.cellIndex].style.minWidth);
 
-  input.prevValue = input.value;
-  input.style.width = table.rows[1].cells[cell.cellIndex].style.minWidth;
-  input.setAttribute("class", tableClasses.inputCellDiv);
-
-  input.addEventListener("click", cellClickHandler);
+  input.addEventListener("click", (e) => cellClickHandler(e, table));
   input.addEventListener("input", tableCellChanged);
   input.addEventListener("focusout", tableCellChangedFinal);
 
   var regex;
-	if (table.questionDiv.type == "NFA")
-		regex = /[a-zA-Z0-9{},]/;
-	else
+  if (table.questionDiv.type == "NFA")
+    regex = /[a-zA-Z0-9{},]/;
+  else
     regex = /[a-zA-Z0-9\-]/;
-    
-  input.addEventListener("keypress", function (event) {
-    cellKeypressHandler(event, regex);
-  });
 
-  // input.myCell = cell;
+  input.addEventListener("keypress", function (e) { cellKeypressHandler(e, regex); });
+
   cell.myDiv = input;
   cell.appendChild(input);
 }
 
 function insertRowHeader(row, name) {
-  var cell = insertCell(row, row.cells.length, [tableClasses.myCell]);
+  var cell = insertCell(row, row.cells.length, [
+    //tableClasses.myCell,
+    "row-header-cell"
+  ]);
   var table = getParentByType("table", cell);
   var input = createInput([tableClasses.inputCellDiv, tableClasses.rowHeader], 
     name, name, table.rows[1].cells[cell.cellIndex].style.minWidth);
@@ -1341,20 +1337,21 @@ function insertRowHeader(row, name) {
   cell.appendChild(input);
 }
 
-//zredukovat
 function insertColumnHeader(row, symbol) {
   var cell = insertCell(row, row.cells.length, 
-    [tableClasses.myCell, tableClasses.columnHeader], 
-    tableConsts.MIN_CELL_WIDTH);
+    [
+      //tableClasses.myCell, 
+      tableClasses.columnHeader], 
+      MIN_TABLE_CELL_WIDTH);
 
   var table = getParentByType("table", cell);
-
+  var input = createInput([tableClasses.inputColumnHeaderDiv], symbol, symbol, MIN_TABLE_CELL_WIDTH);
   addResizable(table, cell);
 
-  var input = createInput([tableClasses.inputCellDiv], symbol, symbol);
-
   input.addEventListener("click", cellClickHandler);
-  input.addEventListener("input", tableChChanged);
+  input.addEventListener("input", function(e) {
+    tableChChanged(e, table, input);
+  } );
   input.addEventListener("focusout", tableChChangedFinal);
   
   var regex = table.questionDiv.type == "EFA" ?  tableEFATransitionSyntax() : DFATransitionSyntax();
@@ -1408,16 +1405,99 @@ function insertColumn(table, symb = null) {
   }
 }
 
+//DELETE
+function deleteRow(table, rowIndex) {
+  if (table.locked) return;
+
+  var stateId = table.rows[rowIndex].cells[1].myDiv.value;
+  stateId = removePrefix(stateId);
+  table.states.splice(table.states.indexOf(stateId), 1);
+  //delete state in graph (& from data)
+  var data = getStateDataById(table.questionDiv, stateId);
+  console.log(data);
+  deleteState(table.questionDiv, data);
+
+  for (i = 2; i < table.rows.length - 1; i++) {
+    for (j = 2; j < table.rows[i].cells.length; j++) {
+      var value = table.rows[i].cells[j].myDiv.value;
+      if (table.questionDiv.type == "NFA" || table.questionDiv.type == "EFA") {
+        value = value.replace(/{|}/g, "");
+        var stateIds = value.split(",");
+        var index = stateIds.indexOf(stateId);
+        if (index != -1) {
+          stateIds.splice(index, 1);
+          value = "{" + stateIds.toString() + "}";
+          table.rows[i].cells[j].myDiv.value = value;
+          table.rows[i].cells[j].myDiv.prevValue = value;
+        }
+      }
+      else { //DFA
+        if (stateId == value) {
+          table.rows[i].cells[j].myDiv.value = "";
+          table.rows[i].cells[j].myDiv.prevValue = "";
+        }
+      }	
+    }
+  }
+  table.deleteRow(rowIndex);
+}
 
 
 /* INPUT CHANGES */
-function tableChChanged() { }
+function tableChChanged(e, table, input) {
+  var symbol = input.value;
+  //if (symbol == "\e") symbol = "ε"; 
+  var type = table.questionDiv.type;
+
+  if (
+    (type == "EFA" && incorrectEFATransitionSyntax(symbol)) ||
+    (type != "EFA" && ( incorrectDFATransitionSyntax(symbol) || symbol == "ε" )) ) 
+  {
+    d3.select(input).classed(tableClasses.incorrectCell, true);
+    if (type == "EFA") {
+      table.alertStatus.innerHTML = tableErrors.EFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX;
+    }
+    else {
+      table.alertStatus.innerHTML = tableErrors.NFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX;
+    }
+    table.alertStatus.innerHTML += " " + tableErrors.TABLE_LOCKED;
+    showElem(table.alertStatus);
+    lockTable(table, input);
+  }
+  else if (tableSymbolAlreadyExists(table, input, symbol)) {
+    d3.select(input).classed(tableClasses.incorrectCell, true);
+    table.alertStatus.innerHTML = tableErrors.DUPLICIT_TRANSITION_SYMBOL + " " + tableErrors.TABLE_LOCKED;
+    showElem(table.alertStatus);
+    lockTable(table, input);
+  }
+  else{
+    d3.select(input).classed(tableClasses.incorrectCell, false);
+    if (table.locked) {
+      //table.alertStatus.innerHTML = ""; //necessary?
+      hideElem(table.alertStatus);
+      unlockTable(table);
+    }
+  }
+}
+
 function tableChChangedFinal() { }
 
 function tableRhChanged() { }
 function tableRhChangedFinal() { }
 
-function tableCellChanged() { }
+function tableCellChanged(e, table) {
+  if (!(table.parentNode.type == "NFA" && incorrectTableNFATransitionsSyntax(this.value))
+    || (table.questionDiv.type == "DFA" && incorrectTableDFATransitionsSyntax(this.value))
+  ) {
+    d3.select(this).classed(tableClasses.incorrectCell, false);
+    if (table.locked) {
+      table.questionDiv.tableDiv.alertText.innerHTML == "";
+      hideElem(table.questionDiv.tableDiv.alertText);
+      unlockTable();
+    }
+  }
+}
+
 function tableCellChangedFinal() { }
 
 //dorobit
@@ -1433,8 +1513,6 @@ function tableHeaderCellClick(evt) {
   }
 }
 
-
-
 /* HELPER FUNCTIONS */
 function insertCell(row, index, classlist, width = null) {
   var cell = row.insertCell(index);
@@ -1445,6 +1523,24 @@ function insertCell(row, index, classlist, width = null) {
     cell.style.minWidth = width;
   }
   return cell;
+}
+
+function createInput(classlist, value, prevValue, width = MIN_TABLE_CELL_WIDTH) {
+  var input = document.createElement("input");
+  if (value != null) {
+    input.value = value;
+  }
+  if (prevValue != null) {
+    input.prevValue = prevValue;
+  }
+  if (width != null) {
+    input.style.width = width;
+  }
+  var sel = d3.select(input);
+  classlist.forEach(c => {
+    sel.classed(c, true);
+  });
+  return input;
 }
 
 function insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = "") {
@@ -1467,6 +1563,21 @@ function insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = 
   cell.appendChild(div);
   return cell;
 }
+
+function insertInactiveCell(row, index) {
+  var classes = [
+    //tableClasses.myCell, 
+    tableClasses.inactiveCell, 
+    tableClasses.noselectCell
+  ];
+  return insertCellWithDiv(row, index, classes, 
+    [
+     // tableClasses.inactiveCell
+    ]);
+}
+
+
+
 
 function cellClickHandler(event) {
   var cell = event.target;
@@ -1495,7 +1606,7 @@ function cellKeypressHandler(event, regex) {
 function deselectCell(table) {
   if (table.selectedCell != null) {
     var div = table.selectedCell;
-    d3.select(div).classed(tableClasses.selectedCell, false);
+    d3.select(div).classed(tableClasses.selectedHeaderInput, false);
     //jQuery_new(div).switchClass();
     table.selectedCell = null;
   }
@@ -1507,54 +1618,80 @@ function deselectCell(table) {
   */
 }
 
-function createInput(classlist, value, prevValue, width = tableConsts.MIN_CELL_WIDTH) {
-  var input = document.createElement("input");
-  if (value != null) {
-    input.value = value;
-  }
-  if (prevValue != null) {
-    input.prevValue = prevValue;
-  }
-  if (width != null) {
-    input.style.width = width;
-  }
-  var sel = d3.select(input);
-  classlist.forEach(c => {
-    sel.classed(c, true);
-  });
-  return input;
-}
+
 
 function selectDifferentCell(table, newCell) {
-  d3.select(table.selectedCell).classed(tableClasses.selectedCell, false);
-  d3.select(newCell).classed(tableClasses.selectedCell, true);
+  var prev;
+  if (table.selectedCell) {
+    prev = d3.select(table.selectedCell);
+  }
+  if (prev) {
+    prev.classed(tableClasses.selectedHeaderInput, false);
+    prev.classed(tableClasses.rowHeader, true);
+  }
+  var next = d3.select(newCell);
+  next.classed(tableClasses.selectedHeaderInput, true);
+  next.classed(tableClasses.rowHeader, false);
+
   table.selectedCell = newCell;
 }
 
+//FIX
 function addResizable(table, cell) {
   jQuery_new(cell).resizable({
 		handles: 'e',
 		resize: function() 
 		{
-			if (parseInt(this.style.width) >= tableConsts.MIN_CELL_WIDTH) 
+			if (parseInt(this.style.width) >= MIN_TABLE_CELL_WIDTH) 
 			{
-				this.style.minWidth = this.style.width;
-				var ci = this.cellIndex;
+        this.style.minWidth = this.style.width;
+        var ci = this.cellIndex;
 				//zmenenie sirky vsetkych cells v stlpci
-        for (var i = 1; i < table.rows.length - 1; i++)
-        //rename myDiv na myInput?
-        //also table.rows[i].cells[index].getElementsByTagName("INPUT")[0] should work
-					table.rows[i].cells[ci].myDiv.style.width = this.style.width;
+        for (var i = 1; i < table.rows.length - 1; i++) {
+          var t = getParentByType("table", this);
+          t.rows[i].cells[ci].myDiv.style.width = this.style.width;
+        }
 			}
 		},
   });
-  cell.style.minWidth = tableConsts.MIN_CELL_WIDTH;
+  cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
 }
 
-function lockTable() {}
-function unlockTalbe() {}
+function lockTable(table, exceptionInput) {
+  for (var i = 1; i < table.rows.length - 1; i++) {
+		for (var j = 1; j < table.rows[i].cells.length; j++) {
+			if (table.rows[i].cells[j].myDiv == exceptionInput) {
+        continue;
+      }
+			jQuery_new(table.rows[i].cells[j].myDiv).prop('readonly', true);
+		}
+	}
+	table.locked = true;
+}
+
+function unlockTable(table) {
+	for (var i = 1; i < table.rows.length - 1; i++)
+	{
+		for (var j = 1; j < table.rows[i].cells.length; j++)
+		{
+			jQuery_new(table.rows[i].cells[j].myDiv).prop('readonly', false);
+		}
+	}
+	table.locked = false;
+}
+
 function tableStateExists() {}
-function tableSymbolExists() {}
+
+function tableSymbolAlreadyExists(table, input, symbol) {
+  var ci = input.parentNode.cellIndex;
+
+  for (var i = 2; i < table.rows.length; i++) {
+    if (i != ci && symbol == table.rows[1].cells[i].myDiv.value) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function findSymbol(table) {
   var symbol, symbprefix = "";
@@ -1589,11 +1726,17 @@ function getParentByType(type, child) {
   catch(e) { 
     console.log(e.message);
    }
-  finally {
-    return null;  
-  }  
+  return null;  
   */
- return child.parentElement.parentElement.parentElement;
+ return child.parentNode.parentNode.parentNode;
+}
+
+function removePrefix(stateId) {
+  var first = stateId.charAt(0);
+	if (first == '→' || first == '←' || first == '↔') {
+    stateId = stateId.substring(1, stateId.length);
+  }
+  return stateId;
 }
 // ------------------------------------------------------
 // Updating functions
@@ -1855,8 +1998,13 @@ function hideElem(element) {
   element.style.display = "none";
 }
 
-function showElem(element) {
-  element.style.display = "block";
+function showElem(element, inline = false) {
+  if (inline) {
+    element.style.display = "inline-block";
+  }
+  else {
+    element.style.display = "block";
+  }
 }
 
 function clickGraph(questionDiv) {
@@ -1899,11 +2047,13 @@ function clickText(questionDiv) {
 
 function clickHintButton(questionDiv) {
   var hintContentDiv = questionDiv.hintDiv.contentDiv;
-  hintContentDiv.classList.toggle("slide-Active");
-  if (hintContentDiv.classList.contains("slide-Active")) {
+  //hintContentDiv.classList.toggle("slide-Active");
+  if (hintContentDiv.style.display == "none") {
+    showElem(hintContentDiv, true);
     questionDiv.hintDiv.hintButton.innerText = hintLabel + " 🡡";
   }
   else {
+    hideElem(hintContentDiv);
     questionDiv.hintDiv.hintButton.innerText = hintLabel + " 🡣";
   }
 }
@@ -2131,6 +2281,16 @@ function getStateGroupById(questionDiv, id) {
   return res;
 }
 
+function getStateDataById(questionDiv, id) {
+  for (let i = 0; i < questionDiv.statesData.length; i++) {
+    const data = questionDiv.statesData[i];
+    if (data.id == id) {
+      return data;
+    }
+  }
+  return null;
+}
+
 function getStateGroupByTitle(questionDiv, title) {
   return questionDiv.graphDiv.svg.svgGroup.stateGroups
     .filter(function (d) { return d.id == title; });
@@ -2274,4 +2434,34 @@ function DFATransitionSyntax()
 function tableEFATransitionSyntax()
 {
 	return /^ε$|^\\$|^[a-zA-Z0-9]+$/;
+}
+
+function tableNFATransitionsSyntax()
+{
+	return /^\{\}$|^\{[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*\}$/;
+}
+
+function incorrectTableNFATransitionsSyntax(val)
+{
+	return (!tableNFATransitionsSyntax().test(val))
+}
+
+function EFATransitionSyntax()
+{
+	return /^ε$|^\\e$|^[a-zA-Z0-9]+$/;
+}
+
+function incorrectEFATransitionSyntax(val)
+{
+	return (!EFATransitionSyntax().test(val))
+}
+
+function DFATransitionSyntax()
+{
+	return /^[a-zA-Z0-9]+$/;
+}
+
+function incorrectDFATransitionSyntax(val)
+{
+	return (!DFATransitionSyntax().test(val))
 }
