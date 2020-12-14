@@ -33,14 +33,11 @@ var hints = {
 
 var tableErrors = {
   TABLE_LOCKED : "Tabulka je uzamčena dokud nebude chyba opravena.",
-
   INCORRECT_STATE_SYNTAX : "<strong>Chyba!</strong> Nevyhovující syntax názvu stavu (řetězec znaků z {a-z,A-Z,0-9}). ",
   DUPLICIT_STATE_NAME : "<strong>Chyba!</strong> Duplicitní název stavu není povolen.",
-  
   EFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX : "<strong>Chyba!</strong> Nevyhovující syntax symbolu přechodu (řetězec znaků z {a-z,A-Z,0-9}, \\e nebo ε).",
   NFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX : "<strong>Chyba!</strong> Nevyhovující syntax symbolu přechodu (řetězec znaků z {a-z,A-Z,0-9}).",
   DUPLICIT_TRANSITION_SYMBOL : "<strong>Chyba!</strong> Duplicitní název symbolu přechodu není povolen.",
-  
   INCORRECT_TRANSITION_SYNTAX: "<strong>Chyba!</strong> Nevyhovující syntax výsledku přechodové funkce.",
   NFA_TRANSITION_EXPECTED_SYNTAX: "Očekávané řetězce znaků z {a-z,A-Z,0-9} oddělené čárkami, uzavřeny do složených závorek.",
   DFA_TRANSITION_EXPECTED_SYNTAX: "Očekávané řetězce znaků z {a-z,A-Z,0-9}."
