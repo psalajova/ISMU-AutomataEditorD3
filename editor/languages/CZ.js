@@ -1,34 +1,33 @@
 // -------------------
-//  Slovensky jazyk
+//  Cesky jazyk
 // -------------------
 
 var graphMenuButton = "Graf";
 var textMenuButton = "Text";
-var tableMenuButton = "Tabuľka";
-var hintLabel = "Nápoveda";
-var addTransitionPrompt = "Zadajte symboly prechodu:";
-var renameStatePrompt = "Zadajte názov stavu:";
-var stateNameAlreadyExistsPrompt = "Chyba: Takto pojmenovaný stav již existuje! ";
-var edgeAlreadyExistsAlert = "Prechod medzi týmito stavmi už existuje. Ak chcete pridať prechod pod nejakým symbolom, upravte symboly existujúceho prechodu.";
+var tableMenuButton = "Tabulka";
+var hintLabel = "Nápověda";
+var addTransitionPrompt = "Zadejte symboly přechodu:";
+var renameStatePrompt = "Zadejte název stavu:";
+var stateNameAlreadyExistsPrompt = "Chyba: Takto pojmenovaný stav již existuje!";
+var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
 var DFA_invalid_transition = "Chyba: Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
-//Chyba: Zadanie vyžaduje determinizmus (prechod z tohto stavu pod aspoň jedným z týchto symbolov do iného stavu už existuje).
 
 //state context menu
-var addTransitionText = "Pridať prechod";
-var renameStateText = "Premenovať";
-var deleteStateText = "Odstrániť";
-var setAsInitialText = "Nastaviť ako počiatočný";
-var setStateAsAcceptingText = "Akceptujúci stav";
+var addTransitionText = "Přidať prechod";
+var renameStateText = "Přejmenovat";
+var deleteStateText = "Odstranit";
+var setAsInitialText = "Nastavit jako počáteční";
+var setStateAsAcceptingText = "Akceptující stav";
 
-var renameEdgeText = "Upravit symboly prechodu";
+var renameEdgeText = "Upravit symboly přechodu";
 
 var hints = {
-  HINT_ADD_STATE : "<b>Vytvorenie stavu:</b> double click na plátno.",
-  HINT_ADD_TRANSITION : "<b>Vytvorenie prechodu:</b> click na stav + click na cieľový stav.",
-  HINT_MOVE : "Stavy aj prechody môžte presúvať ťahaním myšou.",
-  HINT_STATE_CONTEXT_MENU: "Kliknutím pravého tlačítka myši/touchpadu na stav otvoríte menu, kde môžte stav <b>premenovať, odstrániť, nastaviť ako počiatočný, označiť ako akceptujúci/neakceptujúci</b>.",
-  HINT_TRANSITION_CONTEXT_MENU: "Kliknutím pravého tlačítka myši/touchpadu na prechod otvoríte menu, kde môžte <b>upraviť symboly prechodu</b> alebo prechod <b>odstrániť</b>.",
-  HINT_DELETE_ELEMENT : "Vymazať stav/prechod môžte aj označením daného elementu a stlačením klávesy DEL.",
+  HINT_ADD_STATE : "<b>Vytvoření stavu:</b> double click na plátno.",
+  HINT_ADD_TRANSITION : "<b>Vytvoření prechodu:</b> click na stav + click na cílový stav.",
+  HINT_MOVE : "Stavy i přechody můžete přesouvat taháním myší.",
+  HINT_STATE_CONTEXT_MENU: "Klinkutím pravého tlačítka myši/touchpadu na stav otevřete menu, kde můžete stav <b>přejmenovat, odstranit, nastavit jako počáteční, označit jako akceptující/neakceptujúci</b>.",
+  HINT_TRANSITION_CONTEXT_MENU: "Kliknutím pravého tlačítka myši/touchpadu na přechod otevřete menu, kde můžete <b>upravit symboly přechodu</b> nebo přechod <b>odstranit</b>.",
+  HINT_DELETE_ELEMENT : "Vymazat stav/přechod můžete i označením daného elementu a stisknutím klávesy DEL.",
   //HINT_RENAME_ELEMENT : "<b>premenovanie stavu/prechodu:</b> right click",
   //HINT_TOGGLE_INITIAL_STATE : "<b>oznacenie stavu ako inicialneho:</b> right click -> \"" + setAsInitialText + "\"",
   //HINT_TOGGLE_ACCEPTING_STATE : "<b>oznacenie a odznacenie stavu ako akceptujuceho:</b> double click na stav"

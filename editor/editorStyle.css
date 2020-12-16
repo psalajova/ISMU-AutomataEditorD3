@@ -98,7 +98,8 @@
     position: absolute;
     width: 110px;
     background-color: #bdbdbd;
-    border-radius: 3px;
+    border: 1px solid #999999;
+    border-radius: 0px;
 }
 
 .svg-rect {
@@ -143,6 +144,7 @@
 .state-group.selected circle{
     fill:#7AC1EB;
 }
+
 
 .state-fullname-rect {
     fill: #4646468c;
