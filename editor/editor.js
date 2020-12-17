@@ -23,19 +23,19 @@ const graphConsts = {
 var MIN_TABLE_CELL_WIDTH = "70px";
 
 const tableClasses = {
-  myTable : "myTable",
-  myCell : "myCell",
-  columnHeader : "column-header-cell", //ch
-  rowHeader : "row-header-input", //rh
-  innerCell : "inner-cell",
-  inputCellDiv : "cell-div", //myCellDiv
-  inputColumnHeaderDiv : "column-header-div",
-  noselectCell : "noselect",
-  inactiveCell : "inactive-cell", //tc
-  selectedHeaderInput : "selected-header-input",
-  incorrectCell : "incorrect-cell", //incorrect
-  deleteButton : "delete-button-cell", //deleteButton
-  addButton : "add-button-cell" //addButton
+  myTable: "myTable",
+  myCell: "myCell",
+  columnHeader: "column-header-cell", //ch
+  rowHeader: "row-header-input", //rh
+  innerCell: "inner-cell",
+  inputCellDiv: "cell-div", //myCellDiv
+  inputColumnHeaderDiv: "column-header-div",
+  noselectCell: "noselect",
+  inactiveCell: "inactive-cell", //tc
+  selectedHeaderInput: "selected-header-input",
+  incorrectCell: "incorrect-cell", //incorrect
+  deleteButton: "delete-button-cell", //deleteButton
+  addButton: "add-button-cell" //addButton
 }
 var activeQuestionDiv;
 var SELECTED_SVG_ELEMENT;
@@ -59,17 +59,17 @@ function initialise(id, type) {
   var graphButton = document.createElement("button");
   graphButton.innerText = graphMenuButton;
   graphButton.setAttribute("class", menuButtonClass);
-  graphButton.addEventListener("click", function() { clickGraph(questionDiv)} ); //will it work????
+  graphButton.addEventListener("click", function () { clickGraph(questionDiv) }); //will it work????
 
   var textButton = document.createElement("button");
   textButton.innerText = textMenuButton;
   textButton.setAttribute("class", menuButtonClass);
-  textButton.addEventListener("click", function() { clickText(questionDiv)} );
+  textButton.addEventListener("click", function () { clickText(questionDiv) });
 
   var tableButton = document.createElement("button");
   tableButton.innerText = tableMenuButton;
   tableButton.setAttribute("class", menuButtonClass);
-  tableButton.addEventListener("click", function() { clickTable(questionDiv)} );
+  tableButton.addEventListener("click", function () { clickTable(questionDiv) });
 
   questionDiv.appendChild(graphButton);
   questionDiv.appendChild(textButton);
@@ -78,11 +78,11 @@ function initialise(id, type) {
   //HINT
   var hintDiv = document.createElement("div");
   hintDiv.setAttribute("class", "hintDiv");
-  
+
   var hintButton = document.createElement("button");
   hintButton.setAttribute("class", "hintButton");
   hintButton.innerText = hintLabel + " 🡣";
-  hintButton.addEventListener("click", function() {clickHintButton(questionDiv);});
+  hintButton.addEventListener("click", function () { clickHintButton(questionDiv); });
 
   var hintContentDiv = document.createElement("div");
   hintContentDiv.setAttribute("class", "hint-content-div");
@@ -134,14 +134,14 @@ function initToolbox() {
   toolbox.append("rect")
     .attr("x", 8)
     .attr("y", 3 + 5)
-    .attr("rx" , 5)
+    .attr("rx", 5)
     .attr("class", "toolbox-rect");
-  
-  createToolboxButton(toolbox, 15+5, 18+ 5, "icons/zoom-in.png")
+
+  createToolboxButton(toolbox, 15 + 5, 18 + 5, "icons/zoom-in.png")
     .on("click", zoomIn);
-  createToolboxButton(toolbox, 55+5, 18+ 5, "icons/reset-zoom.png")
+  createToolboxButton(toolbox, 55 + 5, 18 + 5, "icons/reset-zoom.png")
     .on("click", resetZoom);
-  createToolboxButton(toolbox, 95+5, 18+ 5, "icons/zoom-out.png")
+  createToolboxButton(toolbox, 95 + 5, 18 + 5, "icons/zoom-out.png")
     .on("click", zoomOut);
 }
 
@@ -167,7 +167,7 @@ function initGraph(questionDiv) {
     .on("mousemove", svgMousemove)
     .on("click", rectClick)
     //.on("click", (event) => {console.log("svg clcik"); console.log(event);})
-    .on("focus", function() {
+    .on("focus", function () {
       activeQuestionDiv = questionDiv;
       if (document.activeElement) {
         //console.log("active elements is svg " +  questionDiv.getAttribute("id"));
@@ -178,7 +178,7 @@ function initGraph(questionDiv) {
   questionDiv.graphDiv.svg = svg;
   questionDiv.textNode = svg.append("text");
   questionDiv.textNode.text("aaa");
-  
+
   questionDiv.invisibleText = d3.select(questionDiv)
     .append("svg").attr("visibility", "hidden")
     .append("text").attr("visibility", "hidden").classed("mock-text", true).text("none");
@@ -212,8 +212,8 @@ function initGraph(questionDiv) {
     .append("svg:path")
     .attr("d", "M 0 0 L 10 5 L 0 10 z")
     .attr("fill", "black");
-    
-  
+
+
   defs
     .append("svg:marker")
     .attr("id", "temporary-arrow-end")
@@ -224,7 +224,7 @@ function initGraph(questionDiv) {
     .attr("orient", "auto")
     .append("svg:path")
     .attr("d", "M0,-5L10,0L0,5");
-  
+
 
   var svgGroup = svg.append("svg:g").classed("graph-svg-group", true);
   svg.svgGroup = svgGroup;
@@ -239,12 +239,12 @@ function initGraph(questionDiv) {
     .attr("d", "M0,0L0,0")
     .style("marker-end", "url(#temporary-arrow-end)");
 
-    //MARKER ???
+  //MARKER ???
   temporaryEdgeG
     .append("svg:path")
     .classed(graphConsts.edgeMarkerClass, true)
     .attr("marker-end", "url(#end-arrow)");
-  
+
   //init-arrow
   svgGroup.initArrow = svgGroup
     .append("svg:path")
@@ -290,7 +290,7 @@ function initGraph(questionDiv) {
 
 function initTableDiv(questionDiv) {
   createTable(questionDiv);
-  
+
   //error alert paragraph
   var alertP = document.createElement("p");
   alertP.setAttribute("class", "alert alert-danger");
@@ -378,8 +378,8 @@ function rectClick(event) {
   if (d3.select(this).node().tagName == "svg") {
     graphDiv = d3.select(this).node().parentNode;
   }
-  if ((node.tagName == "rect")){
-    graphDiv = node.parentGraphDiv; 
+  if ((node.tagName == "rect")) {
+    graphDiv = node.parentGraphDiv;
   }
 
   removeSelectionFromState(graphDiv);
@@ -393,7 +393,7 @@ function rectClick(event) {
     graphDiv.graphState.creatingEdge = false;
     enableAllDragging(graphDiv.svg);
   }
-  
+
   //TODO: init selection of multiple elements???
 }
 
@@ -464,11 +464,11 @@ function resetZoom() {
   svg.transition().call(zoom.scaleTo, 1);
 }
 
-function zoomIn(){
+function zoomIn() {
   svg.transition().call(zoom.scaleBy, 1.3);
 }
 
-function zoomOut(){
+function zoomOut() {
   svg.transition().call(zoom.scaleBy, 0.7);
 }
 
@@ -476,7 +476,7 @@ function zoomOut(){
 function stateDragstart(event, d) {
   var graphDiv = d3.select(this).node().parentGraphDiv;
   graphDiv.graphState.justDragged = false;
-  var node= d3.select(this).node();
+  var node = d3.select(this).node();
   node.clickTimer = event.sourceEvent.timeStamp;
   node.startX = event.x;
   node.startY = event.y;
@@ -484,11 +484,11 @@ function stateDragstart(event, d) {
   toggleStateSelection(d3.select(this), graphDiv, d);
   hideElem(graphDiv.stateContextMenuDiv);
   hideElem(graphDiv.edgeContextMenuDiv);
-  
+
   if (!graphDiv.graphState.creatingEdge) {
-    setTimeout(function() {blink(node)}, 180); 
+    setTimeout(function () { blink(node) }, 180);
   }
-  
+
 
 }
 
@@ -502,8 +502,8 @@ function stateDragmove(event, d) {
   d.y = event.y;
   d3.select(this).attr("transform", "translate(" + d.x + "," + d.y + ")");
 
-  if (d.initial) { 
-    repositionInitArrow(graphDiv, d); 
+  if (d.initial) {
+    repositionInitArrow(graphDiv, d);
   }
 
   updateOutgoingEdges(graphDiv.svg.svgGroup.edgeGroups, d);
@@ -518,7 +518,7 @@ function stateDragend(event, d) {
   var graphDiv = groupNode.parentGraphDiv;
   var graphState = graphDiv.graphState;
   var distance = distBetween(groupNode.startX, groupNode.startY, event.x, event.y);
-  
+
   var diff = event.sourceEvent.timeStamp - groupNode.clickTimer;
 
   if (graphState.creatingEdge && diff < 400 && distance < 2) {
@@ -547,10 +547,10 @@ function stateDragend(event, d) {
     enableAllDragging(graphDiv.svg);
   }
   //zacat vytvarat novu edge
-  else if (!graphState.creatingEdge && diff > 200 && distance < 2){ //starting to create an edge
+  else if (!graphState.creatingEdge && diff > 200 && distance < 2) { //starting to create an edge
     graphState.mouseDownState = d;
     graphState.creatingEdge = true;
-    
+
     //disableAllDragging(graphDiv.svg);]
     initCreatingTransition(event, graphDiv);
   }
@@ -574,31 +574,31 @@ function blink(stateNode) {
 
 function updateOutgoingEdges(edgeGroups, stateData) {
   edgeGroups
-    .filter(function (edgeData) { 
-      return edgeData.source.id === stateData.id; 
+    .filter(function (edgeData) {
+      return edgeData.source.id === stateData.id;
     })
-    .each( function(edgeData, index) {
+    .each(function (edgeData, index) {
       var tx, ty, newDef;
       if (edgeData.source == edgeData.target) {
         var def = "M " + stateData.x + " " + stateData.y + " C "
-				+ cubicControlPoints(stateData.x, stateData.y, edgeData.angle)
-                + " " + stateData.x +" " + stateData.y;
+          + cubicControlPoints(stateData.x, stateData.y, edgeData.angle)
+          + " " + stateData.x + " " + stateData.y;
         var s = def.split(" ");
         var tx = (+s[4] + +s[6] + +s[1]) / 3;
         var ty = (+s[5] + +s[7] + +s[2]) / 3;
-        newDef = def;        
+        newDef = def;
       }
       else {
         var str = d3.select(this).select("." + graphConsts.edgePathClass).attr("d").split(" ");
         str[1] = stateData.x;
         str[2] = stateData.y;
-  
-        str[4] = ((+str[1] + (+str[6]))/2) + edgeData.dx;
-        str[5] = ((+str[2] + (+str[7]))/2) + edgeData.dy;
-  
-        tx = (+str[4] + (+((+str[1] + (+str[6]))/2)))/2;
-        ty = (+str[5] + (+((+str[2] + (+str[7]))/2)))/2;
-  
+
+        str[4] = ((+str[1] + (+str[6])) / 2) + edgeData.dx;
+        str[5] = ((+str[2] + (+str[7])) / 2) + edgeData.dy;
+
+        tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
+        ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
+
         newDef = str.join(" ");
       }
       d3.select(this).select("." + graphConsts.edgePathClass).attr("d", newDef);
@@ -611,20 +611,20 @@ function updateOutgoingEdges(edgeGroups, stateData) {
 
 function updateIncommingEdges(edgeGroups, stateData) {
   edgeGroups
-    .filter(function (edgeData) { 
-      return edgeData.target.id === stateData.id && edgeData.source != edgeData.target; 
+    .filter(function (edgeData) {
+      return edgeData.target.id === stateData.id && edgeData.source != edgeData.target;
     })
-    .each( function(edgeData, index) {
+    .each(function (edgeData, index) {
       var str = d3.select(this).select("." + graphConsts.edgePathClass).attr("d").split(" ");
 
       str[6] = stateData.x;
       str[7] = stateData.y;
 
-      str[4] = ((+str[1] + (+str[6]))/2) + edgeData.dx;
-      str[5] = ((+str[2] + (+str[7]))/2) + edgeData.dy;
+      str[4] = ((+str[1] + (+str[6])) / 2) + edgeData.dx;
+      str[5] = ((+str[2] + (+str[7])) / 2) + edgeData.dy;
 
-      var tx = (+str[4] + (+((+str[1] + (+str[6]))/2)))/2;
-      var ty = (+str[5] + (+((+str[2] + (+str[7]))/2)))/2;
+      var tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
+      var ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
 
       d3.select(this).select("." + graphConsts.edgePathClass).attr("d", str.join(" "));
 
@@ -670,17 +670,17 @@ function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
     return getNewSelfloopDefinition(str[1], str[2], mouseX, mouseY, edgeData);
   }
   else {
-    return getNewPathDefinition(edgeData.id, mouseX, mouseY, oldPathDefinition, edgeData); 
+    return getNewPathDefinition(edgeData.id, mouseX, mouseY, oldPathDefinition, edgeData);
   }
 }
 
 function getNewPathDefinition(edgeID, mouseX, mouseY, pathD, edgeData) {
   var str = pathD.split(" ");
 
-  var dx = 2*( mouseX-( ( +str[1] + (+str[6] ) ) / 2) );
-  var dy = 2*( mouseY-( ( +str[2] + (+str[7] ) ) / 2) );
-  str[4] = ( ( +str[1] + ( +str[6] ) ) / 2 ) + dx;
-  str[5] = ( ( +str[2] + ( +str[7] ) ) / 2 ) + dy;
+  var dx = 2 * (mouseX - ((+str[1] + (+str[6])) / 2));
+  var dy = 2 * (mouseY - ((+str[2] + (+str[7])) / 2));
+  str[4] = ((+str[1] + (+str[6])) / 2) + dx;
+  str[5] = ((+str[2] + (+str[7])) / 2) + dy;
 
   edgeData.dx = dx;
   edgeData.dy = dy;
@@ -698,11 +698,11 @@ function getNewPathDefinition(edgeID, mouseX, mouseY, pathD, edgeData) {
 }
 
 function getNewSelfloopDefinition(x1, y1, x2, y2, edge) {
-  if (edge!=null) {
+  if (edge != null) {
     edge.angle = calculateAngle(x1, y1, x2, y2);
     return "M " + x1 + " " + y1 + " C "
-    + cubicControlPoints(x1, y1, edge.angle)
-    + " " + x1 + " " + y1;
+      + cubicControlPoints(x1, y1, edge.angle)
+      + " " + x1 + " " + y1;
   }
   angle = calculateAngle(x1, y1, x2, y2);
   return "M " + x1 + " " + y1 + " C "
@@ -713,15 +713,15 @@ function getNewSelfloopDefinition(x1, y1, x2, y2, edge) {
 function calculateAngle(x1, y1, x2, y2) {
   var distance = distBetween(x1, y1, x2, y2), angle;
   if (distance == 0) {
-    dist = 0.001; 
+    dist = 0.001;
   }
 
-  if (x1 == x2 && y1 == y2) { 
+  if (x1 == x2 && y1 == y2) {
     angle = 1.57;
   } else {
-    angle = Math.acos( (x2 - x1) / distance);
+    angle = Math.acos((x2 - x1) / distance);
   }
-  
+
   if (y1 < y2) {
     angle = -angle;
   }
@@ -730,14 +730,14 @@ function calculateAngle(x1, y1, x2, y2) {
 
 function getStraightPathDefinition(x1, y1, x2, y2) {
   return "M " + x1 + " " + y1 + " Q " +
-    midpoint(x1, x2) +  " " +
-    midpoint(y1, y2) +  " " + 
-    x2 + " " + y2 ;
+    midpoint(x1, x2) + " " +
+    midpoint(y1, y2) + " " +
+    x2 + " " + y2;
 }
 
 function updateEdgeRectAndTextPosition(questionDiv, edgesSelection) {
   edgesSelection
-    .each( function(ed) {
+    .each(function (ed) {
       var rectS = d3.select(this).select("rect");
       var textS = d3.select(this).select("text");
 
@@ -767,11 +767,11 @@ function addState(questionDiv, stateData) {
   newState.node().clickedOnce = false;
   //newState.node().InvalidConnection = false;
 
-/*
-  if (!jeProhlizeciStranka()) {
-    addStateEvents(newState, questionDiv.graphDiv);
-  }
-  */
+  /*
+    if (!jeProhlizeciStranka()) {
+      addStateEvents(newState, questionDiv.graphDiv);
+    }
+    */
   addStateEvents(newState, questionDiv.graphDiv);
   addStateSvg(newState);
   updateStateGroups(questionDiv.graphDiv.svg.svgGroup);
@@ -780,8 +780,8 @@ function addState(questionDiv, stateData) {
 function addStateEvents(state, graphDiv) {
   state
     .call(dragState)
-    
-    .on("dblclick", function(event, d) {
+
+    .on("dblclick", function (event, d) {
       toggleAcceptingState(d, d3.select(this));
     })
     .on("mouseover", function (event, d) {
@@ -795,7 +795,7 @@ function addStateEvents(state, graphDiv) {
         d3.select(this).node().InvalidConnection = false;
         d3.select(this).classed(graphConsts.mouseOverClass, true);
       }*/
-      
+
       if (d.id != d3.select(this).select("text").text()) {
         showFullname(graphDiv.svg.svgGroup.stateFullnameRect, d);
       }
@@ -808,16 +808,16 @@ function addStateEvents(state, graphDiv) {
       //d3.select(this).classed(graphConsts.stateInvalidConnectionClass, false);
 
     })
-    .on("contextmenu", function(event, data) {
+    .on("contextmenu", function (event, data) {
       event.preventDefault();
       hideElem(graphDiv.edgeContextMenuDiv);
       toggleStateSelection(d3.select(this), graphDiv, data);
       setContextMenuPosition(graphDiv.stateContextMenuDiv, event.pageY, event.pageX);
       showElem(graphDiv.stateContextMenuDiv);
     })
-    .on("click", function(event, data) {
+    .on("click", function (event, data) {
       stateClick(event, data, graphDiv, d3.select(this).node());
-      }
+    }
     );
 }
 
@@ -852,7 +852,7 @@ function toggleStateSelection(stateGroup, graphDiv, d) {
   removeSelectionFromEdge(graphDiv);
 
   if (graphDiv.graphState.selectedState != d) { // another state was selected
-    removeSelectionFromState(graphDiv); 
+    removeSelectionFromState(graphDiv);
     graphDiv.graphState.selectedState = d;
     SELECTED_SVG_ELEMENT = stateGroup;
     stateGroup.classed(graphConsts.selectedClass, true);
@@ -871,7 +871,7 @@ function toggleAcceptingState(stateData, stateG) {
       .attr("stroke-width", graphConsts.nodeStrokeWidth)
       .attr("fill", "transparent");
 
-      stateG.select("text").raise();
+    stateG.select("text").raise();
   }
   stateData.accepting = !stateData.accepting;
 }
@@ -886,7 +886,7 @@ function setNewStateAsInitial(questionDiv, stateData) {
     .map(function (d) {
       d.initial = true;
     });
-  
+
   repositionInitArrow(questionDiv.graphDiv, stateData);
 }
 
@@ -895,16 +895,16 @@ function setInitStateAsNotInitial(questionDiv) {
     .filter(function (d) {
       return d.initial = true;
     })
-    .map(function(d) {
+    .map(function (d) {
       d.initial = false;
     });
 
   hideInitArrow(questionDiv.graphDiv);
-  
+
 }
 
 function renameState(questionDiv, stateData, newTitle = null) {
-  if( newTitle == null) {
+  if (newTitle == null) {
     newTitle = promptNewStateName(renameStatePrompt, stateData, questionDiv.statesData);
   }
   if (newTitle == null) return;
@@ -920,11 +920,11 @@ function renameState(questionDiv, stateData, newTitle = null) {
 
   //update svg text
   questionDiv.graphDiv.svg.svgGroup.stateGroups
-    .filter(function(d) {
+    .filter(function (d) {
       return d.id == stateData.id;
     })
     .select("." + graphConsts.stateTextClass)
-    .text( function() {
+    .text(function () {
       return cropTitleIfTooLong(newTitle);
     });
 }
@@ -982,7 +982,7 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
     source: from,
     target: to,
     symbols: symbols,
-    dx : 0,
+    dx: 0,
     dy: 0,
     angle: 0
   };
@@ -1004,7 +1004,7 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
 
   //if (!jeProhlizecistranka()) {}
   newEdge
-    .on("contextmenu", function(event, d) {
+    .on("contextmenu", function (event, d) {
       event.preventDefault();
       hideElem(questionDiv.graphDiv.stateContextMenuDiv);
       toggleEdgeSelection(d3.select(this), questionDiv.graphDiv, event, d);
@@ -1048,7 +1048,7 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
     .classed(graphConsts.edgeTextClass, true)
     .text(function (d) { return d.symbols; })
     .attr("text-anchor", "middle");
-  
+
   repositionMarker(newEdge);
   updateEdgeRectAndTextPosition(questionDiv, newEdge);
 
@@ -1067,7 +1067,7 @@ function toggleEdgeSelection(edgeGroup, graphDiv, event, d) {
 
 function renameEdge(questionDiv, edgeData, symbols = null) {
   if (symbols == null) {
-    symbols = getNewEdgeSymbols(addTransitionPrompt, questionDiv.type == "DFA",edgeData.symbols);
+    symbols = getNewEdgeSymbols(addTransitionPrompt, questionDiv.type == "DFA", edgeData.symbols);
   }
 
   if (symbols == null) return;
@@ -1076,16 +1076,16 @@ function renameEdge(questionDiv, edgeData, symbols = null) {
     .filter(function (ed) {
       return ed.id == edgeData.id;
     })
-    .map (function (ed) {
+    .map(function (ed) {
       ed.symbols = symbols;
     });
-  
+
   var edgeGroup = getEdgeGroupById(questionDiv, edgeData.id);
 
   edgeGroup
     .select("text")
-    .text(function (d) { 
-      return symbols; 
+    .text(function (d) {
+      return symbols;
     });
 
   updateEdgeRectAndTextPosition(questionDiv, edgeGroup);
@@ -1112,7 +1112,7 @@ function deleteEdgeData(edgesData, edgeData) {
 }
 
 //CONTEXT MENUs
-function setContextMenuPosition(menu, top, left){
+function setContextMenuPosition(menu, top, left) {
   menu.style.top = top + "px";
   menu.style.left = left + "px";
 }
@@ -1129,20 +1129,20 @@ function createStateContextMenu(questionDiv) {
   var stateContextMenuDiv = document.createElement("div");
   stateContextMenuDiv.setAttribute("class", "context-menu");
 
-  var a = createContextMenuButton( renameStateText);
-  a.addEventListener("click", function() {renameStateHandler(questionDiv); } );
+  var a = createContextMenuButton(renameStateText);
+  a.addEventListener("click", function () { renameStateHandler(questionDiv); });
   stateContextMenuDiv.appendChild(a);
 
-  var b = createContextMenuButton( deleteStateText);
-  b.addEventListener("click", function() { deleteStateHandler(questionDiv) });
+  var b = createContextMenuButton(deleteStateText);
+  b.addEventListener("click", function () { deleteStateHandler(questionDiv) });
   stateContextMenuDiv.appendChild(b);
 
-  var c = createContextMenuButton( setAsInitialText);
-  c.addEventListener("click", function(e) { setStateAsInitialHandler(e, questionDiv); } );
+  var c = createContextMenuButton(setAsInitialText);
+  c.addEventListener("click", function (e) { setStateAsInitialHandler(e, questionDiv); });
   stateContextMenuDiv.appendChild(c);
 
-  var d = createContextMenuButton( setStateAsAcceptingText);
-  d.addEventListener("click", function() { toggleAcceptingStateHandler(questionDiv); });
+  var d = createContextMenuButton(setStateAsAcceptingText);
+  d.addEventListener("click", function () { toggleAcceptingStateHandler(questionDiv); });
   stateContextMenuDiv.appendChild(d);
 
   questionDiv.graphDiv.appendChild(stateContextMenuDiv);
@@ -1154,7 +1154,7 @@ function deleteStateHandler(questionDiv) {
   hideElem(questionDiv.graphDiv.stateContextMenuDiv);
 }
 
-function renameStateHandler(questionDiv){
+function renameStateHandler(questionDiv) {
   renameState(questionDiv, questionDiv.graphDiv.graphState.selectedState)
   hideElem(questionDiv.graphDiv.stateContextMenuDiv);
 }
@@ -1174,16 +1174,16 @@ function toggleAcceptingStateHandler(questionDiv) {
 function createEdgeContextMenu(questionDiv) {
   var edgeContextMenuDiv = document.createElement("div");
   edgeContextMenuDiv.setAttribute("class", "context-menu");
-  
+
   //TODO
   var rename = createContextMenuButton(renameEdgeText);
-  rename.addEventListener("click", function() {
+  rename.addEventListener("click", function () {
     renameEdgeHandler(questionDiv);
   })
   edgeContextMenuDiv.appendChild(rename);
 
   var deleteB = createContextMenuButton(deleteStateText);
-  deleteB.addEventListener("click", function() {
+  deleteB.addEventListener("click", function () {
     deleteEdgeHandler(questionDiv);
   })
   edgeContextMenuDiv.appendChild(rename);
@@ -1236,7 +1236,7 @@ function createTableFromData(questionDiv) {
 
   questionDiv.edgesData.forEach(d => {
     d.symbols.split(',').forEach(symb => {
-      if (! table.symbols.includes(symb)) table.symbols.push(symb);
+      if (!table.symbols.includes(symb)) table.symbols.push(symb);
     });
   });
 
@@ -1282,7 +1282,7 @@ function createTableFromData(questionDiv) {
     for (var j = 0; j < table.symbols.length; j++) {
       insertInnerCell(table, row);
     }
-    
+
   });
   insertRowAddButton(table);
 
@@ -1323,15 +1323,15 @@ function createTableFromData(questionDiv) {
 }
 
 function insertColumnAddButton(table, row) {
-  var cell = insertCellWithDiv(row, null, [tableClasses.addButton,tableClasses.noselectCell], null, "+");
+  var cell = insertCellWithDiv(row, null, [tableClasses.addButton, tableClasses.noselectCell], null, "+");
   //cell.table = table;
-  cell.addEventListener("click", function() { 
+  cell.addEventListener("click", function () {
     insertColumn(table);
   });
 }
 
 function insertColumnDeleteButton(table, row) {
-  var cell = insertCellWithDiv(row, null, 
+  var cell = insertCellWithDiv(row, null,
     [tableClasses.deleteButton, tableClasses.noselectCell],
     null, "×");
 
@@ -1347,10 +1347,10 @@ function insertRowAddButton(table) {
 }
 
 function insertRowDeleteButton(table, row) {
-  var cell = insertCellWithDiv(row, 0, 
+  var cell = insertCellWithDiv(row, 0,
     [tableClasses.deleteButton, tableClasses.noselectCell], null, "x");
 
-  cell.addEventListener("click", function() { deleteRow(table, cell.parentNode.rowIndex); });
+  cell.addEventListener("click", function () { deleteRow(table, cell.parentNode.rowIndex); });
 }
 
 function insertInnerCell(table, row) {
@@ -1382,7 +1382,7 @@ function insertRowHeader(row, name) {
     "row-header-cell"
   ]);
   var table = getParentByType("table", cell);
-  var input = createInput([tableClasses.inputCellDiv, tableClasses.rowHeader], 
+  var input = createInput([tableClasses.inputCellDiv, tableClasses.rowHeader],
     name, name, table.rows[1].cells[cell.cellIndex].style.minWidth);
 
   input.defaultClass = tableClasses.rowHeader; // whhy>?
@@ -1390,7 +1390,7 @@ function insertRowHeader(row, name) {
   input.addEventListener("click", tableHeaderCellClick);
   input.addEventListener("input", (e) => tableRhChanged(e, table, input));
   input.addEventListener("focusout", (e) => tableRhChangedFinal(e, table, input));
-  input.addEventListener("keypress", function(event) {
+  input.addEventListener("keypress", function (event) {
     cellKeypressHandler(event, stateSyntax());
   });
 
@@ -1399,11 +1399,11 @@ function insertRowHeader(row, name) {
 }
 
 function insertColumnHeader(row, symbol) {
-  var cell = insertCell(row, row.cells.length, 
+  var cell = insertCell(row, row.cells.length,
     [
       //tableClasses.myCell, 
-      tableClasses.columnHeader], 
-      MIN_TABLE_CELL_WIDTH);
+      tableClasses.columnHeader],
+    MIN_TABLE_CELL_WIDTH);
 
   var table = getParentByType("table", cell);
   var input = createInput([tableClasses.inputColumnHeaderDiv], symbol, symbol, MIN_TABLE_CELL_WIDTH);
@@ -1416,9 +1416,9 @@ function insertColumnHeader(row, symbol) {
   input.addEventListener("click", cellClickHandler);
   input.addEventListener("input", (e) => tableChChanged(e, table, input));
   input.addEventListener("focusout", (e) => tableChChangedFinal(e, table, input));
-  
-  var regex = table.questionDiv.type == "EFA" ?  tableEFATransitionSyntax() : DFATransitionSyntax();
-  input.addEventListener("keypress", function(e) {
+
+  var regex = table.questionDiv.type == "EFA" ? tableEFATransitionSyntax() : DFATransitionSyntax();
+  input.addEventListener("keypress", function (e) {
     cellKeypressHandler(e, regex);
   });
 
@@ -1438,7 +1438,7 @@ function insertRow(table, title) {
   insertRowHeader(table.rows[table.rows.length - 1], title);
 
   for (i = 2; i < table.rows[0].cells.length - 1; i++) {
-			insertInnerCell(table, table.rows[table.rows.length - 1]);
+    insertInnerCell(table, table.rows[table.rows.length - 1]);
   }
   insertRowAddButton(table);
 
@@ -1496,7 +1496,7 @@ function deleteRow(table, rowIndex) {
           table.rows[i].cells[j].myDiv.value = "";
           table.rows[i].cells[j].myDiv.prevValue = "";
         }
-      }	
+      }
     }
   }
   table.deleteRow(rowIndex);
@@ -1530,8 +1530,7 @@ function tableChChanged(e, table, input) {
 
   if (
     (type == "EFA" && incorrectEFATransitionSyntax(symbol)) ||
-    (type != "EFA" && ( incorrectDFATransitionSyntax(symbol) || symbol == "ε" )) ) 
-  {
+    (type != "EFA" && (incorrectDFATransitionSyntax(symbol) || symbol == "ε"))) {
     d3.select(input).classed(tableClasses.incorrectCell, true);
     var err;
     if (type == "EFA") {
@@ -1546,7 +1545,7 @@ function tableChChanged(e, table, input) {
     d3.select(input).classed(tableClasses.incorrectCell, true);
     activateAlertMode(table, tableErrors.DUPLICIT_TRANSITION_SYMBOL, input);
   }
-  else{
+  else {
     d3.select(input).classed(tableClasses.incorrectCell, false);
     if (table.locked) {
       hideElem(table.alertStatus);
@@ -1562,9 +1561,9 @@ function tableChChangedFinal(_, table, input) {
   var prevName = input.prevValue;
   var newName = input.value;
   if (table.questionDiv.realtype == "EFA" && newName == "\\e") {
-      input.value = 'ε';
-      newName = input.value;
-    }
+    input.value = 'ε';
+    newName = input.value;
+  }
 
   table.symbols.splice(table.symbols.indexOf(prevName), 1);
   table.symbols.push(newName);
@@ -1580,7 +1579,7 @@ function tableChChangedFinal(_, table, input) {
         syms[syms.indexOf(prevName)] = newName;
         renameEdge(table.questionDiv, ed, syms.join(','));
       }
-      
+
     });
     //TODO button
     /*
@@ -1591,7 +1590,7 @@ function tableChChangedFinal(_, table, input) {
       else if (prevName == 'ε')
         table.tableTab.buttonEpsilon.disabled = false;
     }*/
-    
+
     input.prevValue = input.value;
   }
 }
@@ -1613,7 +1612,7 @@ function tableRhChanged(e, table, input) {
     if (table.locked) {
       unlockTable(table);
       hideElem(table.alertStatus);
-    } 
+    }
     //TODO: toggling initial / accepting (1094)
   }
 }
@@ -1624,7 +1623,7 @@ function tableRhChangedFinal(e, table, input) {
 
     var prevName = removePrefix(input.prevValue);
     var newName = removePrefix(input.value);
-    
+
     table.states.splice(table.states.indexOf(prevName), 1);
     table.states.push(newName);
 
@@ -1711,19 +1710,18 @@ function tableCellChangedFinal(e, table, input) {
   }
   else {
     var prevName = input.prevValue;
-		var newName = input.value;
-		if (type == "NFA" || type == "EFA")
-		{
-			prevName = prevName.substring(1, prevName.length - 1);
-			newName = newName.substring(1, newName.length - 1);
+    var newName = input.value;
+    if (type == "NFA" || type == "EFA") {
+      prevName = prevName.substring(1, prevName.length - 1);
+      newName = newName.substring(1, newName.length - 1);
     }
-		var sourceStateId = removePrefix(table.rows[input.parentNode.parentNode.rowIndex].cells[1].myDiv.value);
-		//var stateInGraph = findState(table.wp.svg.rect, stateName);
-		var symbol = table.rows[1].cells[input.parentNode.cellIndex].myDiv.prevValue;
-		var prevStates = prevName.split(",");
+    var sourceStateId = removePrefix(table.rows[input.parentNode.parentNode.rowIndex].cells[1].myDiv.value);
+    //var stateInGraph = findState(table.wp.svg.rect, stateName);
+    var symbol = table.rows[1].cells[input.parentNode.cellIndex].myDiv.prevValue;
+    var prevStates = prevName.split(",");
     var newStates = newName.split(",");
     //vymazanie duplicitnych stavov
-    newStates = newStates.filter(function(item, pos) {return newStates.indexOf(item) == pos;});
+    newStates = newStates.filter(function (item, pos) { return newStates.indexOf(item) == pos; });
 
     //vymaze edges ktore uz nemaju pismenko
     //pripadne vymaze pismeno z transition
@@ -1732,7 +1730,7 @@ function tableCellChangedFinal(e, table, input) {
         var edgeData = getEdgeDataByStates(questionDiv, sourceStateId, prevStates[i]);
         if (edgeData != null) {
           var trs = edgeData.symbols.split(',');
-          if (trs.length <=1 ) {
+          if (trs.length <= 1) {
             deleteEdge(questionDiv, edgeData);
           }
           else {
@@ -1743,9 +1741,9 @@ function tableCellChangedFinal(e, table, input) {
       }
     }
     if (newStates.length == 1 && newStates[0] == "") {
-			newStates = [];
+      newStates = [];
     }
-    
+
     for (let i = 0; i < newStates.length; i++) {
       //ak predtym stav s tymto nazvom je v cell == nebola v nom zmena
       if (prevStates.indexOf(newStates[i]) != -1) continue;
@@ -1755,22 +1753,22 @@ function tableCellChangedFinal(e, table, input) {
       if (getStateDataById(questionDiv, state2Name) == null) {
         var addRowBool = true;
         for (var j = 2; j < table.rows.length - 1; j++) {
-						if (table.rows[j].cells[1].myDiv.value == state2Name) {
-							addRowBool = false;
-							break;
-						}
+          if (table.rows[j].cells[1].myDiv.value == state2Name) {
+            addRowBool = false;
+            break;
           }
-          if (addRowBool) {
-            //v insertRow sa prida riadok do tabulky AJ sa vytvori stav v grafe!!
-            insertRow(table, state2Name);
-          }
-          else {
-            var nd = newStateData(questionDiv, state2Name, 0, 0, false, false, true);
-            addState(questionDiv, nd);
-          }
-          var source = getStateDataById(questionDiv, sourceStateId);
-          var target = getStateDataById(questionDiv, state2Name);
-          addEdge(questionDiv, source, target, symbol, true);
+        }
+        if (addRowBool) {
+          //v insertRow sa prida riadok do tabulky AJ sa vytvori stav v grafe!!
+          insertRow(table, state2Name);
+        }
+        else {
+          var nd = newStateData(questionDiv, state2Name, 0, 0, false, false, true);
+          addState(questionDiv, nd);
+        }
+        var source = getStateDataById(questionDiv, sourceStateId);
+        var target = getStateDataById(questionDiv, state2Name);
+        addEdge(questionDiv, source, target, symbol, true);
 
       }
       else {
@@ -1866,12 +1864,12 @@ function insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = 
 function insertInactiveCell(row, index) {
   var classes = [
     //tableClasses.myCell, 
-    tableClasses.inactiveCell, 
+    tableClasses.inactiveCell,
     tableClasses.noselectCell
   ];
-  return insertCellWithDiv(row, index, classes, 
+  return insertCellWithDiv(row, index, classes,
     [
-     // tableClasses.inactiveCell
+      // tableClasses.inactiveCell
     ]);
 }
 
@@ -1893,8 +1891,8 @@ function cellKeypressHandler(event, regex) {
     return false;
   }
   var kc = event.charCode;
-  if (kc == 0) { 
-    return true; 
+  if (kc == 0) {
+    return true;
   }
   var txt = String.fromCharCode(kc);
   if (!txt.match(regex)) {
@@ -1909,10 +1907,10 @@ function deselectCell(table) {
     //jQuery_new(div).switchClass();
     table.selectedCell = null;
   }
-  
+
   /*
   table.wp.tableTab.buttonInit.disabled = true;
-	table.wp.tableTab.buttonEnd.style.borderStyle = "outset";
+  table.wp.tableTab.buttonEnd.style.borderStyle = "outset";
   table.wp.tableTab.buttonEnd.disabled = true;
   */
 }
@@ -1938,47 +1936,43 @@ function selectDifferentCell(table, newCell) {
 //FIX
 function addResizable(table, cell) {
   jQuery_new(cell).resizable({
-		handles: 'e',
-		resize: function() 
-		{
-      var minSize = MIN_TABLE_CELL_WIDTH.substring(0,2);
-			if (parseInt(this.style.width) >= parseInt(minSize)) 
-			{
+    handles: 'e',
+    resize: function () {
+      var minSize = MIN_TABLE_CELL_WIDTH.substring(0, 2);
+      if (parseInt(this.style.width) >= parseInt(minSize)) {
         this.style.minWidth = this.style.width;
         var ci = this.cellIndex;
-        
-				//zmenenie sirky vsetkych cells v stlpci
+
+        //zmenenie sirky vsetkych cells v stlpci
         for (var i = 1; i < table.rows.length - 1; i++) {
           var t = getParentByType("table", this);
           t.rows[i].cells[ci].myDiv.style.width = this.style.width;
         }
-			}
-		},
+      }
+    },
   });
   cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
 }
 
 function lockTable(table, exceptionInput) {
   for (var i = 1; i < table.rows.length - 1; i++) {
-		for (var j = 1; j < table.rows[i].cells.length; j++) {
-			if (table.rows[i].cells[j].myDiv == exceptionInput) {
+    for (var j = 1; j < table.rows[i].cells.length; j++) {
+      if (table.rows[i].cells[j].myDiv == exceptionInput) {
         continue;
       }
-			jQuery_new(table.rows[i].cells[j].myDiv).prop('readonly', true);
-		}
-	}
+      jQuery_new(table.rows[i].cells[j].myDiv).prop('readonly', true);
+    }
+  }
   table.locked = true;
   lockButtons(table.questionDiv, true);
 }
 
 function unlockTable(table) {
-	for (var i = 1; i < table.rows.length - 1; i++)
-	{
-		for (var j = 1; j < table.rows[i].cells.length; j++)
-		{
-			jQuery_new(table.rows[i].cells[j].myDiv).prop('readonly', false);
-		}
-	}
+  for (var i = 1; i < table.rows.length - 1; i++) {
+    for (var j = 1; j < table.rows[i].cells.length; j++) {
+      jQuery_new(table.rows[i].cells[j].myDiv).prop('readonly', false);
+    }
+  }
   table.locked = false;
   lockButtons(table.questionDiv);
 }
@@ -1989,7 +1983,7 @@ function lockButtons(questionDiv, val = null) {
 
 function tableStateAlreadyExists(table, input, value) {
   var ri = input.parentNode.parentNode.rowIndex;
-  for (var i =2; i < table.rows.length - 1; i++) {
+  for (var i = 2; i < table.rows.length - 1; i++) {
     if (i != ri && value == removePrefix(table.rows[i].cells[1].myDiv.value)) {
       return true;
     }
@@ -2011,10 +2005,8 @@ function tableColumnSymbolAlreadyExists(table, input, symbol) {
 function findSymbol(table) {
   var symbol, symbprefix = "";
   var k = 'a'.charCodeAt(0);
-  do
-  {
-    if (k > 'z'.charCodeAt(0))
-    {
+  do {
+    if (k > 'z'.charCodeAt(0)) {
       symbprefix += "a";
       k = 'a'.charCodeAt(0);
     }
@@ -2022,7 +2014,7 @@ function findSymbol(table) {
     k++;
   }
   while (table.symbols.indexOf(symbol) != -1)
-  
+
   return symbol;
 }
 
@@ -2043,12 +2035,12 @@ function getParentByType(type, child) {
    }
   return null;  
   */
- return child.parentNode.parentNode.parentNode;
+  return child.parentNode.parentNode.parentNode;
 }
 
 function removePrefix(stateId) {
   var first = stateId.charAt(0);
-	if (first == '→' || first == '←' || first == '↔') {
+  if (first == '→' || first == '←' || first == '↔') {
     stateId = stateId.substring(1, stateId.length);
   }
   return stateId;
@@ -2065,7 +2057,7 @@ function activateAlertMode(table, error, exc) {
   setAlert(table, error, true);
   showElem(table.alertStatus);
   lockTable(table, exc);
-  
+
 }
 // ------------------------------------------------------
 // Updating functions
@@ -2101,8 +2093,8 @@ function generateTextFromData(questionDiv) {
     questionDiv.edgesData.forEach(function (edge) {
       edge.symbols.split(",").forEach((symbol) => {
         var s = symbol;
-        if (s == "ε") { 
-          s = "\\e"; 
+        if (s == "ε") {
+          s = "\\e";
         }
         if (!transitions.has("(" + edge.source.id + "," + s + ")")) {
           transitions.set("(" + edge.source.id + "," + s + ")", []);
@@ -2112,7 +2104,7 @@ function generateTextFromData(questionDiv) {
         transitions.set("(" + edge.source.id + "," + s + ")", val);
       });
     });
-    for (let [key, value] of  transitions.entries()) {
+    for (let [key, value] of transitions.entries()) {
       result += key + "={" + value + "} ";
     }
   }
@@ -2127,11 +2119,11 @@ function generateTextFromData(questionDiv) {
     }
     result += "}";
   }
-  
+
   //position data
   result += "#";
   questionDiv.statesData.forEach(function (d) {
-    result += "{id:" + d.id 
+    result += "{id:" + d.id
       + ",x:" + d.x
       + ",y:" + d.y
       + ",initial:" + d.initial
@@ -2139,10 +2131,10 @@ function generateTextFromData(questionDiv) {
   });
   result += "-";
   questionDiv.edgesData.forEach(function (d) {
-      result += "{id:" + d.id 
+    result += "{id:" + d.id
       + ",sourceId:" + d.source.id
-      + ",targetId:" + d.target.id 
-      + ",symbols:" + d.symbols 
+      + ",targetId:" + d.target.id
+      + ",symbols:" + d.symbols
       + ",dx:" + d.dx
       + ",dy:" + d.dy
       + ",angle:" + d.angle + '};';
@@ -2156,21 +2148,21 @@ parsuje text z textArea a upravi podla neho states&edges data
 !! momentalne predpoklada ze text je syntakticky spravny !!
 old editor: ^init=[a-zA-Z0-9]+$ => nefungoval ked neboli medzery medzi str
 */
-function updateDataFromText(questionDiv){
+function updateDataFromText(questionDiv) {
   var values = questionDiv.textArea.value.split("#")[0].split(/\n | /g);
   var statesPresent = new Set();
   var edgesPresent = new Set();
   var finalStates = new Set();
   var titleOfInitState;
- 
+
   values.forEach(str => {
     if (new RegExp("init=[a-zA-Z0-9]+").test(str)) {
       titleOfInitState = str.substring(5, str.length);
     }
     else if (new RegExp("final={[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*}").test(str)) {
       str.substring(7, str.length - 1).split(',').forEach(sTitle => {
-          finalStates.add(sTitle);
-          statesPresent.add(sTitle);
+        finalStates.add(sTitle);
+        statesPresent.add(sTitle);
       });
     }
     else {
@@ -2180,12 +2172,12 @@ function updateDataFromText(questionDiv){
         if (matches != null) {
           matches.forEach(element => {
             var state1 = element.substring(1, element.indexOf(","));
-				    var sym = element.substring(element.indexOf(",") + 1, element.indexOf(")"));
+            var sym = element.substring(element.indexOf(",") + 1, element.indexOf(")"));
             var state2 = element.substring(element.indexOf("=") + 1, element.length);
 
             statesPresent.add(state1);
             statesPresent.add(state2);
-            edgesPresent.add({from: state1, to: state2, symbol: sym});
+            edgesPresent.add({ from: state1, to: state2, symbol: sym });
           });
         }
       }
@@ -2203,13 +2195,13 @@ function updateDataFromText(questionDiv){
           if (sym == "\\e")
             sym = "ε";
           var states2 = element.substring(element.indexOf("=") + 2, element.length - 1).split(",");
-          
+
           statesPresent.add(state1);
           states2.forEach(element => {
             statesPresent.add(element);
-            edgesPresent.add({from: state1, to: element, symbol: sym});
+            edgesPresent.add({ from: state1, to: element, symbol: sym });
           });
-        });       
+        });
       }
     }
   });
@@ -2265,12 +2257,12 @@ function updateDataFromText(questionDiv){
   //TODO: merge multiple egdes with same source&target into one edge  !!
   //  -> purpose: so there exists only ONE edge between source and target
 
-  mergedEdges.forEach(function(e) { 
+  mergedEdges.forEach(function (e) {
     if (!getEdgeGroupNode(questionDiv, e.from, e.to)) {
       addEdge(
-        questionDiv, 
+        questionDiv,
         getStateGroupById(questionDiv, from).data(),
-        getStateGroupById(questionDiv, to).data(), 
+        getStateGroupById(questionDiv, to).data(),
         e.symbol);
     }
   });
@@ -2285,11 +2277,11 @@ function updateDataFromText(questionDiv){
       deleteEdge(questionDiv, ed);
     }
   });
-  
+
 }
 
 function updateGraphFromData(questionDiv) {
-  
+
 }
 
 function mergeEdges(questionDiv) {
@@ -2365,7 +2357,7 @@ function clickTable(questionDiv) {
   hideElem(questionDiv.textArea);
   if (questionDiv.lastEdited == "text") {
     //updateDataFromText(questionDiv);
-    
+
   }
   createTableFromData(questionDiv);
   showElem(questionDiv.tableDiv);
@@ -2397,7 +2389,7 @@ function clickHintButton(questionDiv) {
 
 function setupHints(div) {
   for (const property in hints) {
-    div.appendChild( createParagraph(hints[property]) );
+    div.appendChild(createParagraph(hints[property]));
   }
 }
 
@@ -2431,7 +2423,7 @@ function midpoint(x1, x2) {
 }
 
 function distBetween(x1, y1, x2, y2) {
-  return Math.sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2));
+  return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
 function getCoordinates(oldXy, svgGroup) {
@@ -2456,19 +2448,18 @@ function cubicControlPoints(x, y, d) {
   return x1 + " " + y1 + " " + x2 + " " + y2;
 }
 
-function repositionMarker(edgeGroup)
-{
-    repositionMarkerTo(
-      edgeGroup.select("." + graphConsts.edgePathClass), 
-      edgeGroup.select("." + graphConsts.edgeMarkerClass),
-      graphConsts.nodeRadius + 11); // distance
+function repositionMarker(edgeGroup) {
+  repositionMarkerTo(
+    edgeGroup.select("." + graphConsts.edgePathClass),
+    edgeGroup.select("." + graphConsts.edgeMarkerClass),
+    graphConsts.nodeRadius + 11); // distance
 }
 
 function repositionMarkerTo(path, markerPath, distance) {
-    var pathLength = path.node().getTotalLength();
-    var pathPoint = path.node().getPointAtLength(pathLength - distance);
-    var pathPoint2 = path.node().getPointAtLength(pathLength - distance - 0.01);
-    markerPath.attr("d", "M" + pathPoint2.x + " " + pathPoint2.y + " L " + pathPoint.x + " " + pathPoint.y);
+  var pathLength = path.node().getTotalLength();
+  var pathPoint = path.node().getPointAtLength(pathLength - distance);
+  var pathPoint2 = path.node().getPointAtLength(pathLength - distance - 0.01);
+  markerPath.attr("d", "M" + pathPoint2.x + " " + pathPoint2.y + " L " + pathPoint.x + " " + pathPoint.y);
 
 }
 
@@ -2479,7 +2470,7 @@ function cropTitleIfTooLong(title) {
   return title;
 }
 
-function toggleFullnameVisibitity(rect, visible = false){
+function toggleFullnameVisibitity(rect, visible = false) {
   rect.style("visibility", function () { return visible == true ? "visible" : "hidden"; });
   rect.FullnameText.style("visibility", function () { return visible == true ? "visible" : "hidden"; });
 }
@@ -2490,28 +2481,28 @@ function showFullname(rect, d) {
   rect.FullnameText.text(d.id);
   var w = rect.FullnameText.node().getComputedTextLength() + 8;
   rect.attr("width", w);
-  rect.FullnameText.attr("x", d.x - w/2 + 3.5).attr("y", d.y + graphConsts.nodeRadius + 19.5);
-  rect.attr("x", d.x - w/2 ).attr("y", d.y + (graphConsts.nodeRadius + 2));
+  rect.FullnameText.attr("x", d.x - w / 2 + 3.5).attr("y", d.y + graphConsts.nodeRadius + 19.5);
+  rect.attr("x", d.x - w / 2).attr("y", d.y + (graphConsts.nodeRadius + 2));
 }
 
 function getEdgeRectPosition(pathDefinitinAttribute, isSelfloop) {
   var str = pathDefinitinAttribute.split(" "), tx, ty;
 
   if (isSelfloop) {
-      tx = (+str[4] + +str[6] + +str[1]) / 3;
-      ty = (+str[5] + +str[7] + +str[2]) / 3;
+    tx = (+str[4] + +str[6] + +str[1]) / 3;
+    ty = (+str[5] + +str[7] + +str[2]) / 3;
   }
   else {
-      tx = (+str[4] + (+((+str[1] + (+str[6]))/2)))/2;
-      ty = (+str[5] + (+((+str[2] + (+str[7]))/2)))/2;
+    tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
+    ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
   }
-  return {tx, ty};
+  return { tx, ty };
 }
 
 function repositionTemporaryEdgeToState(stateData) {
   temporaryEdgePath
-      .classed("hidden", false)
-      .attr("d", "M" + stateData.x + "," + stateData.y + "L" + stateData.x + "," + stateData.y);
+    .classed("hidden", false)
+    .attr("d", "M" + stateData.x + "," + stateData.y + "L" + stateData.x + "," + stateData.y);
 }
 
 function repositionInitArrow(graphDiv, stateData) {
@@ -2521,27 +2512,25 @@ function repositionInitArrow(graphDiv, stateData) {
     .attr(
       "d",
       "M" +
-        (stateData.x - graphConsts.nodeRadius * 2) +
-        "," +
-        stateData.y +
-        "L" +
-        (stateData.x - graphConsts.nodeRadius - 5) +
-        "," +
-        stateData.y
+      (stateData.x - graphConsts.nodeRadius * 2) +
+      "," +
+      stateData.y +
+      "L" +
+      (stateData.x - graphConsts.nodeRadius - 5) +
+      "," +
+      stateData.y
     );
 }
 
 function repositionEdgeRect(rect, x, y) {
-  if (x != -1)
-	{
-		var w = rect.attr("width");
-		rect.attr("x", x - (w / 2));
-	}
-	if (y != -1)
-	{
-		var h = rect.attr("height");
-		rect.attr("y", y - (h / 2));
-	}
+  if (x != -1) {
+    var w = rect.attr("width");
+    rect.attr("x", x - (w / 2));
+  }
+  if (y != -1) {
+    var h = rect.attr("height");
+    rect.attr("y", y - (h / 2));
+  }
 }
 
 function repositionEdgeText(text, x, y) {
@@ -2556,7 +2545,7 @@ function hideInitArrow(graphDiv) {
     .classed("hidden", true);
 }
 
-function hideEdge(edgeG){
+function hideEdge(edgeG) {
   edgeG.select("." + graphConsts.edgePathClass).classed("hidden", true);
   edgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", true);
 }
@@ -2613,7 +2602,7 @@ function getStateGroupById(questionDiv, id) {
     .each(function (d) {
       if (d.id == id) {
         res = d3.select(this);
-      } 
+      }
     });
   return res;
 }
@@ -2635,7 +2624,7 @@ function getEdgeGroupNode(questionDiv, sourceTitle, targetTitle) {
     .each(function (d) {
       if (d.source.id == sourceTitle && d.target.id == targetTitle) {
         res = d3.select(this).node();
-      } 
+      }
     });
   return res;
 }
@@ -2650,7 +2639,7 @@ function getEdgeGroupById(questionDiv, id) {
 function getEdgeDataByStates(questionDiv, sourceTitle, targetTitle) {
   for (let i = 0; i < questionDiv.edgesData.length; i++) {
     const d = questionDiv.edgesData[i];
-    if ( d.source.id == sourceTitle && d.target.id == targetTitle) {
+    if (d.source.id == sourceTitle && d.target.id == targetTitle) {
       return d;
     }
   }
@@ -2673,8 +2662,7 @@ function transitionWithSymbolExists(questionDiv, id, symbols) {
     const ed = questionDiv.edgesData[i];
     if (ed.source.id == id) {
       var edSyms = ed.symbols.split(",");
-      if (intersects(edSyms, syms))
-      {
+      if (intersects(edSyms, syms)) {
         return true;
       }
     }
@@ -2689,7 +2677,7 @@ function newStateData(questionDiv, id, x, y, initial, accepting, isNew = false) 
     y: y,
     initial: initial,
     accepting: accepting,
-    isNew : isNew
+    isNew: isNew
   }
 }
 
@@ -2744,8 +2732,8 @@ function getNewEdgeSymbols(promptText, isDFA, prevSymbols = null) {
   do {
     incorrect = false;
     var symbols = result.split(",");
-    symbols = symbols.filter(function(item, pos) {return symbols.indexOf(item) == pos;});
-    symbols.forEach(function(item, i) { if (item == "\\e") symbols[i] = "ε"; });
+    symbols = symbols.filter(function (item, pos) { return symbols.indexOf(item) == pos; });
+    symbols.forEach(function (item, i) { if (item == "\\e") symbols[i] = "ε"; });
     result = symbols.toString();
 
     if (result == "") {
@@ -2755,12 +2743,12 @@ function getNewEdgeSymbols(promptText, isDFA, prevSymbols = null) {
     if (!incorrect) { //if incorrect != false
       if (isDFA && symbols.includes("ε")) {
         result = prompt("Chyba: Nevyhovující DFA syntax! " + promptText, result);
-				incorrect = true;
+        incorrect = true;
       }
       if (incorrectGraphTransitionsSyntax(result)) {
-				result = prompt("Chyba: Nevyhovující syntax! " + promptText, result);
-				incorrect = true;
-			}
+        result = prompt("Chyba: Nevyhovující syntax! " + promptText, result);
+        incorrect = true;
+      }
     }
   }
   while (incorrect && result != null);
@@ -2806,71 +2794,59 @@ function intersects(array1, array2) {
 // -------------------------------------------------------------------------------
 // syntax 
 // -------------------------------------------------------------------------------
-function stateSyntax()
-{
-	return /^[a-zA-Z0-9]+$/;
+function stateSyntax() {
+  return /^[a-zA-Z0-9]+$/;
 }
 
 function incorrectStateSyntax(val) {
   return !(stateSyntax().test(val));
 }
 
-function graphTransitionsSyntax()
-{
-	return /^(([a-zA-Z0-9]+)|(ε)|(\\e))(,(([a-zA-Z0-9]+)|(ε)|(\\e)))*$/;
+function graphTransitionsSyntax() {
+  return /^(([a-zA-Z0-9]+)|(ε)|(\\e))(,(([a-zA-Z0-9]+)|(ε)|(\\e)))*$/;
 }
 
-function incorrectGraphTransitionsSyntax(val)
-{
-	return (!graphTransitionsSyntax().test(val));
+function incorrectGraphTransitionsSyntax(val) {
+  return (!graphTransitionsSyntax().test(val));
 }
 
-function tableEFATransitionSyntax()
-{
-	return /^ε$|^\\$|^[a-zA-Z0-9]+$/;
+function tableEFATransitionSyntax() {
+  return /^ε$|^\\$|^[a-zA-Z0-9]+$/;
 }
 
-function tableNFATransitionsSyntax()
-{
-	return /^\{\}$|^\{[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*\}$/;
+function tableNFATransitionsSyntax() {
+  return /^\{\}$|^\{[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*\}$/;
 }
 
-function incorrectTableNFATransitionsSyntax(val)
-{
-	return (!tableNFATransitionsSyntax().test(val))
+function incorrectTableNFATransitionsSyntax(val) {
+  return (!tableNFATransitionsSyntax().test(val))
 }
 
-function EFATransitionSyntax()
-{
-	return /^ε$|^\\e$|^[a-zA-Z0-9]+$/;
+function EFATransitionSyntax() {
+  return /^ε$|^\\e$|^[a-zA-Z0-9]+$/;
 }
 
-function incorrectEFATransitionSyntax(val)
-{
-	return (!EFATransitionSyntax().test(val))
+function incorrectEFATransitionSyntax(val) {
+  return (!EFATransitionSyntax().test(val))
 }
 
-function DFATransitionSyntax()
-{
-	return /^[a-zA-Z0-9]+$/;
+function DFATransitionSyntax() {
+  return /^[a-zA-Z0-9]+$/;
 }
 
-function incorrectDFATransitionSyntax(val)
-{
-	return (!DFATransitionSyntax().test(val))
+function incorrectDFATransitionSyntax(val) {
+  return (!DFATransitionSyntax().test(val))
 }
-function tableDFATransitionsSyntax()
-{
-	return /^$|^[a-zA-Z0-9]+$/;
+function tableDFATransitionsSyntax() {
+  return /^$|^[a-zA-Z0-9]+$/;
 }
 
-function incorrectTableDFATransitionSyntax(val)
-{
-	return (!tableDFATransitionsSyntax().test(val))
+function incorrectTableDFATransitionSyntax(val) {
+  return (!tableDFATransitionsSyntax().test(val))
 }
 
 function incorrectTableInnerCellSyntax(type, value) {
-  return (type == "DFA" && incorrectTableDFATransitionSyntax(value)) || 
+  return (type == "DFA" && incorrectTableDFATransitionSyntax(value)) ||
     ((type == "NFA" || type == "EFA") && incorrectTableNFATransitionsSyntax(value));
-  
+
 }
