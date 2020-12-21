@@ -55,6 +55,7 @@ function initialise(id, type) {
   questionDiv.statesData = [];
   questionDiv.edgesData = [];
 
+
   //create menu BUTTONS
   var graphButton = document.createElement("button");
   graphButton.innerText = graphMenuButton;
@@ -72,8 +73,8 @@ function initialise(id, type) {
   tableButton.addEventListener("click", function () { clickTable(questionDiv) });
 
   questionDiv.appendChild(graphButton);
-  questionDiv.appendChild(textButton);
   questionDiv.appendChild(tableButton);
+  questionDiv.appendChild(textButton);
 
   //HINT
   var hintDiv = document.createElement("div");
@@ -124,6 +125,7 @@ function initialise(id, type) {
   initGraph(questionDiv);
   initTableDiv(questionDiv);
 
+
   //document.getElementsByClassName("form").on("submit", function () { generateTextFromData(questionDiv); });
 }
 
@@ -152,7 +154,6 @@ function initGraph(questionDiv) {
     mouseOverState: null,
     mouseDownState: null,
     mouseDownEdge: null,
-    justDragged: false,
     justScaleTransGraph: false,
     lastKeyDown: -1,
     creatingEdge: false,
@@ -179,9 +180,12 @@ function initGraph(questionDiv) {
   questionDiv.textNode = svg.append("text");
   questionDiv.textNode.text("aaa");
 
-  questionDiv.invisibleText = d3.select(questionDiv)
+  var invisibleSvg = d3.select(questionDiv)
     .append("svg").attr("visibility", "hidden")
-    .append("text").attr("visibility", "hidden").classed("mock-text", true).text("none");
+    .attr("width", "1")
+    .attr("height", "1");
+
+  questionDiv.invisibleText = invisibleSvg.append("text").attr("visibility", "hidden").classed("mock-text", true).text("none");
 
   var rect = svg
     .append("rect")
@@ -202,7 +206,8 @@ function initGraph(questionDiv) {
 
   defs
     .append("svg:marker")
-    .attr("id", "end-arrow")
+    .attr("id", "end-arrow" + questionDiv.getAttribute("id"))
+    .classed("end-arrow", true)
     .attr("viewBox", "0 0 10 10")
     .attr("refY", "5")
     .attr("markerWidth", 6)
@@ -216,7 +221,8 @@ function initGraph(questionDiv) {
 
   defs
     .append("svg:marker")
-    .attr("id", "temporary-arrow-end")
+    .attr("id", "temporary-arrow-end" + questionDiv.getAttribute("id"))
+    .classed("defs-arrow-end", true)
     .attr("viewBox", "0 -5 10 10")
     .attr("refX", 7)
     .attr("markerWidth", 3.5)
@@ -237,19 +243,19 @@ function initGraph(questionDiv) {
     .append("svg:path")
     .attr("class", graphConsts.edgePathClass + " dragline hidden")
     .attr("d", "M0,0L0,0")
-    .style("marker-end", "url(#temporary-arrow-end)");
+    .style("marker-end", "url(#temporary-arrow-end" + questionDiv.getAttribute("id") + ")");
 
   //MARKER ???
   temporaryEdgeG
     .append("svg:path")
     .classed(graphConsts.edgeMarkerClass, true)
-    .attr("marker-end", "url(#end-arrow)");
+    .attr("marker-end", "url(#end-arrow" + questionDiv.getAttribute("id") + ")");
 
   //init-arrow
   svgGroup.initArrow = svgGroup
     .append("svg:path")
     .attr("class", graphConsts.edgePathClass + " init-arrow")
-    .style("marker-end", "url(#temporary-arrow-end)");
+    .style("marker-end", "url(#temporary-arrow-end" + questionDiv.getAttribute("id") + ")");
 
   svgGroup.append("svg:g").classed("edges", true);
   svgGroup.append("svg:g").classed("states", true);
@@ -335,6 +341,7 @@ var dragState = d3
 
 document.addEventListener('keydown', windowKeyDown);
 
+
 function windowKeyDown(event) {
   // SELECTED_SVG_ELEMENT is alaways either a stateGroup or an edgeGroup
   // both have .node().graphDiv.questionDiv to which they belong
@@ -370,6 +377,8 @@ function windowKeyDown(event) {
   }
 }
 
+
+
 function rectClick(event) {
   //event.preventDefault();
   var graphDiv;
@@ -377,8 +386,10 @@ function rectClick(event) {
   var node = d3.select(this).node();
   if (d3.select(this).node().tagName == "svg") {
     graphDiv = d3.select(this).node().parentNode;
+    //console.log("svg click");
   }
   if ((node.tagName == "rect")) {
+    //console.log("rect click");
     graphDiv = node.parentGraphDiv;
   }
 
@@ -445,6 +456,7 @@ function initCreatingTransition(event, graphDiv) {
     graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", true);
     temporaryEdgePath.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, mouseX, mouseY));
   }
+  disableAllDragging(graphDiv.svg)
 }
 
 
@@ -474,9 +486,10 @@ function zoomOut() {
 
 //dragging
 function stateDragstart(event, d) {
+  //console.log("state dragstart");
   var graphDiv = d3.select(this).node().parentGraphDiv;
-  graphDiv.graphState.justDragged = false;
   var node = d3.select(this).node();
+
   node.clickTimer = event.sourceEvent.timeStamp;
   node.startX = event.x;
   node.startY = event.y;
@@ -486,17 +499,14 @@ function stateDragstart(event, d) {
   hideElem(graphDiv.edgeContextMenuDiv);
 
   if (!graphDiv.graphState.creatingEdge) {
-    setTimeout(function () { blink(node) }, 180);
+    //setTimeout(function () { blink(node) }, 180);
   }
-
-
 }
 
 function stateDragmove(event, d) {
+  //console.log("state dragmove");
   var graphDiv = d3.select(this).node().parentGraphDiv;
   toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
-
-  graphDiv.graphState.justDragged = true;
 
   d.x = event.x;
   d.y = event.y;
@@ -511,7 +521,7 @@ function stateDragmove(event, d) {
 }
 
 function stateDragend(event, d) {
-
+  //console.log("state dragend");
   event.stopPropagation;
 
   var groupNode = d3.select(this).node();
@@ -527,11 +537,10 @@ function stateDragend(event, d) {
         //alert(edgeAlreadyExistsAlert);
       }
       else {
-        var transitionSymbols = getNewEdgeSymbols(addTransitionPrompt, graphDiv.parentNode.type == "DFA");
+        var transitionSymbols = getNewEdgeSymbols(addTransitionPrompt, graphDiv.parentNode.type);
         if (transitionSymbols != null) {
           if (graphDiv.parentNode.type == "DFA"
-            && transitionWithSymbolExists(graphDiv.parentNode,
-              graphState.mouseDownState.id, transitionSymbols)) {
+            && transitionWithSymbolExists(graphDiv.parentNode, graphState.mouseDownState.id, transitionSymbols)) {
             alert(DFA_invalid_transition);
           }
           else {
@@ -547,7 +556,7 @@ function stateDragend(event, d) {
     enableAllDragging(graphDiv.svg);
   }
   //zacat vytvarat novu edge
-  else if (!graphState.creatingEdge && diff > 200 && distance < 2) { //starting to create an edge
+  else if (!graphState.creatingEdge && diff > 1 && distance < 2) { //starting to create an edge
     graphState.mouseDownState = d;
     graphState.creatingEdge = true;
 
@@ -636,9 +645,10 @@ function updateIncommingEdges(edgeGroups, stateData) {
 }
 
 function edgeDragstart(event, d) {
+  //console.log("edge dragstart");
   var graphDiv = d3.select(this).node().parentGraphDiv;
 
-  graphDiv.graphState.mouseDownEdge = d;
+  //graphDiv.graphState.mouseDownEdge = d;
   toggleEdgeSelection(d3.select(this), graphDiv, event, d);
   toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
   hideElem(graphDiv.stateContextMenuDiv);
@@ -646,6 +656,7 @@ function edgeDragstart(event, d) {
 }
 
 function edgeDragmove(event, d) {
+  //console.log("edge dragmove");
   var edgeG = d3.select(this);
   //var graphDiv = edgeG.node().parentGraphDiv;
   var oldPathDefinition = edgeG.select("." + graphConsts.edgePathClass).attr("d");
@@ -662,6 +673,8 @@ function edgeDragmove(event, d) {
 }
 
 function edgeDragend(event, d) {
+  //console.log("dragend");
+  event.stopPropagation;
 }
 
 function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
@@ -781,20 +794,10 @@ function addStateEvents(state, graphDiv) {
   state
     .call(dragState)
 
-    .on("dblclick", function (event, d) {
-      toggleAcceptingState(d, d3.select(this));
-    })
+    //.on("dblclick", function (event, d) { toggleAcceptingState(d, d3.select(this)); })
     .on("mouseover", function (event, d) {
       graphDiv.graphState.mouseOverState = d;
       d3.select(this).classed(graphConsts.mouseOverClass, true);
-      /*
-      if (d3.select(this).node().InvalidEdge == true) { 
-        d3.select(this).classed(graphConsts.stateInvalidConnectionClass, true);
-      }
-      else {
-        d3.select(this).node().InvalidConnection = false;
-        d3.select(this).classed(graphConsts.mouseOverClass, true);
-      }*/
 
       if (d.id != d3.select(this).select("text").text()) {
         showFullname(graphDiv.svg.svgGroup.stateFullnameRect, d);
@@ -805,8 +808,6 @@ function addStateEvents(state, graphDiv) {
       toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
       graphDiv.graphState.mouseOverState = null;
       d3.select(this).classed(graphConsts.mouseOverClass, false);
-      //d3.select(this).classed(graphConsts.stateInvalidConnectionClass, false);
-
     })
     .on("contextmenu", function (event, data) {
       event.preventDefault();
@@ -992,8 +993,6 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
   questionDiv.graphDiv.edgeIdCounter++;
   questionDiv.edgesData.push(newEdgeData);
 
-
-
   var newEdge = questionDiv.graphDiv.svg.svgGroup.edgeGroups
     .data(questionDiv.edgesData)
     .enter()
@@ -1004,6 +1003,12 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
 
   //if (!jeProhlizecistranka()) {}
   newEdge
+    .on("mouseover", function (event, d) {
+      d3.select(this).classed(graphConsts.mouseOverClass, true);
+    })
+    .on("mouseout", function () {
+      d3.select(this).classed(graphConsts.mouseOverClass, false);
+    })
     .on("contextmenu", function (event, d) {
       event.preventDefault();
       hideElem(questionDiv.graphDiv.stateContextMenuDiv);
@@ -1011,12 +1016,7 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
       setContextMenuPosition(questionDiv.graphDiv.edgeContextMenuDiv, event.pageY, event.pageX);
       showElem(questionDiv.graphDiv.edgeContextMenuDiv);
     })
-    .on("mouseover", function (event, d) {
-      d3.select(this).classed(graphConsts.mouseOverClass, true);
-    })
-    .on("mouseout", function () {
-      d3.select(this).classed(graphConsts.mouseOverClass, false);
-    })
+    .on("click", function(event) {event.stopPropagation();})
     .call(dragEdge);
 
   newEdge
@@ -1035,12 +1035,15 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
   newEdge
     .append("svg:path")
     .classed(graphConsts.edgeMarkerClass, true)
-    .attr("marker-end", "url(#end-arrow)");
+    //.attr("marker-end", "url(#end-arrow)")
+    .attr("marker-end", "url(#end-arrow" + questionDiv.getAttribute("id") + ")")
+    
+    ;
 
   var rect = newEdge
     .append("rect")
     .classed(graphConsts.edgeRectClass, true)
-    .attr("rx", 5)
+    .attr("rx", 3)
     .attr("height", 20);
 
   var text = newEdge
@@ -1056,18 +1059,22 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
 }
 
 function toggleEdgeSelection(edgeGroup, graphDiv, event, d) {
+  //console.log("toggle");
   removeSelectionFromState(graphDiv);
+
   if (graphDiv.graphState.selectedEdge != d) {
+    //console.log("d != d");
     removeSelectionFromEdge(graphDiv);
     graphDiv.graphState.selectedEdge = d;
     SELECTED_SVG_ELEMENT = edgeGroup;
     edgeGroup.classed(graphConsts.selectedClass, true);
+    //console.log("selected");
   }
 }
 
 function renameEdge(questionDiv, edgeData, symbols = null) {
   if (symbols == null) {
-    symbols = getNewEdgeSymbols(addTransitionPrompt, questionDiv.type == "DFA", edgeData.symbols);
+    symbols = getNewEdgeSymbols(addTransitionPrompt, questionDiv.type, edgeData.symbols);
   }
 
   if (symbols == null) return;
@@ -1296,7 +1303,7 @@ function createTableFromData(questionDiv) {
       if (questionDiv.type == "DFA") {
         cell.myDiv.value = ed.target.id;
       }
-      else if (questionDiv.type == "NFA" || questionDiv.type == "EFA") {
+      else if (typeIsNondeterministic(questionDiv.type)) {
         var result = cell.myDiv.value.replace(/{|}/g, "");
         if (result == "") {
           result = ed.target.id
@@ -1348,7 +1355,7 @@ function insertRowAddButton(table) {
 
 function insertRowDeleteButton(table, row) {
   var cell = insertCellWithDiv(row, 0,
-    [tableClasses.deleteButton, tableClasses.noselectCell], null, "x");
+    [tableClasses.deleteButton, tableClasses.noselectCell], null, "×");
 
   cell.addEventListener("click", function () { deleteRow(table, cell.parentNode.rowIndex); });
 }
@@ -1356,7 +1363,7 @@ function insertRowDeleteButton(table, row) {
 function insertInnerCell(table, row) {
   var cell = insertCell(row, row.cells.length, [tableClasses.myCell]);
 
-  var value = table.questionDiv.type == "NFA" ? "{}" : "";
+  var value = typeIsNondeterministic(table.questionDiv.type) ? "{}" : "";
   var input = createInput([tableClasses.inputCellDiv], value, value,
     table.rows[1].cells[cell.cellIndex].style.minWidth);
 
@@ -1365,7 +1372,8 @@ function insertInnerCell(table, row) {
   input.addEventListener("focusout", (e) => tableCellChangedFinal(e, table, input));
 
   var regex;
-  if (table.questionDiv.type == "NFA")
+  
+  if (typeIsNondeterministic(table.questionDiv.type))
     regex = /[a-zA-Z0-9{},]/;
   else
     regex = /[a-zA-Z0-9\-]/;
@@ -1480,7 +1488,7 @@ function deleteRow(table, rowIndex) {
   for (i = 2; i < table.rows.length - 1; i++) {
     for (j = 2; j < table.rows[i].cells.length; j++) {
       var value = table.rows[i].cells[j].myDiv.value;
-      if (table.questionDiv.type == "NFA" || table.questionDiv.type == "EFA") {
+      if (typeIsNondeterministic(table.questionDiv.type)) {
         value = value.replace(/{|}/g, "");
         var stateIds = value.split(",");
         var index = stateIds.indexOf(stateId);
@@ -1529,8 +1537,8 @@ function tableChChanged(e, table, input) {
   var type = table.questionDiv.type;
 
   if (
-    (type == "EFA" && incorrectEFATransitionSyntax(symbol)) ||
-    (type != "EFA" && (incorrectDFATransitionSyntax(symbol) || symbol == "ε"))) {
+    (typeIsNondeterministic(type) && incorrectTableEFATransitionSyntax(symbol)) ||
+    (!typeIsNondeterministic(type) && (incorrectTableDFATransitionSyntax(symbol) || symbol == "ε"))) {
     d3.select(input).classed(tableClasses.incorrectCell, true);
     var err;
     if (type == "EFA") {
@@ -1560,7 +1568,7 @@ function tableChChangedFinal(_, table, input) {
   }
   var prevName = input.prevValue;
   var newName = input.value;
-  if (table.questionDiv.realtype == "EFA" && newName == "\\e") {
+  if (table.questionDiv.type == "EFA" && newName == "\\e") {
     input.value = 'ε';
     newName = input.value;
   }
@@ -1664,7 +1672,7 @@ function tableRhChangedFinal(e, table, input) {
         if (index != -1) {
           vals[index] = newName;
           val = vals.toString();
-          if (table.questionDiv.type == "NFA" || table.questionDiv.type == "EFA") {
+          if (typeIsNondeterministic(table.questionDiv.type)) {
             table.rows[i].cells[j].myDiv.value = "{" + val + "}";
           }
           else if (table.questionDiv.type == "DFA") {
@@ -1711,7 +1719,7 @@ function tableCellChangedFinal(e, table, input) {
   else {
     var prevName = input.prevValue;
     var newName = input.value;
-    if (type == "NFA" || type == "EFA") {
+    if (typeIsNondeterministic(type)) {
       prevName = prevName.substring(1, prevName.length - 1);
       newName = newName.substring(1, newName.length - 1);
     }
@@ -1726,7 +1734,8 @@ function tableCellChangedFinal(e, table, input) {
     //vymaze edges ktore uz nemaju pismenko
     //pripadne vymaze pismeno z transition
     for (let i = 0; i < prevStates.length; i++) {
-      if (newStates.indexOf(prevStates[i] == -1)) {
+      
+      if (newStates.indexOf(prevStates[i]) == -1) {
         var edgeData = getEdgeDataByStates(questionDiv, sourceStateId, prevStates[i]);
         if (edgeData != null) {
           var trs = edgeData.symbols.split(',');
@@ -1794,7 +1803,7 @@ function tableCellChangedFinal(e, table, input) {
     //vytvaranie novych transitions
     //pripadne pridavanie pismiek do existujucich
     var x = newStates.toString();
-    if (type == "NFA" || type == "EFA") {
+    if (typeIsNondeterministic(type)) {
       x = "{" + x + "}";
     }
     input.value = input.prevValue = x;
@@ -2087,7 +2096,7 @@ function generateTextFromData(questionDiv) {
     });
   }
 
-  else if (questionDiv.type == "NFA" || questionDiv.type == "EFA") {
+  else if (typeIsNondeterministic(questionDiv.type)) {
     var transitions = new Map();
 
     questionDiv.edgesData.forEach(function (edge) {
@@ -2583,7 +2592,11 @@ function updateStateGroups(svgGroup) {
 }
 
 function disableAllDragging(svg) {
-  svg.svgGroup.selectAll("." + graphConsts.stateGroupClass).on(".drag", null);
+  var dragState2 = d3.drag()
+    .on("start", stateDragstart)
+    //.on("drag", stateDragmove)
+    .on("end", stateDragend);
+  svg.svgGroup.selectAll("." + graphConsts.stateGroupClass).call(dragState2);
   svg.svgGroup.selectAll("." + graphConsts.edgeGroupClass).on(".drag", null);
   svg.on(".zoom", null);
 }
@@ -2717,7 +2730,7 @@ function promptNewStateName(promptText, d, statesData) {
   return result;
 }
 
-function getNewEdgeSymbols(promptText, isDFA, prevSymbols = null) {
+function getNewEdgeSymbols(promptText, type, prevSymbols = null) {
   var result;
   if (prevSymbols == null) {
     result = prompt(promptText);
@@ -2736,19 +2749,28 @@ function getNewEdgeSymbols(promptText, isDFA, prevSymbols = null) {
     symbols.forEach(function (item, i) { if (item == "\\e") symbols[i] = "ε"; });
     result = symbols.toString();
 
-    if (result == "") {
+    if (result == null || result == "") {
       result = prompt("Chyba: Nelze přidat prázdný přechod! " + promptText, result);
       incorrect = true;
     }
     if (!incorrect) { //if incorrect != false
-      if (isDFA && symbols.includes("ε")) {
-        result = prompt("Chyba: Nevyhovující DFA syntax! " + promptText, result);
+      if (type != "EFA" && symbols.includes("ε")) {
+        result = prompt("Chyba: Nevyhovující syntax! " + promptText, result);
+        incorrect = true;
+      }
+      if (result == null || result == "") {
+        result = prompt("Chyba: Nelze přidat prázdný přechod! " + promptText, result);
         incorrect = true;
       }
       if (incorrectGraphTransitionsSyntax(result)) {
         result = prompt("Chyba: Nevyhovující syntax! " + promptText, result);
         incorrect = true;
       }
+      /*
+      if (result.length > 300) {
+        result = prompt("Prekrocena maximalna dlzka symbolov prechodu!" + promptText, result);
+        incorrect = true;
+      }*/
     }
   }
   while (incorrect && result != null);
@@ -2791,6 +2813,10 @@ function intersects(array1, array2) {
   return false;
 }
 
+function typeIsNondeterministic(type) {
+  return type == "NFA" || type == "EFA";
+}
+
 // -------------------------------------------------------------------------------
 // syntax 
 // -------------------------------------------------------------------------------
@@ -2826,7 +2852,7 @@ function EFATransitionSyntax() {
   return /^ε$|^\\e$|^[a-zA-Z0-9]+$/;
 }
 
-function incorrectEFATransitionSyntax(val) {
+function incorrectTableEFATransitionSyntax(val) {
   return (!EFATransitionSyntax().test(val))
 }
 
@@ -2834,7 +2860,7 @@ function DFATransitionSyntax() {
   return /^[a-zA-Z0-9]+$/;
 }
 
-function incorrectDFATransitionSyntax(val) {
+function incorrectTableDFATransitionSyntax(val) {
   return (!DFATransitionSyntax().test(val))
 }
 function tableDFATransitionsSyntax() {
@@ -2847,6 +2873,6 @@ function incorrectTableDFATransitionSyntax(val) {
 
 function incorrectTableInnerCellSyntax(type, value) {
   return (type == "DFA" && incorrectTableDFATransitionSyntax(value)) ||
-    ((type == "NFA" || type == "EFA") && incorrectTableNFATransitionsSyntax(value));
+    (typeIsNondeterministic(type) && incorrectTableNFATransitionsSyntax(value));
 
 }
