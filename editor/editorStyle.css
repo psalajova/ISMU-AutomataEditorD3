@@ -84,10 +84,14 @@
     width: 100%;
     background-color: #bdbdbd;
     border: none;
-    margin: 0;
-    padding: 10px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    padding-left: 10px;
+    padding-top: 5px;
+    padding-bottom: 5px;
     text-align: left;
-    font-size: 12px;
+    font-size: 14px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .context-menu-button:hover {
@@ -97,7 +101,7 @@
 .context-menu {
     display: none;
     position: absolute;
-    width: 110px;
+    width: 200px;
     background-color: #bdbdbd;
     border: 1px solid #999999;
     border-radius: 0px;

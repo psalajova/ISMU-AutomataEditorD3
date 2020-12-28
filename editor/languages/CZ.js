@@ -17,7 +17,8 @@ var addTransitionText = "Přidať prechod";
 var renameStateText = "Přejmenovat";
 var deleteStateText = "Odstranit";
 var setAsInitialText = "Nastavit jako počáteční";
-var setStateAsAcceptingText = "Akceptující stav";
+var setStateAsAcceptingText = "Nastavit jako akceptující";
+var setStateAsNonAcceptingText ="Nastavit jako neakceptující";
 
 var renameEdgeText = "Upravit symboly přechodu";
 
