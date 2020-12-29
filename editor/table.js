@@ -183,9 +183,7 @@ function insertRowHeader(row, name) {
     input.addEventListener("click", tableHeaderCellClick);
     input.addEventListener("input", (e) => tableRhChanged(e, table, input));
     input.addEventListener("focusout", (e) => tableRhChangedFinal(e, table, input));
-    input.addEventListener("keypress", function (event) {
-        cellKeypressHandler(event, stateSyntax());
-    });
+    input.addEventListener("keypress", function (event) { cellKeypressHandler(event, stateSyntax()); });
 
     cell.myDiv = input;
     cell.appendChild(input);
@@ -404,7 +402,7 @@ function tableRhChanged(e, table, input) {
             unlockTable(table);
             hideElem(table.alertStatus);
         }
-        //TODO: toggling initial / accepting (1094)
+        //TODO: toggling initial / accepting (1094) ???
     }
 }
 
@@ -680,6 +678,7 @@ function cellClickHandler(event) {
 function cellKeypressHandler(event, regex) {
     var code = event.keyCode || event.which;
     if (code == 13) {
+        event.target.blur();
         return false;
     }
     var kc = event.charCode;

@@ -14,6 +14,7 @@ function showElem(element, inline = false) {
 
 function clickGraph(questionDiv) {
   if (questionDiv.lastEdited == "graph") {
+    deselectAll();
     return;
   }
   //prejst vsetky stavy 
@@ -33,6 +34,9 @@ function clickGraph(questionDiv) {
 }
 
 function clickTable(questionDiv) {
+  if (questionDiv.lastEdited == "graph") {
+    deselectAll();
+  }
   if (questionDiv.lastEdited == "table") {
     return;
   }
@@ -41,7 +45,6 @@ function clickTable(questionDiv) {
   hideElem(questionDiv.textArea);
   if (questionDiv.lastEdited == "text") {
     //updateDataFromText(questionDiv);
-
   }
   createTableFromData(questionDiv);
   showElem(questionDiv.tableDiv);
@@ -49,7 +52,9 @@ function clickTable(questionDiv) {
 }
 
 function clickText(questionDiv) {
-  deselectAll();
+  if (questionDiv.lastEdited == "graph") {
+    deselectAll();
+  }
 
   hideElem(questionDiv.graphDiv);
   hideElem(questionDiv.hintDiv);

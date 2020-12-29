@@ -7,7 +7,7 @@ var textMenuButton = "Text";
 var tableMenuButton = "Tabulka";
 var hintLabel = "Nápověda";
 var addTransitionPrompt = "Zadejte symboly přechodu:";
-var renameStatePrompt = "Zadejte název stavu:";
+var renameStatePrompt = "Zadejte nový název stavu:";
 var stateNameAlreadyExistsPrompt = "Chyba: Takto pojmenovaný stav již existuje!";
 var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
 var DFA_invalid_transition = "Chyba: Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
@@ -21,6 +21,8 @@ var setStateAsAcceptingText = "Nastavit jako akceptující";
 var setStateAsNonAcceptingText ="Nastavit jako neakceptující";
 
 var renameEdgeText = "Upravit symboly přechodu";
+
+var enterToRename = "Press ENTER to rename";
 
 var hints = {
   HINT_ADD_STATE : "<b>Vytvoření stavu:</b> double click na plátno.",
