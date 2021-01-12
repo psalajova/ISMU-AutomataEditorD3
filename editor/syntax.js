@@ -11,11 +11,16 @@ function incorrectStateSyntax(val) {
 }
 
 function graphTransitionsSyntax() {
+    return /^([a-zA-Z0-9]+)(,([a-zA-Z0-9]+))*$/;
+}
+
+function graphEFATransitionSyntax() {
     return /^(([a-zA-Z0-9]+)|(ε)|(\\e))(,(([a-zA-Z0-9]+)|(ε)|(\\e)))*$/;
 }
 
-function incorrectGraphTransitionsSyntax(val) {
-    return (!graphTransitionsSyntax().test(val));
+function incorrectGraphTransitionsSyntax(type, value) {
+    return ( (type == "DFA" || type == "NFA") && !graphTransitionsSyntax().test(value) ) ||
+             (type == "EFA" && !graphEFATransitionSyntax().test(value));
 }
 
 function tableEFATransitionSyntax() {

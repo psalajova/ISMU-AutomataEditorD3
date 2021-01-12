@@ -10,7 +10,7 @@ var addTransitionPrompt = "Zadejte symboly přechodu:";
 var renameStatePrompt = "Zadejte nový název stavu:";
 var stateNameAlreadyExistsPrompt = "Chyba: Takto pojmenovaný stav již existuje!";
 var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
-var DFA_invalid_transition = "Chyba: Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
+var DFA_invalid_transition = "<strong>Chyba:</strong> Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
 
 //state context menu
 var addTransitionText = "Přidať prechod";
@@ -22,7 +22,7 @@ var setStateAsNonAcceptingText ="Nastavit jako neakceptující";
 
 var renameEdgeText = "Upravit symboly přechodu";
 
-var enterToRename = "Press ENTER to rename";
+var enterToRename = "Press ENTER to save changes";
 
 var hints = {
   HINT_ADD_STATE : "<b>Vytvoření stavu:</b> double click na plátno.",
@@ -38,7 +38,7 @@ var hints = {
 
 var STATE_SYNTAX = "{a-z,A-Z,0-9}";
 
-var tableErrors = {
+var errors = {
   TABLE_LOCKED : "Tabulka je uzamčena dokud nebude chyba opravena.",
   INCORRECT_STATE_SYNTAX : "<strong>Chyba!</strong> Nevyhovující syntax názvu stavu (řetězec znaků z {a-z,A-Z,0-9}). ",
   DUPLICIT_STATE_NAME : "<strong>Chyba!</strong> Duplicitní název stavu není povolen.",

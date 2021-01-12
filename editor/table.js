@@ -323,16 +323,16 @@ function tableChChanged(e, table, input) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
         var err;
         if (type == "EFA") {
-            err = tableErrors.EFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX;
+            err = errors.EFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX;
         }
         else {
-            err = tableErrors.NFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX;
+            err = errors.NFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX;
         }
         activateAlertMode(table, err, input);
     }
     else if (tableColumnSymbolAlreadyExists(table, input, value)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
-        activateAlertMode(table, tableErrors.DUPLICIT_TRANSITION_SYMBOL, input);
+        activateAlertMode(table, errors.DUPLICIT_TRANSITION_SYMBOL, input);
     }
     else {
         d3.select(input).classed(tableClasses.incorrectCell, false);
@@ -390,11 +390,11 @@ function tableRhChanged(e, table, input) {
 
     if (incorrectStateSyntax(currentValue)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
-        activateAlertMode(table, tableErrors.INCORRECT_STATE_SYNTAX, input);
+        activateAlertMode(table, errors.INCORRECT_STATE_SYNTAX, input);
     }
     else if (tableStateAlreadyExists(table, input, currentValue)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
-        activateAlertMode(table, tableErrors.DUPLICIT_STATE_NAME, input);
+        activateAlertMode(table, errors.DUPLICIT_STATE_NAME, input);
     }
     else {
         d3.select(input).classed(tableClasses.incorrectCell, false);
@@ -488,12 +488,12 @@ function tableCellChangedFinal(e, table, input) {
     if (incorrectTableInnerCellSyntax(type, input.value)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
 
-        var err = tableErrors.INCORRECT_TRANSITION_SYNTAX + " ";
+        var err = errors.INCORRECT_TRANSITION_SYNTAX + " ";
         if (type == "DFA") {
-            err += tableErrors.DFA_TRANSITION_EXPECTED_SYNTAX;
+            err += errors.DFA_TRANSITION_EXPECTED_SYNTAX;
         }
         else {
-            err += tableErrors.NFA_TRANSITION_EXPECTED_SYNTAX
+            err += errors.NFA_TRANSITION_EXPECTED_SYNTAX
         }
         activateAlertMode(table, err, input);
     }
@@ -840,7 +840,7 @@ function removePrefix(stateId) {
 function setAlert(table, error, tableLocked = true) {
     table.alertStatus.innerHTML = error;
     if (tableLocked) {
-        table.alertStatus.innerHTML += " " + tableErrors.TABLE_LOCKED;
+        table.alertStatus.innerHTML += " " + errors.TABLE_LOCKED;
     }
 }
 

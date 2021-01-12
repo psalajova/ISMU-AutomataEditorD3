@@ -1,4 +1,3 @@
-
 var menuButtonClass = "menu-button";
 
 const graphConsts = {
@@ -377,19 +376,15 @@ function initRenameDiv(questionDiv) {
 
 function renameInputKeyup(event, questionDiv) {
   if (event.keyCode == 13) {
+    //var questionDiv = event.srcElement.parentNode.parentNode.parentNode;
     var graphState = questionDiv.graphDiv.graphState;
 
     if (graphState.currentState == graphStateEnum.mergingEdge) {
-      tryToRenameEdge(questionDiv, 
+      tryToRenameEdge(questionDiv,
         graphState.selectedEdge,
         questionDiv.graphDiv.renameDiv.input.value);
     }
     else if (graphState.currentState == graphStateEnum.namingEdge) {
-      console.log("graphState.mouseDownState is:");
-      console.log(graphState.mouseDownState);
-      console.log("graphState.lastTargetState is:");
-      console.log(graphState.lastTargetState);
-
       tryToAddEdge(questionDiv, 
         graphState.mouseDownState, 
         graphState.lastTargetState,
@@ -459,7 +454,6 @@ function closestPointOnCircle(x1,y1, circleX, circleY) {
 }
 
 document.addEventListener('keyup', windowKeyUp);
-//document.addEventListener('click', deselectAll);
 
 function windowKeyUp(event) {
   // SELECTED_SVG_ELEMENT is alaways either a stateGroup or an edgeGroup
@@ -518,43 +512,36 @@ function svgRectClick(event) {
   event.preventDefault();
 
   var cl = event.srcElement.classList;
-  console.log(cl);
+  //console.log(cl);
   
   var graphDiv = cl.contains("main-svg") ? event.srcElement.parentNode : event.srcElement.ownerSVGElement.parentNode;
-  console.log("click curr state = " + graphDiv.graphState.currentState);
+  //console.log("click curr state = " + graphDiv.graphState.currentState);
   var isState = cl.contains("state-text") || cl.contains("state-main-circle") || cl.contains("accepting-circle");
   
+  //if we are not creating edge and we click on state, do nothing, bcs we want to start creating edge
   if (isState && graphDiv.graphState.currentState == graphStateEnum.creatingEdge) {
     return;
   }
 
+  //when adding new edge and merging edges, we click on the second state, and we dont want to cancel its selection
   if (graphDiv.graphState.currentState == graphStateEnum.namingEdge && isState) {
-    console.log("namingEdge");
     return;
   }
   if (graphDiv.graphState.currentState == graphStateEnum.mergingEdge && isState) {
-    console.log("mergingEdge");
-    return;
-  }
-  
-
-  //if we are not creating edge and we click on state, do nothing, bcs we want to start creating edge
-  else if (graphDiv.graphState.currentState == graphStateEnum.default && isState) {
     return;
   }
 
-  else if (graphDiv.graphState.currentState != graphStateEnum.creatingEdge &&
+
+/*   else if (graphDiv.graphState.currentState != graphStateEnum.creatingEdge &&
    (cl.contains("edge-path") || cl.contains("edge-rect") || cl.contains("edge-text"))) {
     return;
-  }
-  console.log("click+deselectAll");
+  } */
   deselectAll();
 
   //TODO: init selection of multiple elements???
 }
 
 function svgRectContextmenu(event) {
-  console.log("svg on contextmenu");
   event.preventDefault();
   var cl = event.srcElement.classList;
   var graphDiv = cl.contains("main-svg") ? event.srcElement.parentNode : event.srcElement.ownerSVGElement.parentNode;
@@ -562,13 +549,16 @@ function svgRectContextmenu(event) {
   var isState = cl.contains("state-text") || cl.contains("state-main-circle") || cl.contains("accepting-circle");
   var isEdge = cl.contains("edge-path") || cl.contains("edge-rect") || cl.contains("edge-text");
 
-  if ( (isState || isEdge) && 
-    (graphDiv.graphState.currentState == graphStateEnum.renamingState ||
-    graphDiv.graphState.currentState == graphStateEnum.renamingEdge ||
-    graphDiv.graphState.currentState == graphStateEnum.namingEdge ||
-    graphDiv.graphState.currentState == graphStateEnum.mergingEdge)) {
-    endRenaming(graphDiv.parentNode);
-    return;
+
+  if (isState || isEdge) {
+    if (graphIsInRenamingState(graphDiv.graphState.currentState)) {
+      endRenaming(graphDiv.parentNode);
+      return;
+    }
+    if (graphDiv.graphState.currentState == graphStateEnum.creatingEdge) {
+      deselectAll();
+      return;
+    }
   }
   else if (!isState && !isEdge) {
     deselectAll();
@@ -630,17 +620,15 @@ function initCreatingTransition(event, graphDiv) {
 
 //TODO
 function tryToRenameEdge(questionDiv, edgeData, newSymbols, prompt = null) {
-  var renameDiv = questionDiv.graphDiv.renameDiv;
-
   if (prompt != null) {
-    renameDiv.errorParagraph.innerHTML = prompt;
-    showElem(renameDiv.errorParagraph.innerHTML);
+    showRenameError(prompt, questionDiv);
   }
 
-  var symbols = newSymbols.split(",");
-  symbols = symbols.filter(function (item, pos) { return symbols.indexOf(item) == pos; });
-  symbols.forEach(function (item, i) { if (item == "\\e") symbols[i] = "ε"; });
-  newSymbols = symbols.toString();
+  var symbols = removeDuplicates(newSymbols.split(","));
+  newSymbols = replaceEpsilon(symbols);
+  if (questionDiv.type == "EFA" && newSymbols == "") {
+    newSymbols = "ε";
+  }
 
   var validityCheck = checkEdgeSymbolsValidity(questionDiv, edgeData.id, edgeData.source, newSymbols);
   if (!validityCheck.result) {
@@ -648,10 +636,11 @@ function tryToRenameEdge(questionDiv, edgeData, newSymbols, prompt = null) {
   }
   else {
     renameEdge(questionDiv, edgeData, newSymbols);
-    //endRenaming(questionDiv);
     deselectAll();
   }
 }
+
+
 
 function tryToRenameState(questionDiv, stateData, newId, prompt = null) {
   var renameDiv = questionDiv.graphDiv.renameDiv;
@@ -672,17 +661,19 @@ function tryToRenameState(questionDiv, stateData, newId, prompt = null) {
   }
 }
 
-function tryToAddEdge(questionDiv, sourceStateData, targetStateData, symbols) {
-  var graphState = questionDiv.graphDiv.graphState;
-
+function tryToAddEdge(questionDiv, sourceStateData, targetStateData, newSymbols) {
+  var symbols = removeDuplicates(newSymbols.split(","));
+  newSymbols = replaceEpsilon(symbols);
+  if (questionDiv.type == "EFA" && newSymbols == "") {
+    newSymbols = "ε";
+  }
   
-  var validityCheck = checkEdgeSymbolsValidity(questionDiv, null, sourceStateData, symbols);
+  var validityCheck = checkEdgeSymbolsValidity(questionDiv, null, sourceStateData, newSymbols);
   if (!validityCheck.result) {
     showRenameError(validityCheck.errMessage, questionDiv);
   }
   else {
-    addEdge(questionDiv, sourceStateData, targetStateData, symbols);
-    //endRenaming(questionDiv);
+    addEdge(questionDiv, sourceStateData, targetStateData, newSymbols);
     deselectAll();
   }
   
@@ -697,36 +688,36 @@ function checkStateNameValidity(questionDiv, stateData, newId) {
     ok = false;
   }
 
+  if (incorrectStateSyntax(newId)) {
+    err = errors.INCORRECT_STATE_SYNTAX;
+    ok = false;
+  }
+
   return {
     result : ok,
     errMessage : err
   };
 }
 
-function checkEdgeSymbolsValidity(questionDiv, edgeId, sourceStateData, newSymbols) {
+function checkEdgeSymbolsValidity(questionDiv, edgeId, sourceStateData, symbols) {
   var err = "", valid = true;
 
   //TODO
-  var syntax = questionDiv.type == "EFA" ? "Očekávané řetězce znaků z {a-z,A-Z,0-9,\\e,ε} oddělené čárkami." : "Očekávané řetězce znaků z {a-z,A-Z,0-9} oddělené čárkami." ;
+  var correctSyntax = questionDiv.type == "EFA" ? "Očekávané řetězce znaků z {a-z,A-Z,0-9,\\e,ε} oddělené čárkami." : "Očekávané řetězce znaků z {a-z,A-Z,0-9} oddělené čárkami." ;
 
-  if (newSymbols == null || newSymbols == "") {
+  if (symbols == null || symbols == "") {
     err = "Chyba: Nelze přidat prázdný přechod!";
     valid = false;
   }
-
-  //TODO spravit zvlast syntaxy pre DFA&NFA a EFA
-  if (questionDiv.type != "EFA" && (newSymbols.split(',')).includes("ε")) {
-    err = "Chyba: Nevyhovující syntax! " + syntax;
-    valid = false;
+  else if (questionDiv.type == "DFA") {
+    if (edgeId != null && transitionWithSymbolExists(questionDiv, edgeId, sourceStateData.id, symbols) 
+      || edgeId == null && transitionWithSymbolExists(questionDiv, null, sourceStateData.id, symbols)) {
+        err = DFA_invalid_transition;
+        valid = false;
+    }
   }
-
-  if (edgeId != null && questionDiv.type == "DFA" && transitionWithSymbolExists(questionDiv, edgeId, sourceStateData.id, newSymbols)) {
-    err = DFA_invalid_transition;
-    valid = false;
-  }
-
-  if (incorrectGraphTransitionsSyntax(newSymbols)) {
-    err = "Chyba: Nevyhovující syntax! " + syntax;
+  else if (incorrectGraphTransitionsSyntax(questionDiv.type, symbols)) {
+    err = "Chyba: Nevyhovující syntax! " + correctSyntax;
     valid = false;
   }
 
@@ -788,9 +779,11 @@ function stateDragstart(event, d) {
 
   hideElem(graphDiv.stateContextMenuDiv);
   hideElem(graphDiv.edgeContextMenuDiv);
+  
 
-  if (graphDiv.graphState.renaming) {
+  if (graphIsInRenamingState(graphDiv.graphState.currentState)) {
     endRenaming(graphDiv.parentNode);
+    hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
   }
 }
 
@@ -824,55 +817,47 @@ function stateDragend(event, d) {
 
   if (graphState.currentState == graphStateEnum.creatingEdge && diff < 400 && distance < 2) {
     if (graphState.mouseDownState && graphState.mouseOverState) {
-
       var existingEdgeData = getEdgeDataByStates(graphDiv.parentNode, graphState.mouseDownState.id, graphState.mouseOverState.id);
+      graphState.lastTargetState = graphState.mouseOverState;
 
-      if (existingEdgeData != null) {
-        //graphState.currentState = graphStateEnum.mergingEdge;
-
-        graphState.lastTargetState = graphState.mouseOverState;
-
+      if (existingEdgeData != null) { //edge already exists between the two states
         var edgeG = getEdgeGroupById(graphDiv.parentNode, existingEdgeData.id);
-        //var rect = edgeG.select("." + graphConsts.edgeRectClass);
-        //var bcr = rect.node().getBoundingClientRect();
-        //console.log(bcr);
-
         toggleEdgeSelection(edgeG, graphDiv, event, existingEdgeData);
 
+        //OK
+        var boundingRect = edgeG.select("." + graphConsts.edgeRectClass).node().getBoundingClientRect();
+        var middleOfRect = (boundingRect.x + (boundingRect.width / 2))+ window.scrollX;
+        hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
         initRenaming(
           graphDiv.parentNode,
           graphStateEnum.mergingEdge,
           graphDiv.edgeContextMenuDiv, 
           existingEdgeData.symbols, 
           edgeAlreadyExistsAlert, 
-          event.sourceEvent.pageX - 50, 
-          event.sourceEvent.pageY + 20);
+          middleOfRect, 
+          boundingRect.y + window.scrollY + 26);
       }
+      else { //adding new edge
+        var d = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePathClass).attr("d");
+        var tempEdgeBCR = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePathClass).node().getBoundingClientRect();
+        var x = midpoint(tempEdgeBCR.x, tempEdgeBCR.x + tempEdgeBCR.width);
+        var y = midpoint(tempEdgeBCR.y, tempEdgeBCR.y + tempEdgeBCR.height);
+        //var pos = getEdgeRectPosition(d, graphState.mouseDownState == graphState.mouseOverState);
 
-      else {
-        //graphState.currentState = graphStateEnum.namingEdge;
-        graphState.lastTargetState = graphState.mouseOverState;
         initRenaming(
           graphDiv.parentNode,
           graphStateEnum.namingEdge,
           graphDiv.edgeContextMenuDiv, 
           "", 
-          null,
-          event.sourceEvent.pageX - 50, 
-          event.sourceEvent.pageY + 20);
+          addTransitionPrompt,
+          x + window.scrollX, 
+          y + window.scrollY);
       }
     }
-    //graphState.currentState = graphStateEnum.default;  
-    //graphState.mouseDownState = null;
-    //hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
-    //enableAllDragging(graphDiv.svg);
   }
   else if (graphState.currentState != graphStateEnum.creatingEdge && diff > 1 && distance < 2) { //starting to create an edge
     graphState.mouseDownState = d;
-    console.log("dragend - assigning 1");
     graphState.currentState = graphStateEnum.creatingEdge;
-
-    //disableAllDragging(graphDiv.svg);]
     initCreatingTransition(event, graphDiv);
   }
 }
@@ -952,7 +937,7 @@ function edgeDragstart(event, d) {
   hideElem(graphDiv.stateContextMenuDiv);
   hideElem(graphDiv.edgeContextMenuDiv);
 
-  if (graphDiv.graphState.renaming) {
+  if (graphIsInRenamingState(graphDiv.graphState.currentState)) {
     endRenaming(graphDiv.parentNode);
   }
 }
@@ -975,8 +960,6 @@ function edgeDragmove(event, d) {
 }
 
 function edgeDragend(event, d) {
-  //console.log("dragend");
-  event.stopPropagation;
 }
 
 function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
@@ -1124,6 +1107,7 @@ function addStateEvents(state, graphDiv) {
       
       toggleStateSelection(d3.select(this), graphDiv, data);
       setContextMenuPosition(graphDiv.stateContextMenuDiv, event.pageY, event.pageX);
+      //console.log(event.pageY + "," + event.pageX);
       if (data.initial) {
         hideElem(graphDiv.initialButton);
       }
@@ -1138,7 +1122,7 @@ function addStateEvents(state, graphDiv) {
       }
       showElem(graphDiv.stateContextMenuDiv);
     })
-    .on("click", function (event) { stateClick(graphDiv.parentNode.getAttribute("id")); } )
+    //.on("click", function (event) { stateClick(graphDiv.parentNode.getAttribute("id")); } )
     ;
 }
 
@@ -1495,9 +1479,22 @@ function deleteStateHandler(questionDiv) {
 }
 
 function renameStateHandler(questionDiv) {
-  //renameState(questionDiv, questionDiv.graphDiv.graphState.selectedState)
+  var state = questionDiv.graphDiv.graphState.selectedState;
+  var stateG = getStateGroupById(questionDiv, state.id);
+
+  var boundingRect = stateG.select("." + graphConsts.stateMainCircle).node().getBoundingClientRect();
+  //var x = boundingRect.x + ( boundingRect.width / 2 ) + window.scrollX;
+  var x = boundingRect.x  + graphConsts.nodeRadius - 8 + window.scrollX;
+
   hideElem(questionDiv.graphDiv.stateContextMenuDiv);
-  initRenaming(questionDiv, graphStateEnum.renamingState, questionDiv.graphDiv.stateContextMenuDiv, questionDiv.graphDiv.graphState.selectedState.id);
+  initRenaming(
+    questionDiv, 
+    graphStateEnum.renamingState, 
+    questionDiv.graphDiv.stateContextMenuDiv, 
+    state.id,
+    null,
+    x + 5,
+    boundingRect.y + window.scrollY + graphConsts.nodeRadius *2 - 15);
 }
 
 function initRenaming(questionDiv, state, menu, defaultValue, errMsg = null, posX = null, posY = null) {
@@ -1506,19 +1503,18 @@ function initRenaming(questionDiv, state, menu, defaultValue, errMsg = null, pos
 
   var renameDiv = questionDiv.graphDiv.renameDiv;
   var top, left;
-
+  showElem(renameDiv);
   if (posX == null && posY == null) {
     top = menu.style.top.slice(0, -2);
     left = menu.style.left.slice(0, -2);
   }
   else {
-    top = posY;
+    //left = posX - (renameDiv.getBoundingClientRect().width / 2);
     left = posX;
-    
+    top = posY;
   }
   setContextMenuPosition(renameDiv, top, left);
-  showElem(renameDiv);
-
+  
   if (errMsg != null) {
     showRenameError(errMsg, questionDiv);
   } else {
@@ -1527,6 +1523,7 @@ function initRenaming(questionDiv, state, menu, defaultValue, errMsg = null, pos
   
   //TODO fix?
   renameDiv.input.setAttribute("value", defaultValue);
+  renameDiv.input.value = defaultValue;
   renameDiv.input.select();
   renameDiv.input.focus();
 }
@@ -1579,7 +1576,21 @@ function deleteEdgeHandler(questionDiv) {
 function renameEdgeHandler(questionDiv) {
   //renameEdge(questionDiv, questionDiv.graphDiv.graphState.selectedEdge);
   hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
-  initRenaming(questionDiv, graphStateEnum.renamingEdge, questionDiv.graphDiv.edgeContextMenuDiv, questionDiv.graphDiv.graphState.selectedEdge.symbols);
+  var edge = questionDiv.graphDiv.graphState.selectedEdge;
+  var edgeG = getEdgeGroupById(questionDiv, edge.id);
+  //toggleEdgeSelection(edgeG, questionDiv.graphDiv, event, edge);
+
+  var symbolsBCR = edgeG.select("." + graphConsts.edgeRectClass).node().getBoundingClientRect();
+  //var x = (symbolsBCR.x + (symbolsBCR.width / 2)) + window.scrollX;
+  var x = (symbolsBCR.x) + window.scrollX;
+  initRenaming(
+    questionDiv,
+    graphStateEnum.renamingEdge,
+    questionDiv.graphDiv.edgeContextMenuDiv,  
+    edge.symbols,
+    null,
+    x, 
+    symbolsBCR.y + window.scrollY + 21);
 }
 
 // ------------------------------------------------------
@@ -1842,6 +1853,7 @@ function distBetween(x1, y1, x2, y2) {
 }
 
 function getCoordinates(oldXy, svgGroup) {
+
   var transform = d3.zoomTransform(svgGroup.node());
   var newXy = transform.invert(oldXy);
 
@@ -1978,6 +1990,7 @@ function hideEdge(edgeG) {
   edgeG.select("." + graphConsts.edgeMarkerClass).classed("hidden", true);
 }
 
+
 function removeSelectionFromState(graphDiv) {
   if (graphDiv.graphState.selectedState == null) {
     return;
@@ -2035,9 +2048,6 @@ function deselectAll(exceptionId = null) {
       var graphDiv = d3.select(this).node();
 
       if (exceptionId != graphDiv.parentNode.getAttribute("id")) {
-/*         graphDiv.graphState.creatingEdge = false;
-        graphDiv.graphState.renaming = false;
-        graphDiv.graphState.namingEdge = false; */
 
         graphDiv.graphState.currentState = graphStateEnum.default;
 
@@ -2119,17 +2129,18 @@ function getEdgeDataById(questionDiv, id) {
 }
 
 function transitionWithSymbolExists(questionDiv, edgeId, stateId, symbols) {
+  
   var syms = symbols.split(",");
   for (let i = 0; i < questionDiv.edgesData.length; i++) {
     const ed = questionDiv.edgesData[i];
-    console.log(ed);
-    if (edgeId != ed.id && ed.source.id == stateId) {
-      var edSyms = ed.symbols.split(",");
-      if (intersects(edSyms, syms)) {
-        return true;
+
+    if (ed.source.id == stateId && (edgeId == null || (edgeId != null && edgeId != ed.id))) {
+        var edSyms = ed.symbols.split(",");
+        if (intersects(edSyms, syms)) {
+          return true;
+        }
       }
     }
-  }
   return false;
 }
 
@@ -2162,6 +2173,21 @@ function stateIdIsUnique(statesData, stateData, newId) {
   return true;
 }
 
+function graphIsInRenamingState(state) {
+  return state == graphStateEnum.renamingState ||
+    state == graphStateEnum.renamingEdge ||
+    state == graphStateEnum.namingEdge ||
+    state == graphStateEnum.mergingEdge;
+}
+
+function removeDuplicates(array) {
+  return array.filter(function (item, pos) { return array.indexOf(item) == pos; });
+}
+
+function replaceEpsilon(array) {
+  return array.toString().replace(/\\e/g, 'ε');
+}
+
 //TODO to delete?
 function promptNewStateName(promptText, stateData, statesData) {
   var incorrect;
@@ -2182,7 +2208,7 @@ function promptNewStateName(promptText, stateData, statesData) {
 }
 
 //TODO !!!
-function getNewEdgeSymbols(promptText, type, prevSymbols = "") {
+/* function getNewEdgeSymbols(promptText, type, prevSymbols = "") {
   var result = prompt(promptText, prevSymbols);
   if (result == null) return null;
 
@@ -2212,16 +2238,16 @@ function getNewEdgeSymbols(promptText, type, prevSymbols = "") {
         result = prompt("Chyba: Nevyhovující syntax! " + promptText, result);
         incorrect = true;
       }
-      /*
+      
       if (result.length > 300) {
         result = prompt("Prekrocena maximalna dlzka symbolov prechodu!" + promptText, result);
         incorrect = true;
-      }*/
+      }
     }
   }
   while (incorrect && result != null);
   return result;
-}
+} */
 
 function deleteSymbolFromAllEdges(questionDiv, symbol) {
   var edgesToDelete = [];
