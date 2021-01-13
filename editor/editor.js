@@ -849,7 +849,7 @@ function stateDragend(event, d) {
           graphStateEnum.namingEdge,
           graphDiv.edgeContextMenuDiv, 
           "", 
-          addTransitionPrompt,
+          null,//addTransitionPrompt,
           x + window.scrollX, 
           y + window.scrollY);
       }
