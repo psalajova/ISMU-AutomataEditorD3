@@ -1,7 +1,9 @@
+const STATE_INDEX = 1;
+
 function createTable(questionDiv) {
     var table = document.createElement("table");
     table.setAttribute("class", tableClasses.myTable);
-    table.selectedCell = null;
+    table.selectedCellInput = null;
     table.questionDiv = questionDiv;
     table.alertStatus = questionDiv.tableDiv.alertText;
     questionDiv.tableDiv.table = table;
@@ -40,6 +42,7 @@ function createTableFromData(questionDiv) {
     insertInactiveCell(row1, 0);
     insertInactiveCell(row1, 1);
 
+    //create second row - "symbols" row
     var row2 = table.insertRow(table.rows.length);
     insertInactiveCell(row2, 0);
     var cell = insertInactiveCell(row2, 1);
@@ -152,7 +155,7 @@ function insertInnerCell(table, row) {
     var input = createInput([tableClasses.inputCellDiv], value, value,
         table.rows[1].cells[cell.cellIndex].style.minWidth);
 
-    input.addEventListener("click", (e) => cellClickHandler(e, table));
+    input.addEventListener("click", (e) => inputClickHandler(e, table));
     input.addEventListener("input", (e) => tableCellChanged(e, table, input));
     input.addEventListener("focusout", (e) => tableCellChangedFinal(e, table, input));
 
@@ -180,10 +183,10 @@ function insertRowHeader(row, name) {
 
     input.defaultClass = tableClasses.rowHeader; // whhy>?
 
-    input.addEventListener("click", tableHeaderCellClick);
-    input.addEventListener("input", (e) => tableRhChanged(e, table, input));
-    input.addEventListener("focusout", (e) => tableRhChangedFinal(e, table, input));
-    input.addEventListener("keypress", function (event) { cellKeypressHandler(event, stateSyntax()); });
+    jQuery_new(input).click(() => tableHeaderCellClick(table, input));
+    jQuery_new(input).on("input", (e) => tableRhChanged(e, table));
+    jQuery_new(input).focusout((e) => tableRhChangedFinal(e, table, input));
+    jQuery_new(input).keypress((e) => cellKeypressHandler(e, stateSyntax()));
 
     cell.myDiv = input;
     cell.appendChild(input);
@@ -204,7 +207,7 @@ function insertColumnHeader(row, symbol) {
 
     addResizable(table, cell);
 
-    input.addEventListener("click", cellClickHandler);
+    input.addEventListener("click", (e) => inputClickHandler(e));
     input.addEventListener("input", (e) => tableChChanged(e, table, input));
     input.addEventListener("focusout", (e) => tableChChangedFinal(e, table, input));
 
@@ -384,15 +387,16 @@ function tableChChangedFinal(_, table, input) {
     }
 }
 
-function tableRhChanged(e, table, input) {
-    var currentValue = removePrefix(input.value);
+function tableRhChanged(e, table) {
+    var input = e.target;
+    var stateName = removePrefix(input.value);
     var rowIndex = input.parentNode.parentNode.rowIndex;
 
-    if (incorrectStateSyntax(currentValue)) {
+    if (incorrectStateSyntax(stateName)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
         activateAlertMode(table, errors.INCORRECT_STATE_SYNTAX, input);
     }
-    else if (tableStateAlreadyExists(table, input, currentValue)) {
+    else if (tableStateAlreadyExists(table, input, stateName)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
         activateAlertMode(table, errors.DUPLICIT_STATE_NAME, input);
     }
@@ -402,7 +406,22 @@ function tableRhChanged(e, table, input) {
             unlockTable(table);
             hideElem(table.alertStatus);
         }
-        //TODO: toggling initial / accepting (1094) ???
+        // we have to check if this state is newly initial and if yes remove '→'
+        // from prev.initial state
+        if (input.value[0] == '→' || input.value[0] == '↔') {
+            for (var i = 2; i < table.rows.length - 1; i++) {
+                var statePrevVal = table.rows[i].cells[STATE_INDEX].myDiv.prevValue;
+                if (i != rowIndex && (statePrevVal[0] == '→' || statePrevVal[0] == '↔')) {
+                    setInitStateAsNotInitial(table.questionDiv);
+
+                    var val = statePrevVal[0] == '↔' ? "←" : "";
+                    val += statePrevVal.substring(1);
+                    table.rows[i].cells[STATE_INDEX].myDiv.value = val;
+                    table.rows[i].cells[STATE_INDEX].myDiv.prevValue = val;
+                }
+            }
+        }
+        resolveInitButton(table.parentNode, input.value[0]);
     }
 }
 
@@ -421,6 +440,7 @@ function tableRhChangedFinal(e, table, input) {
 
         var d = getStateDataById(table.questionDiv, newName);
 
+        //TODO better, this is ugly af
         var initial = false, accepting = false;
         if (input.value[0] == '↔') {
             initial = accepting = true;
@@ -594,17 +614,69 @@ function tableCellChangedFinal(e, table, input) {
 function stateExistsInRow(table, row, state) {
 
 }
-//dorobit
-function tableHeaderCellClick(evt) {
-    var cell = evt.target;
-    //var table = cell.parentElement.parentElement.parentElement.parentElement;
-    var table = getParentByType("table", cell);
-    if (!table.locked && table.selectedCell != cell) {
-        selectDifferentCell(table, cell);
 
-        //HOME
-        //disable/enable init and accepting buttons
+function tableHeaderCellClick(table, input) {
+    if (!table.locked && table.selectedCellInput != input) {
+        selectDifferentRowHeaderCell(table, input);
+        disableControlButtons(table.parentNode, false);
+        resolveInitButton(table.parentNode, input.prevValue[0]);
     }
+}
+
+function tableInitialOnClick(tableDiv) {
+    var table = tableDiv.table;
+    var input = table.selectedCellInput;
+    if (input == null || input.parentNode.cellIndex != STATE_INDEX) {
+        return;
+    }
+    var stateId = removePrefix(input.value);
+    if (/[↔]/.test(input.value)) {
+        input.value = '←' + stateId;
+    }
+    else if (/[←]/.test(input.value)) {
+        input.value = '↔' + stateId;
+    }
+    else if (/[→]/.test(input.value)){
+        input.value = stateId;
+    }
+    else {
+        input.value = '→' + stateId;
+    }
+    input.prevValue = input.value;
+
+    console.log("new initial state:");
+    console.log(getStateDataById(table.questionDiv, stateId));
+
+    setNewStateAsInitial(table.questionDiv, getStateDataById(table.questionDiv, stateId));
+    jQuery_new(input).trigger("input");
+}
+
+function tableAcceptingOnClick(tableDiv) {
+    var table = tableDiv.table;
+    var input = table.selectedCellInput;
+    if (input == null || input.parentNode.cellIndex != STATE_INDEX) {
+        return;
+    }
+    var stateId = removePrefix(input.value);
+    if (/[↔]/.test(input.value)) {
+        input.value = '→' + stateId;
+    }
+    else if (/[←]/.test(input.value)) {
+        input.value = stateId;
+    }
+    else if (/[→]/.test(input.value)){
+        input.value = '↔' + stateId;
+    }
+    else {
+        input.value = '←' + stateId;
+    }
+    input.prevValue = input.value;
+
+    //edit state in graph
+    var stateG = getStateGroupById(table.questionDiv, stateId);
+    toggleAcceptingState(stateG.datum(), stateG);
+
+    jQuery_new(input).trigger("input");
 }
 
 /* HELPER FUNCTIONS */
@@ -663,13 +735,10 @@ function insertInactiveCell(row, index) {
         ]);
 }
 
-
-
-
-function cellClickHandler(event) {
-    var cell = event.target;
-    //var table = cell.parentElement.parentElement.parentElement.parentElement;
-    var table = getParentByType("table", cell);
+function inputClickHandler(event) {
+    var input = event.target;
+    var table = input.parentNode.parentNode.parentNode.parentNode;
+    //var table = getParentByType("table", input);
     if (!table.locked) {
         deselectCell(table);
     }
@@ -692,36 +761,29 @@ function cellKeypressHandler(event, regex) {
 }
 
 function deselectCell(table) {
-    if (table.selectedCell != null) {
-        var div = table.selectedCell;
-        d3.select(div).classed(tableClasses.selectedHeaderInput, false);
-        //jQuery_new(div).switchClass();
-        table.selectedCell = null;
+    if (table.selectedCellInput != null) {
+        var input = table.selectedCellInput;
+        d3.select(input).classed(tableClasses.selectedHeaderInput, false);
+        d3.select(input).classed(tableClasses.rowHeader, true);
+        table.selectedCellInput = null;
     }
-
-    /*
-    table.wp.tableTab.buttonInit.disabled = true;
-    table.wp.tableTab.buttonEnd.style.borderStyle = "outset";
-    table.wp.tableTab.buttonEnd.disabled = true;
-    */
+    disableControlButtons(table.parentNode);
 }
 
-
-
-function selectDifferentCell(table, newCell) {
+function selectDifferentRowHeaderCell(table, input) {
     var prev;
-    if (table.selectedCell) {
-        prev = d3.select(table.selectedCell);
+    if (table.selectedCellInput != null) {
+        prev = d3.select(table.selectedCellInput);
     }
-    if (prev) {
+    if (prev != null) {
         prev.classed(tableClasses.selectedHeaderInput, false);
         prev.classed(tableClasses.rowHeader, true);
     }
-    var next = d3.select(newCell);
+    var next = d3.select(input);
     next.classed(tableClasses.selectedHeaderInput, true);
     next.classed(tableClasses.rowHeader, false);
 
-    table.selectedCell = newCell;
+    table.selectedCellInput = input;
 }
 
 //FIX
@@ -745,7 +807,10 @@ function addResizable(table, cell) {
     cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
 }
 
+//TODO lock and unlock table into one function?
 function lockTable(table, exceptionInput) {
+    console.log("locking");
+    console.log(table);
     for (var i = 1; i < table.rows.length - 1; i++) {
         for (var j = 1; j < table.rows[i].cells.length; j++) {
             if (table.rows[i].cells[j].myDiv == exceptionInput) {
@@ -775,7 +840,7 @@ function lockButtons(questionDiv, val = null) {
 function tableStateAlreadyExists(table, input, value) {
     var ri = input.parentNode.parentNode.rowIndex;
     for (var i = 2; i < table.rows.length - 1; i++) {
-        if (i != ri && value == removePrefix(table.rows[i].cells[1].myDiv.value)) {
+        if (i != ri && value == removePrefix(table.rows[i].cells[STATE_INDEX].myDiv.value)) {
             return true;
         }
     }
@@ -848,4 +913,21 @@ function activateAlertMode(table, error, exc) {
     setAlert(table, error, true);
     showElem(table.alertStatus);
     lockTable(table, exc);
+}
+
+function disableControlButtons(tableDiv, disable = true) {
+    tableDiv.buttonInit.disabled = disable;
+    tableDiv.buttonAcc.disabled = disable;
+}
+
+function resolveInitButton(tableDiv, symbol) {
+    if (symbol == '↔' || symbol == '→') {
+        tableDiv.buttonInit.disabled = true;
+    }
+/*     else if (symbol == '←') {
+        tableDiv.buttonInit.disabled = false;
+    } */
+    else {
+        tableDiv.buttonInit.disabled = false;
+    }
 }

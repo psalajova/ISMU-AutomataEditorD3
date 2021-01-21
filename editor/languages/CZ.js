@@ -12,6 +12,10 @@ var stateNameAlreadyExistsPrompt = "Chyba: Takto pojmenovaný stav již existuje
 var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
 var DFA_invalid_transition = "<strong>Chyba:</strong> Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
 
+
+const tableInitialButtonName = "Počáteční stav"; 
+const tableAcceptingButtonName = "Akceptující stav";
+
 //state context menu
 var addTransitionText = "Přidať prechod";
 var renameStateText = "Přejmenovat";

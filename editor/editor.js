@@ -27,14 +27,15 @@ const tableClasses = {
   columnHeader: "column-header-cell", //ch
   rowHeader: "row-header-input", //rh
   innerCell: "inner-cell",
-  inputCellDiv: "cell-div", //myCellDiv
-  inputColumnHeaderDiv: "column-header-div",
+  inputCellDiv: "cell-input", //myCellDiv
+  inputColumnHeaderDiv: "column-header-input",
   noselectCell: "noselect",
   inactiveCell: "inactive-cell", //tc
   selectedHeaderInput: "selected-header-input",
   incorrectCell: "incorrect-cell", //incorrect
   deleteButton: "delete-button-cell", //deleteButton
-  addButton: "add-button-cell" //addButton
+  addButton: "add-button-cell", //addButton
+  controlButton: "control-button"
 }
 var activeQuestionDiv;
 var SELECTED_SVG_ELEMENT;
@@ -67,19 +68,14 @@ function initialise(id, type) {
 
 
   //create menu BUTTONS
-  var graphButton = document.createElement("button");
-  graphButton.innerText = graphMenuButton;
-  graphButton.setAttribute("class", menuButtonClass);
-  graphButton.addEventListener("click", function () { clickGraph(questionDiv) }); //will it work????
+  
+  var graphButton = createButton(graphMenuButton, menuButtonClass);
+  graphButton.addEventListener("click", function () { clickGraph(questionDiv) });
 
-  var textButton = document.createElement("button");
-  textButton.innerText = textMenuButton;
-  textButton.setAttribute("class", menuButtonClass);
+  var textButton = createButton(textMenuButton, menuButtonClass);
   textButton.addEventListener("click", function () { clickText(questionDiv) });
 
-  var tableButton = document.createElement("button");
-  tableButton.innerText = tableMenuButton;
-  tableButton.setAttribute("class", menuButtonClass);
+  var tableButton = createButton(tableMenuButton, menuButtonClass);
   tableButton.addEventListener("click", function () { clickTable(questionDiv) });
 
   questionDiv.appendChild(graphButton);
@@ -90,9 +86,7 @@ function initialise(id, type) {
   var hintDiv = document.createElement("div");
   hintDiv.setAttribute("class", "hintDiv");
 
-  var hintButton = document.createElement("button");
-  hintButton.setAttribute("class", "hintButton");
-  hintButton.innerText = hintLabel + " 🡣";
+  var hintButton = createButton(hintLabel + " 🡣", "hintButton");
   hintButton.addEventListener("click", function () { clickHintButton(questionDiv); });
 
   var hintContentDiv = document.createElement("div");
@@ -164,7 +158,7 @@ function initGraph(questionDiv) {
     selectedEdge: null,
     initialState: null,
     mouseOverState: null,
-    mouseDownState: null,
+    lastSourceState: null,
     lastTargetState: null,
     mouseDownEdge: null,
     justScaleTransGraph: false,
@@ -186,7 +180,7 @@ function initGraph(questionDiv) {
     .on("click", svgRectClick)
     .on("contextmenu", svgRectContextmenu)
     //.on("click", (event) => {console.log("svg clcik"); console.log(event);})
-;
+  ;
 
   questionDiv.graphDiv.svg = svg;
   questionDiv.textNode = svg.append("text");
@@ -247,7 +241,8 @@ function initGraph(questionDiv) {
   svg.svgGroup = svgGroup;
 
   //"temporary" path when creating edges
-  var temporaryEdgeG = svgGroup.append("g").attr("id", "temporary edge group");
+  //TODO ID!!
+  var temporaryEdgeG = svgGroup.append("g").classed("temp-edge-group", true);
   svgGroup.temporaryEdgeG = temporaryEdgeG;
 
   temporaryEdgeG
@@ -310,11 +305,8 @@ function initGraph(questionDiv) {
 }
 
 function initTableDiv(questionDiv) {
-  //TODO
-  var hP = document.createElement("p");
-  hP.innerText = "← koncovy \n→ pociatocny";
-  questionDiv.tableDiv.appendChild(hP);
-
+  createTableControlButtons(questionDiv);
+  disableControlButtons(questionDiv.tableDiv);
   createTable(questionDiv);
 
   //error alert paragraph
@@ -323,6 +315,25 @@ function initTableDiv(questionDiv) {
   hideElem(alertP);
   questionDiv.tableDiv.alertText = alertP;
   questionDiv.tableDiv.appendChild(alertP);
+}
+
+function createButton(text, className) {
+  var button = document.createElement("button");
+  button.innerText = text;
+  button.setAttribute("class", className);
+  return button;
+}
+
+function createTableControlButtons(questionDiv) {
+  var button = createButton(tableInitialButtonName, tableClasses.controlButton);
+  button.addEventListener("click", () => tableInitialOnClick(questionDiv.tableDiv));
+  questionDiv.tableDiv.appendChild(button);
+  questionDiv.tableDiv.buttonInit = button;
+
+  var button = createButton(tableAcceptingButtonName, tableClasses.controlButton);
+  button.addEventListener("click", () => tableAcceptingOnClick(questionDiv.tableDiv));
+  questionDiv.tableDiv.appendChild(button);
+  questionDiv.tableDiv.buttonAcc = button;
 }
 
 function initInitialState(questionDiv) {
@@ -386,7 +397,7 @@ function renameInputKeyup(event, questionDiv) {
     }
     else if (graphState.currentState == graphStateEnum.namingEdge) {
       tryToAddEdge(questionDiv, 
-        graphState.mouseDownState, 
+        graphState.lastSourceState, 
         graphState.lastTargetState,
         questionDiv.graphDiv.renameDiv.input.value);
     }
@@ -593,7 +604,7 @@ function initCreatingTransition(event, graphDiv) {
   temporaryEdgePath.classed("hidden", false);
 
   var targetState = graphDiv.graphState.mouseOverState;
-  var sourceState = graphDiv.graphState.mouseDownState;
+  var sourceState = graphDiv.graphState.lastSourceState;
   var mouseX = d3.pointer(event, graphDiv.svg.svgGroup.node())[0];
   var mouseY = d3.pointer(event, graphDiv.svg.svgGroup.node())[1];
 
@@ -816,13 +827,13 @@ function stateDragend(event, d) {
   var diff = event.sourceEvent.timeStamp - groupNode.clickTimer;
 
   if (graphState.currentState == graphStateEnum.creatingEdge && diff < 400 && distance < 2) {
-    if (graphState.mouseDownState && graphState.mouseOverState) {
-      var existingEdgeData = getEdgeDataByStates(graphDiv.parentNode, graphState.mouseDownState.id, graphState.mouseOverState.id);
+    if (graphState.lastSourceState && graphState.mouseOverState) {
+      var existingEdgeData = getEdgeDataByStates(graphDiv.parentNode, graphState.lastSourceState.id, graphState.mouseOverState.id);
       graphState.lastTargetState = graphState.mouseOverState;
 
       if (existingEdgeData != null) { //edge already exists between the two states
         var edgeG = getEdgeGroupById(graphDiv.parentNode, existingEdgeData.id);
-        toggleEdgeSelection(edgeG, graphDiv, event, existingEdgeData);
+        toggleEdgeSelection(edgeG, graphDiv);
 
         //OK
         var boundingRect = edgeG.select("." + graphConsts.edgeRectClass).node().getBoundingClientRect();
@@ -838,25 +849,29 @@ function stateDragend(event, d) {
           boundingRect.y + window.scrollY + 26);
       }
       else { //adding new edge
-        var d = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePathClass).attr("d");
+        //var d = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePathClass).attr("d");
         var tempEdgeBCR = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePathClass).node().getBoundingClientRect();
-        var x = midpoint(tempEdgeBCR.x, tempEdgeBCR.x + tempEdgeBCR.width);
-        var y = midpoint(tempEdgeBCR.y, tempEdgeBCR.y + tempEdgeBCR.height);
+        var x = midpoint(tempEdgeBCR.x, tempEdgeBCR.x + tempEdgeBCR.width/2);
+        var y = midpoint(tempEdgeBCR.y, tempEdgeBCR.y + tempEdgeBCR.height/2);
         //var pos = getEdgeRectPosition(d, graphState.mouseDownState == graphState.mouseOverState);
 
+        
         initRenaming(
           graphDiv.parentNode,
           graphStateEnum.namingEdge,
           graphDiv.edgeContextMenuDiv, 
-          "", 
-          null,//addTransitionPrompt,
+          "zadejte symboly prechodu", 
+          null,//addTransitionPrompt??,
           x + window.scrollX, 
           y + window.scrollY);
+
+        graphDiv.svg.svgGroup.temporaryEdgeG.classed(graphConsts.selectedClass, true);
+        removeSelectionFromState(graphDiv);
       }
     }
   }
   else if (graphState.currentState != graphStateEnum.creatingEdge && diff > 1 && distance < 2) { //starting to create an edge
-    graphState.mouseDownState = d;
+    graphState.lastSourceState = d;
     graphState.currentState = graphStateEnum.creatingEdge;
     initCreatingTransition(event, graphDiv);
   }
@@ -931,7 +946,7 @@ function edgeDragstart(event, d) {
   deselectAll(graphDiv.parentNode.getAttribute("id"));
 
   //graphDiv.graphState.mouseDownEdge = d;
-  toggleEdgeSelection(d3.select(this), graphDiv, event, d);
+  toggleEdgeSelection(d3.select(this), graphDiv);
   toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
 
   hideElem(graphDiv.stateContextMenuDiv);
@@ -1184,6 +1199,7 @@ function toggleAcceptingState(stateData, stateG) {
 }
 
 function setNewStateAsInitial(questionDiv, stateData) {
+  console.log(questionDiv.getAttribute("id"));
   setInitStateAsNotInitial(questionDiv);
 
   questionDiv.statesData
@@ -1195,6 +1211,7 @@ function setNewStateAsInitial(questionDiv, stateData) {
     });
   
   questionDiv.graphDiv.graphState.initialState = stateData;
+  
 
   repositionInitArrow(questionDiv.graphDiv, stateData);
 }
@@ -1202,14 +1219,13 @@ function setNewStateAsInitial(questionDiv, stateData) {
 function setInitStateAsNotInitial(questionDiv) {
   questionDiv.statesData
     .filter(function (d) {
-      return d.initial = true;
+      return d.initial == true;
     })
     .map(function (d) {
       d.initial = false;
     });
 
   hideInitArrow(questionDiv.graphDiv);
-
 }
 
 function renameState(questionDiv, stateData, newTitle) {
@@ -1331,7 +1347,7 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
       deselectAll(questionDiv.getAttribute("id"));
 
       hideElem(questionDiv.graphDiv.stateContextMenuDiv);
-      toggleEdgeSelection(d3.select(this), questionDiv.graphDiv, event, d);
+      toggleEdgeSelection(d3.select(this), questionDiv.graphDiv);
       setContextMenuPosition(questionDiv.graphDiv.edgeContextMenuDiv, event.pageY, event.pageX);
       showElem(questionDiv.graphDiv.edgeContextMenuDiv);
     })
@@ -1377,17 +1393,16 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
   updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
 }
 
-function toggleEdgeSelection(edgeGroup, graphDiv, event, d) {
-  //console.log("toggle");
+function toggleEdgeSelection(edgeGroup, graphDiv) {
   removeSelectionFromState(graphDiv);
 
-  if (graphDiv.graphState.selectedEdge != d) {
-    //console.log("d != d");
+  //edgeGroup.datum() == data binded with element
+
+  if (graphDiv.graphState.selectedEdge != edgeGroup.datum()) {
     removeSelectionFromEdge(graphDiv);
-    graphDiv.graphState.selectedEdge = d;
+    graphDiv.graphState.selectedEdge = edgeGroup.datum();
     SELECTED_SVG_ELEMENT = edgeGroup;
     edgeGroup.classed(graphConsts.selectedClass, true);
-    //console.log("selected");
   }
 }
 
@@ -1578,7 +1593,7 @@ function renameEdgeHandler(questionDiv) {
   hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
   var edge = questionDiv.graphDiv.graphState.selectedEdge;
   var edgeG = getEdgeGroupById(questionDiv, edge.id);
-  //toggleEdgeSelection(edgeG, questionDiv.graphDiv, event, edge);
+  //toggleEdgeSelection(edgeG, questionDiv.graphDiv);
 
   var symbolsBCR = edgeG.select("." + graphConsts.edgeRectClass).node().getBoundingClientRect();
   //var x = (symbolsBCR.x + (symbolsBCR.width / 2)) + window.scrollX;
@@ -1957,9 +1972,6 @@ function repositionInitArrow(graphDiv, stateData) {
       "," +
       stateData.y
     );
-
-  
-  //console.log(d3.select(graphDiv).select(".init-arrow").attr("d"));
 }
 
 function repositionEdgeRect(rect, x, y) {
@@ -2061,6 +2073,7 @@ function deselectAll(exceptionId = null) {
         hideElem(graphDiv.renameDiv);
         hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
   
+        graphDiv.svg.svgGroup.temporaryEdgeG.classed(graphConsts.selectedClass, false);
         enableAllDragging(graphDiv.svg);
       }
     });
