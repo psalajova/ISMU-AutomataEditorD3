@@ -26,7 +26,7 @@ var setStateAsNonAcceptingText ="Nastavit jako neakceptující";
 
 var renameEdgeText = "Upravit symboly přechodu";
 
-var enterToRename = "Press ENTER to save changes";
+var enterToRename = "Pro uložení stiskněte ENTER"; //Press ENTER to save changes
 
 var hints = {
   HINT_ADD_STATE : "<b>Vytvoření stavu:</b> double click na plátno.",

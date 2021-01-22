@@ -616,13 +616,9 @@ function tableInitialOnClick(tableDiv) {
         input.value = '→' + stateId;
     }
     input.prevValue = input.value;
-/* 
-    console.log("new initial state:");
-    console.log(getStateDataById(table.questionDiv, stateId)); */
 
     setNewStateAsInitial(table.questionDiv, getStateDataById(table.questionDiv, stateId));
     jQuery_new(input).trigger("input");
-    console.log("initial click end");
 }
 
 function tableAcceptingOnClick(tableDiv) {

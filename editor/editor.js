@@ -521,32 +521,36 @@ function windowKeyUp(event) {
 
 function svgRectClick(event) {
   event.preventDefault();
-
   var cl = event.srcElement.classList;
-  //console.log(cl);
   
   var graphDiv = cl.contains("main-svg") ? event.srcElement.parentNode : event.srcElement.ownerSVGElement.parentNode;
-  //console.log("click curr state = " + graphDiv.graphState.currentState);
   var isState = cl.contains("state-text") || cl.contains("state-main-circle") || cl.contains("accepting-circle");
+  var isEdge = cl.contains("edge-rect") || cl.contains("edge-path") || cl.contains("edge-text");
   
-  //if we are not creating edge and we click on state, do nothing, bcs we want to start creating edge
-  if (isState && graphDiv.graphState.currentState == graphStateEnum.creatingEdge) {
+  var currentState = graphDiv.graphState.currentState;
+
+  if (isEdge && currentState == graphStateEnum.default) {
+    console.log("def");
+    return;
+  }
+
+  /*
+  ak creating edge tak nic, lebo sa musi vypnut ked kliknem na platno alebo inu edge
+  ak namingEdge/mergingEdge
+  ak renamingEdge/state
+  */
+  if (isState && currentState == graphStateEnum.creatingEdge) {
+    console.log("creatingEdge and clicked on state");
     return;
   }
 
   //when adding new edge and merging edges, we click on the second state, and we dont want to cancel its selection
-  if (graphDiv.graphState.currentState == graphStateEnum.namingEdge && isState) {
+  if (currentState == graphStateEnum.namingEdge && isState) {
     return;
   }
-  if (graphDiv.graphState.currentState == graphStateEnum.mergingEdge && isState) {
+  if (currentState == graphStateEnum.mergingEdge && isState) {
     return;
   }
-
-
-/*   else if (graphDiv.graphState.currentState != graphStateEnum.creatingEdge &&
-   (cl.contains("edge-path") || cl.contains("edge-rect") || cl.contains("edge-text"))) {
-    return;
-  } */
   deselectAll();
 
   //TODO: init selection of multiple elements???
@@ -780,6 +784,7 @@ function stateDragstart(event, d) {
 //console.log("state dragstart");
   var graphDiv = d3.select(this).node().parentGraphDiv;
   deselectAll(graphDiv.parentNode.getAttribute("id"));
+  graphDiv.svg.svgGroup.temporaryEdgeG.classed(graphConsts.selectedClass, false);
   var node = d3.select(this).node();
 
   node.clickTimer = event.sourceEvent.timeStamp;
@@ -1118,11 +1123,12 @@ function addStateEvents(state, graphDiv) {
         return;
       }
       
-      deselectAll(graphDiv.parentNode.getAttribute("id"));
       
+      deselectAll(graphDiv.parentNode.getAttribute("id"));
+      hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
       toggleStateSelection(d3.select(this), graphDiv, data);
       setContextMenuPosition(graphDiv.stateContextMenuDiv, event.pageY, event.pageX);
-      //console.log(event.pageY + "," + event.pageX);
+
       if (data.initial) {
         hideElem(graphDiv.initialButton);
       }
@@ -1328,8 +1334,19 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
   newEdge.node().parentGraphDiv = questionDiv.graphDiv;
 
   //if (!jeProhlizecistranka()) {}
-  newEdge
-    .on("mouseover", function (event, d) {
+  addEdgeEvents(questionDiv, newEdge);
+
+  addEdgeSvg(questionDiv, newEdge, fromTable, from, to, temporaryEdgePath.attr("d"));
+
+  repositionMarker(newEdge);
+  updateEdgeRectAndTextPosition(questionDiv, newEdge);
+  updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
+}
+
+function addEdgeEvents(questionDiv, edge) {
+  edge
+    .call(dragEdge)
+    .on("mouseover", function () {
       d3.select(this).classed(graphConsts.mouseOverClass, true);
     })
     .on("mouseout", function () {
@@ -1344,15 +1361,14 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
       }
       
       deselectAll(questionDiv.getAttribute("id"));
-
       hideElem(questionDiv.graphDiv.stateContextMenuDiv);
       toggleEdgeSelection(d3.select(this), questionDiv.graphDiv);
       setContextMenuPosition(questionDiv.graphDiv.edgeContextMenuDiv, event.pageY, event.pageX);
       showElem(questionDiv.graphDiv.edgeContextMenuDiv);
-    })
-    //.on("click", function(event) {event.stopPropagation();})
-    .call(dragEdge);
+    });    
+}
 
+function addEdgeSvg(questionDiv, newEdge, fromTable, from, to, tempEdgeDef) {
   newEdge
     .append("svg:path")
     .classed(graphConsts.edgePathClass, true)
@@ -1361,7 +1377,7 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
         return getNewSelfloopDefinition(from.x, from.y, to.x, to.y,);
       }
       else if (!fromTable && from == to) {
-        return temporaryEdgePath.attr("d");
+        return tempEdgeDef;
       }
       return getStraightPathDefinition(from.x, from.y, to.x, to.y);
     });
@@ -1369,27 +1385,19 @@ function addEdge(questionDiv, from, to, symbols, fromTable = false) {
   newEdge
     .append("svg:path")
     .classed(graphConsts.edgeMarkerClass, true)
-    //.attr("marker-end", "url(#end-arrow)")
-    .attr("marker-end", "url(#end-arrow" + questionDiv.getAttribute("id") + ")")
-    
-    ;
+    .attr("marker-end", "url(#end-arrow" + questionDiv.getAttribute("id") + ")");
 
-  var rect = newEdge
+  newEdge
     .append("rect")
     .classed(graphConsts.edgeRectClass, true)
     .attr("rx", 3)
     .attr("height", 20);
 
-  var text = newEdge
+  newEdge
     .append("text")
     .classed(graphConsts.edgeTextClass, true)
     .text(function (d) { return d.symbols; })
     .attr("text-anchor", "middle");
-
-  repositionMarker(newEdge);
-  updateEdgeRectAndTextPosition(questionDiv, newEdge);
-
-  updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
 }
 
 function toggleEdgeSelection(edgeGroup, graphDiv) {

@@ -11,7 +11,7 @@ function incorrectStateSyntax(val) {
 }
 
 function graphTransitionsSyntax() {
-    return /^([a-zA-Z0-9]+)(,([a-zA-Z0-9]+))*$/;
+    return /^([a-zA-Z0-9]+)(,(([a-zA-Z0-9]+)))*$/;
 }
 
 function graphEFATransitionSyntax() {
