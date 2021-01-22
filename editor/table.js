@@ -407,13 +407,11 @@ function tableRhChanged(e, table) {
             hideElem(table.alertStatus);
         }
         // we have to check if this state is newly initial and if yes remove '→'
-        // from prev.initial state
+        // from prev.initial state name IN TABLE
         if (input.value[0] == '→' || input.value[0] == '↔') {
             for (var i = 2; i < table.rows.length - 1; i++) {
                 var statePrevVal = table.rows[i].cells[STATE_INDEX].myDiv.prevValue;
                 if (i != rowIndex && (statePrevVal[0] == '→' || statePrevVal[0] == '↔')) {
-                    setInitStateAsNotInitial(table.questionDiv);
-
                     var val = statePrevVal[0] == '↔' ? "←" : "";
                     val += statePrevVal.substring(1);
                     table.rows[i].cells[STATE_INDEX].myDiv.value = val;
@@ -435,33 +433,9 @@ function tableRhChangedFinal(e, table, input) {
         table.states.splice(table.states.indexOf(prevName), 1);
         table.states.push(newName);
 
-        //rename state in graph
+        //update state in graph
         renameState(table.questionDiv, getStateDataById(table.questionDiv, prevName), newName);
-
-        var d = getStateDataById(table.questionDiv, newName);
-
-        //TODO better, this is ugly af
-        var initial = false, accepting = false;
-        if (input.value[0] == '↔') {
-            initial = accepting = true;
-        }
-        else if (input.value[0] == '←') {
-            initial = false;
-            accepting = true;
-        }
-        else if (input.value[0] == '→') {
-            initial = true;
-            accepting = false;
-        }
-        if (initial) {
-            setNewStateAsInitial(table.questionDiv, d);
-        }
-        else {
-            setInitStateAsNotInitial(table.questionDiv);
-        }
-        if (accepting != d.accepting) {
-            toggleAcceptingState(d, getStateGroupById(table.questionDiv, d.id));
-        }
+        updateStateInitAcc(table.questionDiv, getStateDataById(table.questionDiv, newName), input.value[0]);
 
         // Traverse all transitions cells in table and change the name
         for (var i = 2; i < table.rows.length - 1; i++) {
@@ -483,7 +457,6 @@ function tableRhChangedFinal(e, table, input) {
                 }
             }
         }
-
         input.prevValue = input.value;
     }
 }
@@ -643,12 +616,13 @@ function tableInitialOnClick(tableDiv) {
         input.value = '→' + stateId;
     }
     input.prevValue = input.value;
-
+/* 
     console.log("new initial state:");
-    console.log(getStateDataById(table.questionDiv, stateId));
+    console.log(getStateDataById(table.questionDiv, stateId)); */
 
     setNewStateAsInitial(table.questionDiv, getStateDataById(table.questionDiv, stateId));
     jQuery_new(input).trigger("input");
+    console.log("initial click end");
 }
 
 function tableAcceptingOnClick(tableDiv) {
@@ -929,5 +903,30 @@ function resolveInitButton(tableDiv, symbol) {
     } */
     else {
         tableDiv.buttonInit.disabled = false;
+    }
+}
+
+function updateStateInitAcc(questionDiv, stateData, sym) {
+    var initial = false, accepting = false;
+
+    if (sym == '↔') {
+        initial = accepting = true;
+    }
+    else if (sym == '←') {
+        initial = false;
+        accepting = true;
+    }
+    else if (sym == '→') {
+        initial = true;
+        accepting = false;
+    }
+    if (initial) {
+        setNewStateAsInitial(questionDiv, stateData);
+    }
+    else {
+        setInitStateAsNotInitial(questionDiv);
+    }
+    if (accepting != stateData.accepting) {
+        toggleAcceptingState(stateData, getStateGroupById(questionDiv, stateData.id));
     }
 }

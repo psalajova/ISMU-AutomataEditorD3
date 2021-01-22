@@ -1199,7 +1199,6 @@ function toggleAcceptingState(stateData, stateG) {
 }
 
 function setNewStateAsInitial(questionDiv, stateData) {
-  console.log(questionDiv.getAttribute("id"));
   setInitStateAsNotInitial(questionDiv);
 
   questionDiv.statesData
