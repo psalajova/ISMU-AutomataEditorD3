@@ -35,6 +35,7 @@ function clickGraph(questionDiv) {
 
 function clickTable(questionDiv) {
   if (questionDiv.lastEdited == "graph") {
+    updateSvgDimensions(questionDiv);
     deselectAll();
   }
   if (questionDiv.lastEdited == "table") {
@@ -46,6 +47,7 @@ function clickTable(questionDiv) {
   if (questionDiv.lastEdited == "text") {
     //updateDataFromText(questionDiv);
   }
+  disableControlButtons(questionDiv.tableDiv);
   createTableFromData(questionDiv);
   showElem(questionDiv.tableDiv);
   questionDiv.lastEdited = "table";

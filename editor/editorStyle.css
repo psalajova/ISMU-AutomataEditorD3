@@ -115,7 +115,7 @@
     /*border: 1px #888f9b solid;*/
     border-radius: 4.5px; 
     background-color: #ffffff;
-    width: 200px;
+    width: 190px;
     box-shadow: 0px 0px 6px #adadadc4;
 }
 /*
@@ -147,7 +147,7 @@
     border: 1px solid transparent;
     /*border-radius: 3px;*/
     background-color: #e4e5e9;
-    width: 186px;
+    width: 176px;
     height: 20px;
     margin: 5px 5px 0px 5px;
 }
@@ -265,13 +265,13 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 14px;
     padding: 7px;
-    margin: 5px 3px 0px 0px;
-    background-color: #e7e7e7;
+    margin: 8px 5px 0px 0px;
+    background-color: #e0e0e0;
     border-radius: 0px;
-    border: 1px solid rgb(179, 179, 179);
+    border: 0px solid rgb(179, 179, 179);
 }
 .control-button:hover {
-    background-color: #d8d8d8;
+    background-color: #bbbbbb;
 }
 
 .myTable {
@@ -290,42 +290,40 @@
     text-align: center;
     width: 100%;
     border: 0px;
+    border-radius: 0px;
     background-color: #ffffff;
-    padding: 5px 0px 5px 0px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 5px;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .column-header-cell { /* td */
-    background-color: #f1f1f1;
-    border-left: 1px solid #cecece;
-    border-top: 1px solid #cecece;
-    border-right: 1px solid #cecece;
-    border-bottom: 3px solid #4b4b4b;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #c0c0c0;
+    border-bottom: 2px solid #4b4b4b;
+    border-top: 0px;
+    border-left: 0px;
+    border-right: 0px;
+    padding: 0;
 }
 
 .column-header-input { /*input inside td, set bg color here*/
-    font-size: 1.4em;
-    text-align: center;
-    width: 100%;
-    border: 0px;
     background-color: #f1f1f1;
-    padding: 5px 0px 5px 0px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .row-header-cell {
-    border-top: 1px solid #cecece;
+/*     border-top: 1px solid #cecece;
     border-bottom: 1px solid #cecece;
     border-left: 1px solid #cecece;
-    border-right: 3px solid #4b4b4b;
+    border-right: 2px solid #4b4b4b; */
+    border: 1px solid #cecece;
     padding: 0;
 }
 
 .row-header-input { /*input inside td*/
     transition: background-color 0.2s ease;
     background-color:#f1f1f1;
-    text-align: right;
+    text-align: left;
     cursor: pointer;
     border-radius: 0px;
 }
@@ -338,16 +336,14 @@
 /*selected row header input*/
 .selected-header-input {
     background-color: lightgreen;
-    text-align: right;
+    text-align: left;
     cursor: text;
     border-radius: 0px;
 }
 
-
-
 .inactive-cell { /*td, topleft corner of table*/
-    background-color: #ffffff;
-    border: 0px;
+    background-color: #a7a7a7;
+    border: 1px solid #a7a7a7;
     cursor: default;
 }
 
@@ -416,3 +412,6 @@
     font-style: italic;
 }
 
+.noselect {
+    user-select: none;
+}

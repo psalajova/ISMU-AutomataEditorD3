@@ -196,16 +196,17 @@ function insertColumnHeader(row, symbol) {
     var cell = insertCell(row, row.cells.length,
         [
             //tableClasses.myCell, 
-            tableClasses.columnHeader],
+            tableClasses.myCell],
         MIN_TABLE_CELL_WIDTH);
 
     var table = getParentByType("table", cell);
-    var input = createInput([tableClasses.inputColumnHeaderDiv], symbol, symbol, MIN_TABLE_CELL_WIDTH);
+    var input = createInput([tableClasses.inputColumnHeaderDiv, tableClasses.inputCellDiv], symbol, symbol, MIN_TABLE_CELL_WIDTH);
 
     cell.myDiv = input;
-    cell.appendChild(input);
+
 
     addResizable(table, cell);
+    cell.appendChild(input);
 
     input.addEventListener("click", (e) => inputClickHandler(e));
     input.addEventListener("input", (e) => tableChChanged(e, table, input));
@@ -224,7 +225,7 @@ function insertRow(table, title) {
         return;
     }
     if (title == null) {
-        title = generateId(table.parentNode.parentNode);
+        title = generateStateId(table.parentNode.parentNode);
     }
     deselectCell(table);
     table.rows[table.rows.length - 1].deleteCell(0);
@@ -237,7 +238,7 @@ function insertRow(table, title) {
     insertRowAddButton(table);
 
     // create state in graph
-    var data = newStateData(table.questionDiv, title, 0, 0, false, false, true);
+    var data = newStateData(table.questionDiv, title, 100, 100, false, false, true);
     addState(table.questionDiv, data);
 }
 
@@ -493,22 +494,20 @@ function tableCellChangedFinal(e, table, input) {
     else {
         var prevName = input.prevValue;
         var newName = input.value;
-        if (typeIsNondeterministic(type)) {
+        if (typeIsNondeterministic(type)) { // odstranenie {}
             prevName = prevName.substring(1, prevName.length - 1);
             newName = newName.substring(1, newName.length - 1);
         }
         var sourceStateId = removePrefix(table.rows[input.parentNode.parentNode.rowIndex].cells[1].myDiv.value);
-        //var stateInGraph = findState(table.wp.svg.rect, stateName);
         var symbol = table.rows[1].cells[input.parentNode.cellIndex].myDiv.prevValue;
         var prevStates = prevName.split(",");
         var newStates = newName.split(",");
-        //vymazanie duplicitnych stavov
-        newStates = newStates.filter(function (item, pos) { return newStates.indexOf(item) == pos; });
+        newStates = removeDuplicates(newStates);
+        console.log(newStates);
 
         //vymaze edges ktore uz nemaju pismenko
         //pripadne vymaze pismeno z transition
         for (let i = 0; i < prevStates.length; i++) {
-
             if (newStates.indexOf(prevStates[i]) == -1) {
                 var edgeData = getEdgeDataByStates(questionDiv, sourceStateId, prevStates[i]);
                 if (edgeData != null) {
@@ -528,34 +527,30 @@ function tableCellChangedFinal(e, table, input) {
         }
 
         for (let i = 0; i < newStates.length; i++) {
-            //ak predtym stav s tymto nazvom je v cell == nebola v nom zmena
+            //ak predtym stav s tymto nazvom bol v cell == nenastala v nom zmena
             if (prevStates.indexOf(newStates[i]) != -1) continue;
 
-            var state2Name = newStates[i];
             //ak NEEXISTUJE v grafe stav s danym nazvom
-            if (getStateDataById(questionDiv, state2Name) == null) {
+            if (getStateDataById(questionDiv, newStates[i]) == null) {
                 var addRowBool = true;
-                for (var j = 2; j < table.rows.length - 1; j++) {
-                    if (table.rows[j].cells[1].myDiv.value == state2Name) {
+                for (var j = 2; j < table.rows.length - 1; j++) { //skontrolovanie, ze sa nazov tohto stavu nenachadza v inom riadku tabulky
+                    if (table.rows[j].cells[1].myDiv.value == newStates[i]) {
                         addRowBool = false;
                         break;
                     }
                 }
                 if (addRowBool) {
                     //v insertRow sa prida riadok do tabulky AJ sa vytvori stav v grafe!!
-                    insertRow(table, state2Name);
+                    insertRow(table, newStates[i]);
                 }
                 else {
-                    var nd = newStateData(questionDiv, state2Name, 0, 0, false, false, true);
-                    addState(questionDiv, nd);
+                    addState(questionDiv, newStateData(questionDiv, newStates[i], 100, 100, false, false, true));
                 }
-                var source = getStateDataById(questionDiv, sourceStateId);
-                var target = getStateDataById(questionDiv, state2Name);
-                addEdge(questionDiv, source, target, symbol, true);
+                addEdge(questionDiv, newEdgeData(questionDiv, sourceStateId, newStates[i], symbol), elementOrigin.fromTable);
 
             }
             else {
-                var edgeData = getEdgeDataByStates(questionDiv, sourceStateId, state2Name);
+                var edgeData = getEdgeDataByStates(questionDiv, sourceStateId, newStates[i]);
                 if (edgeData != null) {
                     var trs = edgeData.symbols.split(",");
                     if (trs.indexOf(symbol) == -1) {
@@ -564,15 +559,12 @@ function tableCellChangedFinal(e, table, input) {
                     }
                 }
                 else {
-                    var source = getStateDataById(questionDiv, sourceStateId);
-                    var target = getStateDataById(questionDiv, state2Name);
-                    addEdge(questionDiv, source, target, symbol, true);
+                    addEdge(questionDiv, newEdgeData(questionDiv, sourceStateId, newStates[i], symbol), elementOrigin.fromTable);
                 }
 
             }
 
         }
-
 
         //vytvaranie novych transitions
         //pripadne pridavanie pismiek do existujucich
@@ -695,7 +687,7 @@ function insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = 
 
 function insertInactiveCell(row, index) {
     var classes = [
-        //tableClasses.myCell, 
+        tableClasses.myCell, 
         tableClasses.inactiveCell,
         tableClasses.noselectCell
     ];
