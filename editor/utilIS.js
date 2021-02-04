@@ -31,17 +31,18 @@ function addEvent(obj, evType, fn){
 ----------------------------------------------------------------------------- */ 	
 function register(id, func, elemType)
 {
+	
 	// when we are in inspection mode, we do not want the syntax check to work
-	if(jeProhlizeciStranka()) {
+/* 	if(jeProhlizeciStranka()) {
 		if (document.getElementById(id + "-error"))
         	document.getElementById(id + "-error").setAttribute("hidden", '');
         return;
-    }
-	
+    } */
+	console.log("registering");
 	var elem;
 	if(elemType == "area") elem = vysledkovePole(id, "_a_a_1");
 	else if(elemType == "text") elem = vysledkovePole(id, "_t_a_1");
-	else elem = vysledkovePole(id, "_e_a_1")
+	else elem = vysledkovePole(id, "_e_a_1");
 	function test(evt)
 	{		
 		if (!evt) var evt = window.event;		
@@ -141,10 +142,18 @@ function vysledkovePole(idOtazky, pripona) {
 	// vyhledame nazev elementu do ktereho budeme ukladat vysledek
 	if (vse!=null)  for (i=vse.length-1; i>=0; i--) {
 		if (vse[i].name == idOtazky) {
+			console.log(vse[i]);
+			console.log(vse[i-1]);
+			
 			inputname = vse[i-1].value + pripona;
+			console.log(inputname);
 		}
 	}
 	var ukazatelVysPo = document.getElementsByName(inputname); // do promenne se ulozi ukazatel na vysledkove pole
+
+	console.log("res");
+	console.log(ukazatelVysPo[0]);
+	
 	if (vse==null || ukazatelVysPo==null) {
 		alert("vysledkovePole "+idOtazky+" "+inputname+" nenalezeno!!!");
 		return null;
@@ -152,6 +161,7 @@ function vysledkovePole(idOtazky, pripona) {
 	if (ukazatelVysPo.length!=1) {
 		alert("vysledkovePole "+idOtazky+" "+inputname+" nejednoznacne!!! num "+ukazatelVysPo.length);
 	}
+	
 	return ukazatelVysPo[0];
 }
 
@@ -168,7 +178,8 @@ function jeProhlizeciStranka() {
 	// vyhledam spravny testovy <form> podle jmena "testform"
 	for (i=vse.length-1; i>=0; i--) {
 		if (vse[i].name == 'testform') {
-			vse = vse[i].elements;  i = -1111;
+			vse = vse[i].elements;  
+			i = -1111;
 		}	// do promenne vse se nyni ulozi vsechny elementy nalezeneho tagu <form>
 	}
 	// vyhledame nazev elementu 'prohlidka', ktery by se mel vyskytovat jen v prohlizecich modech

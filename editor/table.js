@@ -56,6 +56,7 @@ function createTableFromData(questionDiv) {
     insertColumnAddButton(table, row1);
 
     // filling out rows' headers (states' titles)
+    var prevRh;
     table.states.forEach(stateTitle => {
         var row = table.insertRow(table.rows.length);
         insertRowDeleteButton(table, row);
@@ -72,11 +73,16 @@ function createTableFromData(questionDiv) {
             headerValue += "←";
         }
         headerValue += stateTitle;
-        insertRowHeader(row, headerValue);
+        //TODO
+        var rh = insertRowHeader(row, headerValue);
+        if (prevRh && parseInt(prevRh.style.width)) {
+            
+        }
 
         for (var j = 0; j < table.symbols.length; j++) {
             insertInnerCell(table, row);
         }
+        prevRh = rh;
 
     });
     insertRowAddButton(table);
@@ -190,6 +196,7 @@ function insertRowHeader(row, name) {
 
     cell.myDiv = input;
     cell.appendChild(input);
+    return cell;
 }
 
 function insertColumnHeader(row, symbol) {
@@ -503,7 +510,6 @@ function tableCellChangedFinal(e, table, input) {
         var prevStates = prevName.split(",");
         var newStates = newName.split(",");
         newStates = removeDuplicates(newStates);
-        console.log(newStates);
 
         //vymaze edges ktore uz nemaju pismenko
         //pripadne vymaze pismeno z transition
@@ -771,8 +777,6 @@ function addResizable(table, cell) {
 
 //TODO lock and unlock table into one function?
 function lockTable(table, exceptionInput) {
-    console.log("locking");
-    console.log(table);
     for (var i = 1; i < table.rows.length - 1; i++) {
         for (var j = 1; j < table.rows[i].cells.length; j++) {
             if (table.rows[i].cells[j].myDiv == exceptionInput) {

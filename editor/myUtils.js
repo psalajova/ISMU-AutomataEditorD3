@@ -5,7 +5,6 @@ function removeDuplicates(array) {
 }
 
 function findStatePlacement(questionDiv, newStateData) {
-    console.log("finding placement");
     var states = questionDiv.statesData;
     //var edges = questionDiv.edgesData;
 
@@ -50,7 +49,6 @@ function invalidStatePosition(states, state) {
         if ((Math.abs(states[i].x - state.x) < graphConsts.nodeRadius * 2)
             && (Math.abs(states[i].y - state.y) < graphConsts.nodeRadius * 2))
         {
-            console.log("collision");
             return true;
         }
     }
@@ -67,3 +65,13 @@ function updateSvgDimensions(questionDiv) {
     questionDiv.graphDiv.lastHeight = questionDiv.graphDiv.offsetHeight;
     questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
 }
+
+function closestPointOnCircle(x1, y1, circleX, circleY) {
+    var dx = x1 - circleX;
+      var dy = y1 - circleY;
+      var scale = Math.sqrt(dx * dx + dy * dy);
+      return {
+          x: (circleX + dx * (graphConsts.nodeRadius+4) / scale),
+          y: (circleY + dy * (graphConsts.nodeRadius+4) / scale),
+      };
+  }

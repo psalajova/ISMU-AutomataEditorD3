@@ -9,7 +9,7 @@ var hintLabel = "Nápověda";
 var addTransitionPrompt = "Zadejte symboly přechodu:";
 var renameStatePrompt = "Zadejte nový název stavu:";
 var stateNameAlreadyExistsPrompt = "<strong>Chyba:</strong> Takto pojmenovaný stav již existuje.";
-var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
+var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. <br>Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
 var DFA_invalid_transition = "<strong>Chyba:</strong> Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
 
 

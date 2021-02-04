@@ -11,11 +11,12 @@ function incorrectStateSyntax(val) {
 }
 
 function graphTransitionsSyntax() {
-    return /^(([a-zA-Z0-9]+))(,(([a-zA-Z0-9]+)))*$/; 
+    //return /^(([a-zA-Z0-9]+))(,(([a-zA-Z0-9]+)))*$/; 
+    return /^(([a-zA-Z0-9])|("[a-zA-Z0-9]+"))(,(("[a-zA-Z0-9]+")|([a-zA-Z0-9])))*$/;
 }
 
 function graphEFATransitionSyntax() {
-    return /^(([a-zA-Z0-9]+)|(ε)|(\\e))(,(([a-zA-Z0-9]+)|(ε)|(\\e)))*$/;
+    return /^(([a-zA-Z0-9])|("[a-zA-Z0-9]+")|(ε)|(\\e))(,(([a-zA-Z0-9])|("[a-zA-Z0-9]+")|(ε)|(\\e)))*$/;
 }
 
 function incorrectGraphTransitionsSyntax(type, value) {

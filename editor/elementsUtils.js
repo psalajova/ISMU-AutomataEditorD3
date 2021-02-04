@@ -109,3 +109,74 @@ function printData(collection) {
     console.log(dataItem);
   });
 }
+
+function showRenameError(msg, questionDiv) {
+  var p = questionDiv.graphDiv.renameError;
+  p.innerHTML = msg;
+  showElem(p);
+}
+
+function setRenameStyle(renameInput, isState = true) {
+  if (isState) {
+    jQuery_new(renameInput).switchClass( "edge-renaming", "state-renaming", 0);
+  }
+  else {
+    jQuery_new(renameInput).switchClass( "state-renaming", "edge-renaming", 0);
+  }
+}
+
+function disableInput(input) {
+  input.setAttribute("readonly", "readonly");
+  //input.disabled = true;
+}
+
+function enableInput(input) {
+  input.removeAttribute("readonly");
+  //input.disabled = false;
+}
+
+function setStateInputValue(input, value) {
+  input.realValue = value;
+  var cropped = getCroppedTitle(input);
+  input.setAttribute("value", cropped);
+  input.value = cropped;
+}
+
+function setEdgeInput(input, value) {
+  input.setAttribute("value", value);
+  input.value = value;
+}
+
+function setEdgeInputWidth(input, len = null) {
+  if (len == null) {
+    len = visualLength(input.value);
+    len += 0; //padding
+  }
+  if (len < 15) len = 15;
+
+  d3.select(input.parentNode).attr("width", len + 8);
+  input.style.width = (len) + "px";
+}
+
+function getCroppedTitle(input) {
+  var title = input.realValue;
+
+  while (visualLength(title) >= (graphConsts.nodeRadius * 2)-9) {
+    
+    title = title.substring(0, title.length - 4);
+    title = title.concat("...");
+  }
+  return title;
+}
+
+function visualLength(val) {
+  var ruler = document.getElementById("ruler");
+  ruler.innerHTML = val;
+  return ruler.offsetWidth;
+}
+
+function hideAllContextMenus(questionDiv) {
+  hideElem(questionDiv.graphDiv.stateContextMenuDiv);
+  hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
+  hideElem(questionDiv.graphDiv.addStateContextMenu);
+}
