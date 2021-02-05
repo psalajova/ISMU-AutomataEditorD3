@@ -29,15 +29,20 @@ var renameEdgeText = "Upravit symboly přechodu";
 var enterToRename = "Pro uložení stiskněte ENTER"; //Press ENTER to save changes
 
 var hints = {
-  HINT_ADD_STATE : "<b>Vytvoření stavu:</b> double click na plátno.",
+  HINT_ADD_STATE : "<b>Vytvoření stavu:</b> double click na plátno nebo right click na plátno.",
   HINT_ADD_TRANSITION : "<b>Vytvoření prechodu:</b> click na stav + click na cílový stav.",
   HINT_MOVE : "Stavy i přechody můžete přesouvat taháním myší.",
   HINT_STATE_CONTEXT_MENU: "Kliknutím pravého tlačítka myši na stav otevřete menu, kde můžete stav <b>přejmenovat, odstranit, nastavit jako počáteční, označit jako akceptující/neakceptujúci</b>.",
   HINT_TRANSITION_CONTEXT_MENU: "Kliknutím pravého tlačítka myši na přechod otevřete menu, kde můžete <b>upravit symboly přechodu</b> nebo přechod <b>odstranit</b>.",
+  HINT_RENAME : "Pro uložení změn po přejmenování stiskněte ENTER nebo klikněte vedle.",
   HINT_DELETE_ELEMENT : "Vymazat stav/přechod můžete i označením daného elementu a stisknutím klávesy DEL.",
+  
 }
 
 var STATE_SYNTAX = "{a-z,A-Z,0-9}";
+//TODO
+var DFA_TRANSITION_SYNTAX = "{a-z,A-Z,0-9}";
+var EFA_TRANSITION_SYNTAX = "{a-z,A-Z,0-9}, \\e nebo ε";
 var INVALID_SYNTAX_ERROR = "<strong>Chyba:</strong> Nevyhovující syntax!";
 
 var errors = {
@@ -54,3 +59,5 @@ var errors = {
   DFA_TRANSITION_EXPECTED_SYNTAX: "Očekávané řetězce znaků z {a-z,A-Z,0-9} oddělené čárkami.",
   
 }
+
+"Očekávané řetězce znaků z {a-z,A-Z,0-9,\\e,ε} oddělené čárkami."

@@ -1,5 +1,6 @@
 var menuButtonClass = "menu-button";
 var contextMenuClass = "context-menu";
+var GRAPH_DIV_CLASS = "graphDiv";
 
 const graphConsts = {
   selectedClass: "selected",
@@ -52,12 +53,10 @@ function setFocusedElement() {
 
 function initialise(id, type) {
   //questionDiv == wp !
-  //var questionDiv = document.getElementById(id); // v ISe uz bude existovat div s id
+  //var questionDiv = document.getElementById(id); // v ISe uz bude existovat div s id???
   if (!window.jQuery_new) {
     jQuery_new = $;
   }
-
-  //document.addEventListener("focus", setFocusedElement, true);
 
   var questionDiv = document.createElement("div");
   questionDiv.setAttribute("class", "tab-content edit-active"); // delete later | prohlizeciStranke => disabled
@@ -102,13 +101,14 @@ function initialise(id, type) {
   setupHints(hintContentDiv);
 
   var graphDiv = document.createElement("div");
-  graphDiv.setAttribute("class", "graphDiv");
+  graphDiv.setAttribute("class", GRAPH_DIV_CLASS);
   graphDiv.k = 1;
-  //$( "#resizable" ).resizable();
 
   //var textArea = document.getElementById("......"); - v ISe
   var textArea = document.createElement("textarea");
   textArea.setAttribute("class", "textArea");
+  //textArea.value = "init=s1 (s1,a)=s2 (s1,\"bb\")=s2 (s1,c)=s3 (s1,d)=s3 (s3,e)=s3 (s3,f)=s3 (s3,d)=s2 (s2,p)=s3 (s2,r)=s3 (s2,t)=s4 (s4,i)=s4 final={s2,s3}##states##@s1;110;112;1;0@s2;375;136;0;1@s3;222;300;0;1@s4;603;109;0;0##edges##@s1;s2;a,\"bb\";0;0;0.00@s1;s3;c,d;0;0;0.00@s3;s3;e,f;0;0;-2.10@s3;s2;d;-25;-23;0.00@s2;s3;p,r;259;169;0.00@s2;s4;t;0;0;0.00@s4;s4;i;0;0;0.70";
+  
 
   var tableDiv = document.createElement("div");
   tableDiv.setAttribute("class", "tableDiv");
@@ -138,10 +138,19 @@ function initialise(id, type) {
   questionDiv.graphDiv.lastHeight = questionDiv.graphDiv.offsetHeight;
   questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
 
+  if (jeProhlizeciStranka()){
+    textArea.value = TEST_GRAPH1;
+    if (type == "EFA") {
+      textArea.value = TEST_GRAPH_EFA;
+    }
+    textArea.disabled = true;
+    reversePopulateGraph(questionDiv, textArea.value);
+  }
+  //TODO
   //document.getElementsByClassName("form").on("submit", function () { generateTextFromData(questionDiv); });
 }
 
-function initToolbox() {
+/* function initToolbox() {
   var toolbox = svg.append("g")
     .attr("class", "toolbox");
 
@@ -157,7 +166,7 @@ function initToolbox() {
     .on("click", resetZoom);
   createToolboxButton(toolbox, 95 + 5, 18 + 5, "icons/zoom-out.png")
     .on("click", zoomOut);
-}
+} */
 
 function initGraph(questionDiv) {
   questionDiv.graphDiv.graphState = {
@@ -167,13 +176,6 @@ function initGraph(questionDiv) {
     mouseOverState: null,
     lastSourceState: null,
     lastTargetState: null,
-    mouseDownEdge: null,
-    justScaleTransGraph: false,
-    lastKeyDown: -1,
-    creatingEdge: false,
-    renaming: false,
-    namingEdge: false,
-    selectedText: null,
     currentState: graphStateEnum.default
   };
 
@@ -183,23 +185,15 @@ function initGraph(questionDiv) {
     .classed("main-svg", true)
     .attr("width", "100%")
     .attr("height", "100%")
-    .on("mousemove", svgMousemove)
-    .on("click", svgRectClick)
-    .on("contextmenu", svgRectContextmenu)
-  ;
 
   questionDiv.graphDiv.svg = svg;
-  questionDiv.textNode = svg.append("text");
-  questionDiv.textNode.text("aaa");
 
   var rect = svg
     .append("rect")
     .attr("class", "svg-rect")
     .attr("width", "100%")
-    .attr("height", "100%")
-    .on("contextmenu", svgRectContextmenu)
-    .on("dblclick", svgRectDblclick);
-
+    .attr("height", "100%");
+    
   rect.node().parentGraphDiv = questionDiv.graphDiv;
   rect.node().clickTimer = 0;
   svg.rect = rect;
@@ -222,7 +216,6 @@ function initGraph(questionDiv) {
     .attr("d", "M 0 0 L 10 5 L 0 10 z")
     .attr("fill", "black");
 
-
   defs
     .append("svg:marker")
     .attr("id", "temporary-arrow-end" + questionDiv.getAttribute("id"))
@@ -234,7 +227,6 @@ function initGraph(questionDiv) {
     .attr("orient", "auto")
     .append("svg:path")
     .attr("d", "M0,-5L10,0L0,5");
-
 
   var svgGroup = svg.append("svg:g").classed("graph-svg-group", true);
   svg.svgGroup = svgGroup;
@@ -260,9 +252,7 @@ function initGraph(questionDiv) {
   var initArrow = svgGroup
     .append("svg:path")
     .attr("class", graphConsts.edgePathClass + " init-arrow")
-    .style("marker-end", "url(#temporary-arrow-end" + questionDiv.getAttribute("id") + ")")
-    //.call(dragInitArrow)
-    ;
+    .style("marker-end", "url(#temporary-arrow-end" + questionDiv.getAttribute("id") + ")");
 
   svgGroup.initArrow = initArrow;
   initArrow.node().questionDiv = questionDiv;
@@ -301,7 +291,19 @@ function initGraph(questionDiv) {
 
   questionDiv.graphDiv.stateIdCounter = 0;
   questionDiv.graphDiv.edgeIdCounter = 0;
-  initInitialState(questionDiv);
+
+  if (!jeProhlizeciStranka()) {
+    svg.on("mousemove", svgMousemove)
+      .on("click", svgRectClick)
+      .on("contextmenu", svgRectContextmenu);
+
+    rect.on("contextmenu", svgRectContextmenu)
+      .on("dblclick", svgRectDblclick);
+
+    //initArrow.call(dragInitArrow)
+
+    initInitialState(questionDiv);
+  }
 }
 
 function initTableDiv(questionDiv) {
@@ -403,7 +405,7 @@ function windowKeyUp(event) {
   // SELECTED_ELEM_GROUP is alaways either a stateGroup or an edgeGroup
   // both have .node().graphDiv.questionDiv to which they belong
 
-  if (SELECTED_ELEM_GROUP == null) {
+  if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka()) {
     return;
   }
 
@@ -606,9 +608,7 @@ function tryToRenameState(questionDiv, stateData, newId, prompt = null) {
   }
   else {
     input.correct = true;
-    //renameState(questionDiv, stateData, newId);
     input.blur();
-    //deselectAll();
   }
 
 }
@@ -659,13 +659,10 @@ function checkEdgeSymbolsValidity(questionDiv, edgeId, sourceStateData, symbols)
         valid = false;
     }
   }
-
-
-  /*
-  if (newSymbols.length > 300) {
+  if (symbols.length > 300) {
     err = "Prekrocena maximalna dlzka symbolov prechodu (300)!";
     valid = false;
-  }*/
+  }
 
   return { result: valid, errMessage : err };
 }
@@ -673,23 +670,21 @@ function checkEdgeSymbolsValidity(questionDiv, edgeId, sourceStateData, symbols)
 
 
 
-
-
-function svgZoomStart(e) {
-  //TODO
-  //deselectAll(except this!!!!);
-}
 // zoom {& drag svg}
+function svgZoomStart(e) {
+  var g = findParentWithClass(e.sourceEvent.srcElement, GRAPH_DIV_CLASS);
+  if (g) {
+    deselectAll(g.parentNode.getAttribute("id"));
+    hideAllContextMenus(g.parentNode);
+  }
+}
+
 function svgZoomed(e) {
-  //TODO srcElement can be also state/edge etc, so fix getting graphDiv from that
- var rect = e.sourceEvent.srcElement;
- var graphDiv = rect.parentGraphDiv;
- graphDiv.svg.svgGroup.attr("transform", e.transform);
- graphDiv.k = e.transform.k;
- //console.log(e.transform);
- //transform = {k:1, x:0, y:0}
-/*  console.log(e.s1ourceEvent.srcElement);
- console.log(e.transform); */
+  var graphDiv = findParentWithClass(e.sourceEvent.srcElement, GRAPH_DIV_CLASS);
+  if (graphDiv) {
+    graphDiv.svg.svgGroup.attr("transform", e.transform); //transform = {k:1, x:0, y:0}
+    graphDiv.k = e.transform.k;
+  }
 }
 
 function resetZoom() {
@@ -986,9 +981,9 @@ function addState(questionDiv, stateData) {
   }
   questionDiv.statesData.push(stateData);
 
-  questionDiv.graphDiv.svg.svgGroup.stateGroups.data(questionDiv.statesData, function (d) {
+/*   questionDiv.graphDiv.svg.svgGroup.stateGroups.data(questionDiv.statesData, function (d) {
     return d.id;
-  });
+  }); */
 
   var newState = questionDiv.graphDiv.svg.svgGroup.stateGroups
     .data(questionDiv.statesData).enter().append("g");
@@ -996,15 +991,14 @@ function addState(questionDiv, stateData) {
   newState.node().parentGraphDiv = questionDiv.graphDiv;
   newState.node().clickTimer = 0;
   newState.node().clickedOnce = false;
-  //newState.node().InvalidConnection = false;
 
+  addStateSvg(newState, questionDiv.graphDiv);
+  updateStateGroups(questionDiv.graphDiv.svg.svgGroup);
   
   if (!jeProhlizeciStranka()) {
     addStateEvents(newState, questionDiv.graphDiv);
+    generateTextFromData(questionDiv);
   }
-  addStateSvg(newState, questionDiv.graphDiv);
-  updateStateGroups(questionDiv.graphDiv.svg.svgGroup);
-  generateTextFromData(questionDiv);
 }
 
 function addStateEvents(state, graphDiv) {
@@ -1093,7 +1087,6 @@ function addStateSvg(newState, graphDiv) {
     })
     .on("blur", function(e, d){
       getStateGroupById(graphDiv.parentNode, d.id).classed("activeRenaming", false);
-      console.log("blurring state");
       var input = d3.select(this).node();
       if (input.getAttribute("readonly") == "readonly") return;
       if (input.correct == false) {
@@ -1120,8 +1113,6 @@ function addStateSvg(newState, graphDiv) {
 
 function stateClick(questionDivId) {
   deselectAll(questionDivId);
-  //console.log("stateClick");
-  //event.stopPropagation();
 }
 
 function toggleStateSelection(stateGroup, graphDiv, d) {
@@ -1139,20 +1130,24 @@ function toggleAcceptingState(stateData, stateG) {
   if (stateData.accepting) {
     stateG.select(".accepting-circle").remove();
   } else {
-    stateG
-      .append("circle")
-      .attr("class", "accepting-circle")
-      .classed("stateEl", true)
-      .attr("r", graphConsts.nodeRadius - 4)
-      .attr("stroke", "black")
-      .attr("stroke-width", graphConsts.nodeStrokeWidth)
-      .attr("fill", "transparent");
-
-      //TODO parameter namiesto stringu
-    stateG.select(".foreignObject").raise();
+    addAcceptingCircle(stateG);
   }
   stateData.accepting = !stateData.accepting;
 }
+
+function addAcceptingCircle(stateG) {
+  stateG
+    .append("circle")
+    .attr("class", "accepting-circle")
+    .classed("stateEl", true)
+    .attr("r", graphConsts.nodeRadius - 4)
+    .attr("stroke", "black")
+    .attr("stroke-width", graphConsts.nodeStrokeWidth)
+    .attr("fill", "transparent");
+  //TODO parameter namiesto stringu
+  stateG.select(".foreignObject").raise();
+}
+
 
 function setNewStateAsInitial(questionDiv, stateData) {
   setInitStateAsNotInitial(questionDiv);
@@ -1166,8 +1161,6 @@ function setNewStateAsInitial(questionDiv, stateData) {
     });
   
   questionDiv.graphDiv.graphState.initialState = stateData;
-  
-
   repositionInitArrow(questionDiv.graphDiv, stateData);
 }
 
@@ -1249,16 +1242,19 @@ function addEdge(questionDiv, edgeData, origin = elementOrigin.default) {
 
   newEdge.node().parentGraphDiv = questionDiv.graphDiv;
 
-  if (!jeProhlizeciStranka()) {
-    addEdgeEvents(questionDiv, newEdge, origin);
-  }
+
   addEdgeSvg(questionDiv, newEdge, origin, temporaryEdgePath.attr("d"));
 
   repositionMarker(newEdge);
   updateEdgeInputPosition(questionDiv, newEdge);
   updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
 
-  generateTextFromData(questionDiv);
+
+  if (!jeProhlizeciStranka()) {
+    addEdgeEvents(questionDiv, newEdge, origin);
+    generateTextFromData(questionDiv);
+  }
+  
   return newEdge;
 }
 
@@ -1321,7 +1317,6 @@ function addEdgeSvg(questionDiv, newEdge, origin, tempEdgeDef) {
     .on("click", function(e) {
       e.preventDefault();
       e.stopPropagation(); //aby sa to nebilo s oznacovanim edge
-      console.log("click");
     })
     .on("keydown", function(e,d) {
       var input = d3.select(this).node();
@@ -1345,10 +1340,8 @@ function addEdgeSvg(questionDiv, newEdge, origin, tempEdgeDef) {
         input.correct = validSymbols.result;
       }
     })
-    .on("blur", function(e,d){
-      //console.log("blur");    
+    .on("blur", function(e,d){  
       getEdgeGroupById(questionDiv, d.id).classed("activeRenaming", false);
-
       disableInput(d3.select(this).node());
 
       if (d3.select(this).node().correct == false) {
@@ -1370,10 +1363,7 @@ function addEdgeSvg(questionDiv, newEdge, origin, tempEdgeDef) {
 
   
   input.node().correct = false;
-  if (origin == elementOrigin.fromExisting || origin == elementOrigin.fromTable) {
-    disableInput(input.node());
-    input.node().correct = true;
-  }
+
 
   setEdgeInput(input.node(), newEdge.datum().symbols);
   if (origin == elementOrigin.default && questionDiv.type == "EFA") {
@@ -1381,6 +1371,11 @@ function addEdgeSvg(questionDiv, newEdge, origin, tempEdgeDef) {
     input.node().correct = true;
   }
   setEdgeInputWidth(input.node(), 50);
+  if (origin == elementOrigin.fromExisting || origin == elementOrigin.fromTable) {
+    setEdgeInputWidth(input.node());
+    disableInput(input.node());
+    input.node().correct = true;
+  }
 }
 
 function toggleEdgeSelection(edgeGroup, graphDiv) {
@@ -1651,28 +1646,17 @@ function generateTextFromData(questionDiv) {
   //position data
   result += "##states##";
   questionDiv.statesData.forEach(function (d) {
-/*     result += "{id:" + d.id
-      + ",x:" + d.x
-      + ",y:" + d.y
-      + ",initial:" + d.initial
-      + ",accepting:" + d.accepting + '};'; */
       result += "@" + d.id
       + ";" + d.x
       + ";" + d.y
-      + ";" + d.initial
-      + ";" + d.accepting;
+      + ";" + (d.initial ? 1 : 0)
+      + ";" + (d.accepting ? 1 : 0);
+      
   });
   result += "##edges##";
   questionDiv.edgesData.forEach(function (d) {
-/*     result += "{id:" + d.id
-      + ",sourceId:" + d.source.id
-      + ",targetId:" + d.target.id
-      + ",symbols:" + d.symbols
-      + ",dx:" + d.dx
-      + ",dy:" + d.dy
-      + ",angle:" + d.angle + '};'; */
       result +=  "@" //+ d.id
-      + ";" + d.source.id
+      + d.source.id
       + ";" + d.target.id
       + ";" + d.symbols
       + ";" + d.dx
@@ -1684,49 +1668,53 @@ function generateTextFromData(questionDiv) {
   //parseStateInfo(questionDiv, result);
 }
 
-//TODO
-function parseStateInfo(questionDiv, string) {
-  var splitted = string.split("##states##");
+//TODO better validity checks
+function reversePopulateGraph(questionDiv, dataString) {
+  if (!dataString) return;
+
+  var splitted = dataString.split("##states##");
   var data = splitted[1].split("##edges##");
   var states = data[0];
   var edges = data[1];
   if (states != null && states != "") {
     states = states.split("@");
-    if (states.length >= 1) {
-      for (var d of states) {
-        var stateParts = d.split(';');
-        if (stateParts.length != 5) continue;
-        var id = stateParts[0];
-        var x = parseInt(stateParts[1]);
-        var y = parseInt(stateParts[2]);
-        var initial = stateParts[3] == "true";
-        var accepting = stateParts[4] == "true";
-        var data = newStateData(questionDiv, id, x, y, initial, accepting, true);
-        //addState(questionDiv, data);
+    for (var d of states) {
+      var stateParts = d.split(';');
+      if (stateParts.length != 5) continue;
+      var id = stateParts[0];
+      var x = parseInt(stateParts[1]);
+      var y = parseInt(stateParts[2]);
+      var initial = stateParts[3] == "1";
+      var accepting = stateParts[4] == "1";
+      var data = newStateData(questionDiv, id, x, y, initial, accepting, true);
+      addState(questionDiv, data);
+
+      if (initial) {
+        setNewStateAsInitial(questionDiv, data);
+      }
+      if (accepting) {
+        addAcceptingCircle(getStateGroupById(questionDiv, data.id));
       }
     }
+    
   }
   if (edges != null && edges != "") {
     edges = edges.split('@');
-    if (edges.length >= 1) {
-      for (var d of edges) {
-        var edgeData = d.split(';');
-        if (edgeData.length != 5) continue;
-        
-        var sourceId = edgeData[0];
-        var targetId = edgeData[1];
-        var symbols = edgeData[2];
-        var dx = parseInt(edgeData[3]);
-        var dy = parseInt(edgeData[4]);
-        var angle = parseFloat(edgeData[5]);
+    for (var d of edges) {
+      var edgeData = d.split(';');
+      if (edgeData.length != 6) continue;
+      
+      var sourceId = edgeData[0];
+      var targetId = edgeData[1];
+      var symbols = edgeData[2];
+      var dx = parseInt(edgeData[3]);
+      var dy = parseInt(edgeData[4]);
+      var angle = parseFloat(edgeData[5]);
 
-        var data = newEdgeData(questionDiv, sourceId, targetId, symbols, dx, dy, angle);
-        //addEdge(questionDiv, data, true);
-      }
+      var data = newEdgeData(questionDiv, sourceId, targetId, symbols, dx, dy, angle);
+      addEdge(questionDiv, data, elementOrigin.fromExisting);
     }
   }
-
-
 }
 
 /*
@@ -2067,9 +2055,11 @@ function disableAllDragging(svg) {
 }
 
 function enableAllDragging(svg) {
-  svg.svgGroup.selectAll("." + graphConsts.stateGroupClass).call(dragState);
-  svg.svgGroup.selectAll("." + graphConsts.edgeGroupClass).call(dragEdge);
-  svg.call(zoom).on("dblclick.zoom", null);
+  if (!jeProhlizeciStranka()) {
+    svg.svgGroup.selectAll("." + graphConsts.stateGroupClass).call(dragState);
+    svg.svgGroup.selectAll("." + graphConsts.edgeGroupClass).call(dragEdge);
+    svg.call(zoom).on("dblclick.zoom", null);
+  }
 }
 
 //TODO fix ids
@@ -2078,10 +2068,12 @@ function deselectAll(exceptionId = null) {
   d3.selectAll(x) //(".tab-content")
     .selectAll(".graphDiv")
     .each( function() {
-      
       var graphDiv = d3.select(this).node();
-
       if (exceptionId != graphDiv.parentNode.getAttribute("id")) {
+        //if current selected element is not in this graphDiv
+        if (SELECTED_ELEM_GROUP && SELECTED_ELEM_GROUP.node().parentGraphDiv == graphDiv) {
+          SELECTED_ELEM_GROUP.select("input").node().blur();
+        }
 
         graphDiv.graphState.currentState = graphStateEnum.default;
 
@@ -2093,22 +2085,15 @@ function deselectAll(exceptionId = null) {
         hideElem(graphDiv.stateContextMenuDiv);
         hideElem(graphDiv.edgeContextMenuDiv);
         hideElem(graphDiv.addStateContextMenu);
-        //hideElem(graphDiv.renameInput);
         hideElem(graphDiv.renameError);
         hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
 
-        //if selected element is not in this graphDiv
-        if (SELECTED_ELEM_GROUP && SELECTED_ELEM_GROUP.node().graphDiv == graphDiv) {
-          SELECTED_ELEM_GROUP.select("input").node().blur();
-        }
-  
         graphDiv.svg.svgGroup.temporaryEdgeG.classed(graphConsts.selectedClass, false);
         enableAllDragging(graphDiv.svg);
       }
     });
 }
 
-//TODO : look ci sa neda niekde pouzit
 function getStateGroupById(questionDiv, id) {
   var res = null;
 
@@ -2209,11 +2194,6 @@ function newEdgeData(questionDiv, sourceId, targetId, symbols, dx = 0, dy = 0, a
   }
 }
 
-function getSvgTextLength(wp, string) {
-  wp.textNode.text(string);
-  return wp.textNode.node().getComputedTextLength() + 8;
-}
-
 function generateStateId(questionDiv) {
   questionDiv.graphDiv.stateIdCounter++;
   var id = "s" + questionDiv.graphDiv.stateIdCounter;
@@ -2273,21 +2253,6 @@ function deleteSymbolFromAllEdges(questionDiv, symbol) {
   edgesToDelete.forEach(ed => {
     deleteEdge(questionDiv, ed);
   });
-}
-
-/* function calculateEdgeRectWidth(questionDiv, text) {
-  questionDiv.invisibleText.text(text);
-  return questionDiv.invisibleText.node().getComputedTextLength() + 8;
-} */
-
-function intersects(array1, array2) {
-  for (let i = 0; i < array1.length; i++) {
-    const item = array1[i];
-    if (array2.includes(item)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function typeIsNondeterministic(type) {

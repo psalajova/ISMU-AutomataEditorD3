@@ -179,7 +179,7 @@
 /*-------------------*/
 
 .svg-rect {
-    fill: #f3f3f3;
+    fill: #e7e7e7;
 }
 
 .toolbox-rect{
@@ -212,12 +212,12 @@
 
 .state-group.mouse-over-node circle{
     stroke: #3e3e3e;
-    fill:#dbdbdb;
+    fill:#d8e9f5;
 }
 
 .state-group.selected circle{
     stroke:#3e3e3e;
-    fill: #8bd0ff;
+    fill: #84d7ff;
 }
 
 .state-fullname-rect {
@@ -306,8 +306,8 @@
     text-align: center;
     outline: none;
     background: #daffb5;
-    border: 1px solid #6b6b6b81;
-    border-radius: 0px;
+    border: 0px solid #6b6b6b81;
+    border-radius: 4px;
     box-shadow: 0px 0px 2px 0px #797979c4;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 16px;

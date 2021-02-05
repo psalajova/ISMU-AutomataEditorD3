@@ -13,40 +13,35 @@ function showElem(element, inline = false) {
 }
 
 function clickGraph(questionDiv) {
-  if (questionDiv.lastEdited == "graph") {
+  if (!jeProhlizeciStranka() && questionDiv.lastEdited == "graph") {
     deselectAll();
     return;
   }
-  //prejst vsetky stavy 
-  //a ak stav nie je inicialny && nie je akceptujuci && nema ziadne prechody z neho aj do neho tak vymazat
   hideElem(questionDiv.textArea);
   hideElem(questionDiv.tableDiv);
-  //generateGraphFromText()??;
 
-  if (questionDiv.lastEdited == "text") {
-    //updateDataFromText(questionDiv);
-    mergeEdges(questionDiv);
-  }
-  //updateGraph(questionDiv);
   showElem(questionDiv.graphDiv);
   showElem(questionDiv.hintDiv);
   questionDiv.lastEdited = "graph"
 }
 
 function clickTable(questionDiv) {
-  if (questionDiv.lastEdited == "graph") {
-    updateSvgDimensions(questionDiv);
-    deselectAll();
-  }
   if (questionDiv.lastEdited == "table") {
     return;
   }
+  if (questionDiv.lastEdited == "graph") {
+    updateSvgDimensions(questionDiv);
+    if (!jeProhlizeciStranka()) deselectAll();
+  }
+  /*
+  if (questionDiv.lastEdited == "text") {
+    updateDataFromText(questionDiv);
+  } */
+
   hideElem(questionDiv.graphDiv);
   hideElem(questionDiv.hintDiv);
   hideElem(questionDiv.textArea);
-  if (questionDiv.lastEdited == "text") {
-    //updateDataFromText(questionDiv);
-  }
+
   disableControlButtons(questionDiv.tableDiv);
   createTableFromData(questionDiv);
   showElem(questionDiv.tableDiv);
@@ -62,7 +57,9 @@ function clickText(questionDiv) {
   hideElem(questionDiv.hintDiv);
   hideElem(questionDiv.tableDiv);
 
-  generateTextFromData(questionDiv);
+  if (!jeProhlizeciStranka()) {
+    generateTextFromData(questionDiv);
+  }
   showElem(questionDiv.textArea);
   questionDiv.lastEdited = "text";
 }
@@ -179,4 +176,21 @@ function hideAllContextMenus(questionDiv) {
   hideElem(questionDiv.graphDiv.stateContextMenuDiv);
   hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
   hideElem(questionDiv.graphDiv.addStateContextMenu);
+}
+
+function findParentWithClass(childNode, parentClass) {
+  var parent = null;
+  try {
+    parent = childNode.parentNode;
+    while (parent != null || parent.nodeName != "body") {
+      if (parent.classList.contains(parentClass)) {
+        return parent;
+      }
+      parent = parent.parentNode;
+    }
+  }
+  catch(e) { 
+    //console.log(e.message);
+  }
+  return parent;
 }

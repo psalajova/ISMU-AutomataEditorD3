@@ -37,7 +37,7 @@ function tableIncorrectNfaEfaInnerCellSyntax(val) {
 }
 
 function EFATransitionSyntax() {
-    return /^ε$|^\\e$|^[a-zA-Z0-9]+$/;
+    return /^ε$|^\\e$|^[a-zA-Z0-9]$|^"[a-zA-Z0-9]+"$/;
 }
 
 function incorrectTableEFATransitionSyntax(val) {
@@ -45,19 +45,19 @@ function incorrectTableEFATransitionSyntax(val) {
 }
 
 function NFATransitionSyntax() {
-    return /^[a-zA-Z0-9]+$/;
+    return /^[a-zA-Z0-9]$|^"[a-zA-Z0-9]+"$/;
 }
 
 function incorrectTableNFATransitionSyntax(value) {
     return !NFATransitionSyntax().test(value);
 }
 
-function DFATransitionSymbolsSyntax() {
-    return /^[a-zA-Z0-9]+$/;
+function DFATableTransitionSymbolsSyntax() {
+    return /^[a-zA-Z0-9]$|^"[a-zA-Z0-9]+"$/;
 }
 
-function incorrectDFATransitionSymbolsSyntax(val) {
-    return (!DFATransitionSymbolsSyntax().test(val))
+function incorrectTableDFATransitionSyntax(val) {
+    return (!DFATableTransitionSymbolsSyntax().test(val))
 }
 
 function tableDFAInnerCellSyntax() {
@@ -74,7 +74,7 @@ function incorrectTableInnerCellSyntax(type, value) {
 }
 
 function incorrectTableColumnHeaderSyntax(type, value) {
-    return (type == "DFA" && incorrectDFATransitionSymbolsSyntax(value) ||
+    return (type == "DFA" && incorrectTableDFATransitionSyntax(value) ||
         (type == "EFA" && incorrectTableEFATransitionSyntax(value)) ||
         (type == "NFA" && incorrectTableNFATransitionSyntax(value))
     );

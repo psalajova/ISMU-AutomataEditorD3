@@ -76,7 +76,7 @@ function createTableFromData(questionDiv) {
         //TODO
         var rh = insertRowHeader(row, headerValue);
         if (prevRh && parseInt(prevRh.style.width)) {
-            
+
         }
 
         for (var j = 0; j < table.symbols.length; j++) {
@@ -116,19 +116,16 @@ function createTableFromData(questionDiv) {
     questionDiv.tableDiv.removeChild(questionDiv.tableDiv.alertText);
     questionDiv.tableDiv.appendChild(questionDiv.tableDiv.alertText);
 
-    /*
     if (jeProhlizeciStranka()) {
-      jQuery_new(table).find("input").prop("disabled", true).addClass("mydisabled");
+        jQuery_new(table).find("input").prop("disabled", true).addClass("mydisabled");
     }
-    */
 }
 
 function insertColumnAddButton(table, row) {
     var cell = insertCellWithDiv(row, null, [tableClasses.addButton, tableClasses.noselectCell], null, "+");
-    //cell.table = table;
-    cell.addEventListener("click", function () {
-        insertColumn(table);
-    });
+    if (!jeProhlizeciStranka()) {
+        cell.addEventListener("click", () => insertColumn(table) );
+    }
 }
 
 function insertColumnDeleteButton(table, row) {
@@ -136,22 +133,28 @@ function insertColumnDeleteButton(table, row) {
         [tableClasses.deleteButton, tableClasses.noselectCell],
         null, "×");
 
-    cell.addEventListener("click", () => deleteColumn(table, cell.cellIndex));
+    if (!jeProhlizeciStranka()) {
+        cell.addEventListener("click", () => deleteColumn(table, cell.cellIndex));
+    }
 }
 
 function insertRowAddButton(table) {
     var newRow = table.insertRow(table.rows.length);
     var cell = insertCellWithDiv(newRow, 0, [tableClasses.addButton, tableClasses.noselectCell], null, "+");
-    cell.addEventListener("click", function (e) {
-        insertRow(table);
-    })
+
+    if (!jeProhlizeciStranka()) {
+        cell.addEventListener("click", function (e) { insertRow(table); });
+    }
 }
 
 function insertRowDeleteButton(table, row) {
     var cell = insertCellWithDiv(row, 0,
         [tableClasses.deleteButton, tableClasses.noselectCell], null, "×");
 
-    cell.addEventListener("click", function () { deleteRow(table, cell.parentNode.rowIndex); });
+    if (!jeProhlizeciStranka()) {
+        cell.addEventListener("click", function () { deleteRow(table, cell.parentNode.rowIndex); });
+    }
+    
 }
 
 function insertInnerCell(table, row) {
@@ -219,7 +222,7 @@ function insertColumnHeader(row, symbol) {
     input.addEventListener("input", (e) => tableChChanged(e, table, input));
     input.addEventListener("focusout", (e) => tableChChangedFinal(e, table, input));
 
-    var regex = table.questionDiv.type == "EFA" ? tableEFATransitionSyntax() : DFATransitionSymbolsSyntax();
+    var regex = table.questionDiv.type == "EFA" ? tableEFATransitionSyntax() : DFATableTransitionSymbolsSyntax();
     input.addEventListener("keypress", function (e) {
         cellKeypressHandler(e, regex);
     });
@@ -325,9 +328,11 @@ function deleteColumn(table, index) {
 }
 
 /* INPUT CHANGES */
+/*
+    table header cells (symbols of transition) on change
+*/
 function tableChChanged(e, table, input) {
     var value = input.value;
-    //if (symbol == "\e") symbol = "ε"; 
     var type = table.questionDiv.type;
 
     if (incorrectTableColumnHeaderSyntax(type, value)) {
@@ -381,7 +386,7 @@ function tableChChangedFinal(_, table, input) {
             }
 
         });
-        //TODO button
+        //TODO button?
         /*
         if (table.wp.realtype == "EFA")
         {
@@ -607,7 +612,7 @@ function tableInitialOnClick(tableDiv) {
     else if (/[←]/.test(input.value)) {
         input.value = '↔' + stateId;
     }
-    else if (/[→]/.test(input.value)){
+    else if (/[→]/.test(input.value)) {
         input.value = stateId;
     }
     else {
@@ -632,7 +637,7 @@ function tableAcceptingOnClick(tableDiv) {
     else if (/[←]/.test(input.value)) {
         input.value = stateId;
     }
-    else if (/[→]/.test(input.value)){
+    else if (/[→]/.test(input.value)) {
         input.value = '↔' + stateId;
     }
     else {
@@ -693,7 +698,7 @@ function insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = 
 
 function insertInactiveCell(row, index) {
     var classes = [
-        tableClasses.myCell, 
+        tableClasses.myCell,
         tableClasses.inactiveCell,
         tableClasses.noselectCell
     ];
@@ -840,6 +845,7 @@ function findSymbol(table) {
     return symbol;
 }
 
+//TODO by clas?? delete this?
 function getParentByType(type, child) {
     /*
     try {
@@ -890,9 +896,9 @@ function resolveInitButton(tableDiv, symbol) {
     if (symbol == '↔' || symbol == '→') {
         tableDiv.buttonInit.disabled = true;
     }
-/*     else if (symbol == '←') {
-        tableDiv.buttonInit.disabled = false;
-    } */
+    /*     else if (symbol == '←') {
+            tableDiv.buttonInit.disabled = false;
+        } */
     else {
         tableDiv.buttonInit.disabled = false;
     }
