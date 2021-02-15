@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="cs">
 
 <head>
     <meta charset="utf-8">
@@ -17,29 +17,42 @@
 </head>
 
 <body>
-    <script src="languages/CZ.js"></script>
+    
     <script src="editor2.js"></script>
-    <script src="table.js"></script>
-    <script src="elementsUtils.js"></script>
-    <script src="syntax.js"></script>
     <script src="utilIS.js"></script>
     <script src="myUtils.js"></script>
+    <script src="editorUtils.js"></script>
+    <script src="languages/CS.js"></script>
     <span id="ruler"></span>
-    <!-- 
-    <label id="focused" value="-No focus-">????</label>
-    -->
 
-    <p class="my-type">DFA:</p>
-    <script> initialise("q0", "DFA"); </script>
-    <!-- Write your comments here -->
+    <script>
+        //setupLanguage();
+    </script>
+    
+    <div id="constrainer">
+        <div id="q0">
+            <script> initialise("q0", "DFA"); </script>
+        </div>
+        <!-- 
+            <textarea cols="80" name="tst_1_e_a_1" rows="10"></textarea>
+        -->
+        
+        <div id="q1">
+            <div id="aaaaa"></div>
+        </div>
+        <script> initialise("q1", "NFA"); </script>
+        <!-- 
+            <textarea cols="80" name="tst_2_e_a_1" rows="10"></textarea>
+        -->
+    
+        <div id="q2"></div>
+        <script> initialise("q2", "EFA"); </script>
+        <!-- 
+            <textarea cols="80" name="tst_3_e_a_1" rows="10"></textarea>
+        -->
 
-    <br>
-    <p class="my-type">NFA:</p>
-    <script> initialise("q1", "NFA"); </script>
+    </div>
 
-    <br>
-    <p class="my-type">EFA:</p>
-    <script> initialise("q2", "EFA"); </script>
     
 
 </body>

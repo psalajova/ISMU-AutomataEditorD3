@@ -142,18 +142,11 @@ function vysledkovePole(idOtazky, pripona) {
 	// vyhledame nazev elementu do ktereho budeme ukladat vysledek
 	if (vse!=null)  for (i=vse.length-1; i>=0; i--) {
 		if (vse[i].name == idOtazky) {
-			console.log(vse[i]);
-			console.log(vse[i-1]);
-			
 			inputname = vse[i-1].value + pripona;
-			console.log(inputname);
 		}
 	}
 	var ukazatelVysPo = document.getElementsByName(inputname); // do promenne se ulozi ukazatel na vysledkove pole
 
-	console.log("res");
-	console.log(ukazatelVysPo[0]);
-	
 	if (vse==null || ukazatelVysPo==null) {
 		alert("vysledkovePole "+idOtazky+" "+inputname+" nenalezeno!!!");
 		return null;

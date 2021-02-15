@@ -19,19 +19,19 @@
 }
 
 .tab-content {
-    background-color: white;
+    background-color: rgba(255, 255, 255, 0);
 }
 
 .graphDiv {
     display: inline-block;
-    background-color: white;
-    resize: both;
-    overflow: hidden;
+    background-color: rgba(255, 255, 255, 0);
+    /*resize: both;
+    overflow: hidden;*/
     min-width: 500px;
     min-height: 400px;
     width: 100%;
     height: 700px;
-    border-top: 5px solid #ffffff;
+    margin-top: 5px;
 }
 
 .textArea {
@@ -57,11 +57,9 @@
     background-color: #ffffff00;
     line-height: 19px;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 13px;
-    margin-top: 0 ;
-    margin-bottom: 2px;
-    margin-left: 8px;
-    margin-right: 5px;
+    font-size: 1em;
+    margin: 0px;
+    padding: 2px 2px 0px 5px;
 }
 
 .hintButton {
@@ -81,21 +79,20 @@
 
 /* context menus ------------------------------- */
 .context-menu-button {
-    width: 100%;
     background-color: #ffffff;
     border: none;
-    margin-top: 3px;
-    margin-bottom: 3px;
     padding-left: 10px;
     padding-top: 5px;
     padding-bottom: 5px;
     text-align: left;
     font-size: 14px;
+    color: black;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .context-menu-button:hover {
     background-color: #e7e7e7;
+    color: black;
 }
 
 .context-menu {
@@ -103,7 +100,6 @@
     position: absolute;
     width: 200px;
     background-color: #ffffff;
-    /*border: 1px solid #777777;*/
     border-radius: 4.5px;
     box-shadow: 0px 0px 6px #adadadc4;
 }
@@ -175,28 +171,19 @@
     border-color: #ebccd1 !important;
 }
 
+#ruler { 
+    visibility: hidden; 
+    white-space: nowrap;
+    font-size: 16px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 0px 2px 0px 2px;
+}
+
 
 /*-------------------*/
 
 .svg-rect {
     fill: #e7e7e7;
-}
-
-.toolbox-rect{
-    width: 142px;
-    height: 70px;
-    fill: #e9eaead0;
-    stroke: rgba(0, 0, 0, 0.315);
-    stroke-width: 1px;
-}
-
-.toolbox-button {
-    opacity: 0.4;
-}
-
-.toolbox-button:hover {
-    opacity: 1;
-    cursor: pointer;
 }
 
 .defs-arrow-end {
@@ -233,15 +220,18 @@
     fill: #ebebeb;
 }
 
-.stateInput {
+.stateEl>.stateInput {
+    color: black;
     text-align: center;
     outline: none;
     background: rgba(255, 255, 255, 0.562);
     border: 0px solid transparent;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 16px;
+    font-size: 1em;
     width: 47px;
     cursor: default;
+    margin: 0;
+    padding: 2px;
 }
 
 .stateInput:read-only {
@@ -250,6 +240,8 @@
     -ms-user-select: none;
     user-select: none;
     background: transparent;
+    color: black;
+    cursor: default;
 }
 
 
@@ -294,14 +286,6 @@
     cursor: default;
 }
 
-#ruler { 
-    visibility: hidden; 
-    white-space: nowrap;
-    font-size: 16px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    padding: 0px 2px 0px 2px;
-}
-
 .edgeInput {
     text-align: center;
     outline: none;
@@ -309,10 +293,12 @@
     border: 0px solid #6b6b6b81;
     border-radius: 4px;
     box-shadow: 0px 0px 2px 0px #797979c4;
+    color: black;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 16px;
+    font-size: 1em;
     width: 32px;
-    padding: 2px 2px 2px 2px;
+    padding: 2px;
+    margin: 0;
     cursor: default;
 }
 
@@ -326,6 +312,8 @@
   -ms-user-select: none;
   user-select: none;
   background: white;
+  color: black;
+  cursor: default;
 }
 
 
@@ -337,15 +325,13 @@
 /* Table ----------------------------------------- */
 .control-button {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 14px;
+    font-size: 1em;
     padding: 7px;
-    margin: 8px 5px 0px 0px;
+    margin: 8px 8px 0px 0px;
+    /*
     background-color: #e0e0e0;
-    border-radius: 0px;
     border: 0px solid rgb(179, 179, 179);
-}
-.control-button:hover {
-    background-color: #bbbbbb;
+    */
 }
 
 .myTable {
@@ -357,27 +343,25 @@
 .myCell {
     border: 1px solid #cecece;
     padding: 0;
+    background-color: white;
 }
 
 .cell-input { /*input inside td*/
     font-size: 1.4em;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     text-align: center;
     width: 100%;
     border: 0px;
     border-radius: 0px;
     background-color: #ffffff;
-    padding-top: 5px;
-    padding-bottom: 5px;
-    padding-left: 5px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 7px 7px 7px 7px;
+    margin: 0;
+    line-height: 1.5px;
 }
 
 .column-header-cell { /* td */
     background-color: #c0c0c0;
-    border-bottom: 2px solid #4b4b4b;
-    border-top: 0px;
-    border-left: 0px;
-    border-right: 0px;
+    border: 1px solid #cecece;
     padding: 0;
 }
 
@@ -386,15 +370,11 @@
 }
 
 .row-header-cell {
-/*     border-top: 1px solid #cecece;
-    border-bottom: 1px solid #cecece;
-    border-left: 1px solid #cecece;
-    border-right: 2px solid #4b4b4b; */
+    background-color:#f1f1f1;
     border: 1px solid #cecece;
-    padding: 0;
+    padding: 0em;
+    margin: 0em;
 }
-
-
 
 .row-header-input { /*input inside td*/
     transition: background-color 0.2s ease;
@@ -491,4 +471,9 @@
 
 .noselect {
     user-select: none;
+}
+
+#constrainer {
+    background-color: rgb(255, 255, 255);
+    width: 1000px;
 }
