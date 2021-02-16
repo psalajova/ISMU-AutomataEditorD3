@@ -53,7 +53,7 @@ function setupLanguage() {
   document.write("\<script src=" + path + "type='text/javascript'>\<\/script>");
 }
 
-function initialise(id, type) {
+function initialise(id, textArea) {
   if (!window.jQuery_new) {
     jQuery_new = $;
   }
@@ -61,14 +61,17 @@ function initialise(id, type) {
   var div = document.getElementById(id);
   div.setAttribute("class", QUESTION_DIV_CLASS);
   div.setAttribute("id", id);
-  div.type = type;
+  div.type = div.dataset.type;
 
-  var textArea = initialiseTextArea(div);
-  div.appendChild(textArea); //moves the existing textarea
+  //var textArea = initialiseTextArea(div);
+  if (!textArea) { //only for local testing!
+    console.log("creating textArea");
+    textArea = document.createElement("textarea");
+  }
+  div.appendChild(textArea); //moves the existing textarea into div
   div.textArea = textArea;
-  setupSyntaxCheck(div);
 
-  if (!isRegOrGram(type)){
+  if (!isRegOrGram(div.type)){
     initialiseEditor(div);
   }
 
@@ -78,9 +81,12 @@ function initialise(id, type) {
       textArea.value = TEST_GRAPH_EFA;
     } */
     textArea.disabled = true;
-    if (!isRegOrGram(type)) {
+    if (!isRegOrGram(div.type)) {
       reversePopulateGraph(div, textArea.value);
     }
+  }
+  else {
+    setupSyntaxCheck(div.id);
   }
 
   $(document.getElementsByClassName("form")).submit(function() {
@@ -151,10 +157,9 @@ function initialiseEditor(questionDiv) {
   initialiseGraph(questionDiv);
   initialiseTableDiv(questionDiv);
 
-  questionDiv.textArea.setAttribute("class", "textArea");
+  hideElem(questionDiv.textArea);
+  //questionDiv.textArea.setAttribute("class", "textArea");
   questionDiv.appendChild(questionDiv.textArea);
-  questionDiv.appendChild(questionDiv.errDiv);
-  hideElem(questionDiv.errDiv);
 
   questionDiv.graphDiv.lastHeight = questionDiv.graphDiv.offsetHeight;
   questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
@@ -1585,7 +1590,6 @@ function generateTextFromData(questionDiv) {
   });
   questionDiv.textArea.value = result;
   $(questionDiv.textArea).trigger("change");
-  console.log(result);
 }
 
 //TODO better validity checks
@@ -1647,25 +1651,30 @@ function reversePopulateGraph(questionDiv, dataString) {
   }
 }
 
-function setupSyntaxCheck(questionDiv) {
+function setupSyntaxCheck(id) {
+  var div = document.getElementById(id);
+
   var errDiv = document.createElement("div");
-  errDiv.setAttribute("id", questionDiv.getAttribute("id") + "-error");
+  errDiv.setAttribute("id", id + "-error");
   errDiv.setAttribute("class", "alert alert-info");
   errDiv.setAttribute("title", syntaxDivTitle);
 
   var errIcon = document.createElement("div");
-  errIcon.setAttribute("id", questionDiv.getAttribute("id") + "-i");
+  errIcon.setAttribute("id", id + "-i");
 
   var errText = document.createElement("div");
-  errText.setAttribute("id", questionDiv.getAttribute("id") + "-error-text");
+  errText.setAttribute("id", id + "-error-text");
   errText.innerHTML = syntaxTextDefault;
 
   errDiv.appendChild(errIcon);
   errDiv.appendChild(errText);
 
-  questionDiv.appendChild(errDiv);
-  questionDiv.errDiv = errDiv;
+  div.appendChild(errDiv);
+  div.errDiv = errDiv;
 
-  var parser = questionDiv.type + "Parser.parse";
-  eval("register(questionDiv.id, " + parser + ", questionDiv.textArea)");
+  if (jeProhlizeciStranka() || !isRegOrGram(div.dataset.type)) {
+    hideElem(errDiv);
+  }
+
+  eval("registerElem(id, " + div.dataset.type + "Parser.parse" + ", div.textArea)");
 }

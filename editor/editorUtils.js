@@ -74,9 +74,9 @@ function clickText(questionDiv) {
 
     if (!jeProhlizeciStranka()) {
         generateTextFromData(questionDiv);
+        showElem(questionDiv.errDiv);
     }
     showElem(questionDiv.textArea);
-    showElem(questionDiv.errDiv);
     questionDiv.lastEdited = "text";
 }
 
@@ -1622,4 +1622,64 @@ function incorrectTableColumnHeaderSyntax(type, value) {
         (type == "EFA" && incorrectTableEFATransitionSyntax(value)) ||
         (type == "NFA" && incorrectTableNFATransitionSyntax(value))
     );
+}
+
+
+
+/* -FUNCTION--------------------------------------------------------------------
+	Author:			Radim Cebis, modified by Patricia Salajova
+	Function:		register(id, func)
+	Param elem:		element (textArea)
+	Usage:			registers func to element with correct question ID
+----------------------------------------------------------------------------- */ 	
+function registerElem(id, func, elem)
+{	
+	// when we are in inspection mode, we do not want the syntax check to work
+	if(jeProhlizeciStranka()) {
+		if (document.getElementById(id + "-error"))
+        	document.getElementById(id + "-error").setAttribute("hidden", '');
+        return;
+    }
+	
+	function test(evt)
+	{		
+		if (!evt) var evt = window.event;		
+		var input = (evt.target) ? evt.target : evt.srcElement;
+		
+		var result = func(input.value);
+		if(elem.value == "") 
+	    {
+	      document.getElementById(id + "-error").className = "alert alert-info";
+		  document.getElementById(id + "-i").className = "";
+	      document.getElementById(id + "-error-text").innerHTML = "Zde se zobrazuje nápověda syntaxe.";
+	    }
+		else
+		{
+	  		if(result.error_string != "")
+	  			document.getElementById(id + "-error-text").innerHTML = htmlentities(result.error_string);
+	  		else 
+	  			document.getElementById(id + "-error-text").innerHTML = "Syntax je korektní.";
+	  		
+	  		if (result.error == 2) {
+	  			document.getElementById(id + "-error").className = "alert alert-danger";
+				document.getElementById(id + "-i").className = "glyphicon glyphicon-remove";
+	  		}
+	  		else if(result.error == 1){
+	  			document.getElementById(id + "-error").className = "alert alert-warning";
+				document.getElementById(id + "-i").className = "glyphicon glyphicon-warning-sign";
+	  		}
+	  		else {
+	  			document.getElementById(id + "-error").className = "alert alert-success";
+				document.getElementById(id + "-i").className = "glyphicon glyphicon-ok";
+	  		}
+		}
+	}	
+	addEvent(elem,'change',test);
+	addEvent(elem,'keyup',test);	
+	addEvent(elem,'focus',test);
+	addEvent(elem,'blur',test);	
+	addEvent(elem,'mouseup',test);	
+	elem.focus();
+	elem.blur();
+	scroll(0,0);
 }
