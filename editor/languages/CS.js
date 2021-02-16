@@ -68,3 +68,7 @@ var bothSymbol = "↔";
 var epsSymbol = 'ε';
 
 "Očekávané řetězce znaků z {a-z,A-Z,0-9,\\e,ε} oddělené čárkami."
+
+
+var syntaxDivTitle = "Nápověda syntaxe učitele.";
+var syntaxTextDefault = "Zde se zobrazuje nápověda syntaxe.";

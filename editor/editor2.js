@@ -58,12 +58,40 @@ function initialise(id, type) {
     jQuery_new = $;
   }
 
-  var questionDiv = document.getElementById(id);
-  questionDiv.setAttribute("class", QUESTION_DIV_CLASS); // delete later | prohlizeciStranke => disabled
-  questionDiv.setAttribute("id", id);
-  questionDiv.type = type;
-  questionDiv.lastEdited = "graph";
+  var div = document.getElementById(id);
+  div.setAttribute("class", QUESTION_DIV_CLASS);
+  div.setAttribute("id", id);
+  div.type = type;
 
+  var textArea = initialiseTextArea(div);
+  div.appendChild(textArea); //moves the existing textarea
+  div.textArea = textArea;
+  setupSyntaxCheck(div);
+
+  if (!isRegOrGram(type)){
+    initialiseEditor(div);
+  }
+
+  if (jeProhlizeciStranka()){
+/*     textArea.value = TEST_DFA1;
+    if (type == "EFA") {
+      textArea.value = TEST_GRAPH_EFA;
+    } */
+    textArea.disabled = true;
+    if (!isRegOrGram(type)) {
+      reversePopulateGraph(div, textArea.value);
+    }
+  }
+
+  $(document.getElementsByClassName("form")).submit(function() {
+    if (div.lastEdited === "text") {
+      generateTextFromData(div);
+    }
+  });
+}
+
+function initialiseEditor(questionDiv) {
+  questionDiv.lastEdited = "graph";
   questionDiv.statesData = [];
   questionDiv.edgesData = [];
 
@@ -103,9 +131,6 @@ function initialise(id, type) {
   graphDiv.setAttribute("class", GRAPH_DIV_CLASS);
   graphDiv.k = 1;
 
-  var textArea = initialiseTextArea(id);
-  textArea.setAttribute("class", "textArea");
-
   var tableDiv = document.createElement("div");
   tableDiv.setAttribute("class", "tableDiv");
 
@@ -118,9 +143,6 @@ function initialise(id, type) {
   questionDiv.appendChild(tableDiv);
   questionDiv.tableDiv = tableDiv;
 
-  questionDiv.appendChild(textArea);
-  questionDiv.textArea = textArea;
-
   createStateContextMenu(questionDiv);
   createEdgeContextMenu(questionDiv);
   createAddStateMenu(questionDiv);
@@ -129,19 +151,14 @@ function initialise(id, type) {
   initialiseGraph(questionDiv);
   initialiseTableDiv(questionDiv);
 
+  questionDiv.textArea.setAttribute("class", "textArea");
+  questionDiv.appendChild(questionDiv.textArea);
+  questionDiv.appendChild(questionDiv.errDiv);
+  hideElem(questionDiv.errDiv);
+
   questionDiv.graphDiv.lastHeight = questionDiv.graphDiv.offsetHeight;
   questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
 
-  if (jeProhlizeciStranka()){
-/*     textArea.value = TEST_GRAPH1;
-    if (type == "EFA") {
-      textArea.value = TEST_GRAPH_EFA;
-    } */
-    textArea.disabled = true;
-    reversePopulateGraph(questionDiv, textArea.value);
-  }
-
-  $(document.getElementsByClassName("form")).submit(() => generateTextFromData(questionDiv));
 }
 
 function initialiseGraph(questionDiv) {
@@ -295,15 +312,13 @@ function initialiseTableDiv(questionDiv) {
   questionDiv.tableDiv.appendChild(alertP);
 }
 
-function initialiseTextArea(id) {
+function initialiseTextArea(div) {
   var res = null;
-  res = getTextArea(id, "_e_a_1");
+  res = getTextArea(div.id, "_e_a_1");
   if (!res) {
     res = document.createElement("textarea");
+    div.appendChild(res);
   }
-  //editable or not?
-  $(res).attr("readonly", true); 
-  hideElem(res);
   return res;
 }
 
@@ -641,7 +656,7 @@ function stateDragend(event, d) {
     graphState.currentState = graphStateEnum.creatingEdge;
     initCreatingTransition(event, graphDiv);
   }
-  generateTextFromData(graphDiv.parentNode);
+  //generateTextFromData(graphDiv.parentNode);
 }
 
 function updateOutgoingEdges(edgeGroups, stateData) {
@@ -737,8 +752,8 @@ function edgeDragmove(event, d) {
 }
 
 function edgeDragend(event, d) {
-  var graphDiv = d3.select(this).node().parentGraphDiv;
-  generateTextFromData(graphDiv.parentNode);
+  //var graphDiv = d3.select(this).node().parentGraphDiv;
+  //generateTextFromData(graphDiv.parentNode);
 }
 
 function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
@@ -855,7 +870,7 @@ function addState(questionDiv, stateData) {
   
   if (!jeProhlizeciStranka()) {
     addStateEvents(newState, questionDiv.graphDiv);
-    generateTextFromData(questionDiv);
+    //generateTextFromData(questionDiv);
   }
 }
 
@@ -982,13 +997,14 @@ function toggleStateSelection(stateGroup, graphDiv, d) {
   }
 }
 
-function toggleAcceptingState(stateData, stateG) {
+function toggleAcceptingState(questionDiv, stateData, stateG) {
   if (stateData.accepting) {
     stateG.select("." + graphConsts.stateAccCircle).remove();
   } else {
     addAcceptingCircle(stateG);
   }
   stateData.accepting = !stateData.accepting;
+  //generateTextFromData(questionDiv);
 }
 
 function addAcceptingCircle(stateG) {
@@ -1010,6 +1026,7 @@ function setNewStateAsInitial(questionDiv, stateData) {
   
   questionDiv.graphDiv.graphState.initialState = stateData;
   repositionInitArrow(questionDiv.graphDiv, stateData);
+  //generateTextFromData(questionDiv);
 }
 
 function setInitStateAsNotInitial(questionDiv) {
@@ -1026,6 +1043,7 @@ function renameState(questionDiv, stateData, newTitle) {
     .map(function (d) { d.id = newTitle; });
 
   setStateInputValue(getStateGroupById(questionDiv, stateData.id).select(".stateInput").node(), newTitle);
+  //generateTextFromData(questionDiv);
 }
 
 function deleteState(questionDiv, stateData) {
@@ -1036,6 +1054,7 @@ function deleteState(questionDiv, stateData) {
   deleteStateEdges(questionDiv, stateData);
   deleteStateData(questionDiv, stateData);
   updateStateGroups(questionDiv.graphDiv.svg.svgGroup);
+  //generateTextFromData(questionDiv);
 }
 
 function deleteStateData(questionDiv, stateData) {
@@ -1098,7 +1117,7 @@ function addEdge(questionDiv, edgeData, origin = elementOrigin.default) {
 
   if (!jeProhlizeciStranka()) {
     addEdgeEvents(questionDiv, newEdge, origin);
-    generateTextFromData(questionDiv);
+    //generateTextFromData(questionDiv);
   }
   
   return newEdge;
@@ -1251,6 +1270,7 @@ function renameEdge(questionDiv, edgeData, symbols) {
   setEdgeInput(input, symbols);
   setEdgeInputWidth(input);
   updateEdgeInputPosition(questionDiv, edgeGroup);
+  //generateTextFromData(questionDiv);
 }
 
 function deleteEdge(questionDiv, edgeData) {
@@ -1386,11 +1406,12 @@ function setRenameErrorPosition(state, errDiv, activeElemG, k) {
 function setStateAsInitialHandler(questionDiv) {
   setNewStateAsInitial(questionDiv, questionDiv.graphDiv.graphState.selectedState);
   hideElem(questionDiv.graphDiv.stateContextMenuDiv);
+  //generateTextFromData(questionDiv);
 }
 
 function toggleAcceptingStateHandler(questionDiv) {
   var d = questionDiv.graphDiv.graphState.selectedState;
-  toggleAcceptingState(d, getStateGroupById(questionDiv, d.id));
+  toggleAcceptingState(questionDiv, d, getStateGroupById(questionDiv, d.id));
   hideElem(questionDiv.graphDiv.stateContextMenuDiv);
 }
 
@@ -1564,6 +1585,7 @@ function generateTextFromData(questionDiv) {
   });
   questionDiv.textArea.value = result;
   $(questionDiv.textArea).trigger("change");
+  console.log(result);
 }
 
 //TODO better validity checks
@@ -1623,4 +1645,27 @@ function reversePopulateGraph(questionDiv, dataString) {
       addEdge(questionDiv, data, elementOrigin.fromExisting);
     }
   }
+}
+
+function setupSyntaxCheck(questionDiv) {
+  var errDiv = document.createElement("div");
+  errDiv.setAttribute("id", questionDiv.getAttribute("id") + "-error");
+  errDiv.setAttribute("class", "alert alert-info");
+  errDiv.setAttribute("title", syntaxDivTitle);
+
+  var errIcon = document.createElement("div");
+  errIcon.setAttribute("id", questionDiv.getAttribute("id") + "-i");
+
+  var errText = document.createElement("div");
+  errText.setAttribute("id", questionDiv.getAttribute("id") + "-error-text");
+  errText.innerHTML = syntaxTextDefault;
+
+  errDiv.appendChild(errIcon);
+  errDiv.appendChild(errText);
+
+  questionDiv.appendChild(errDiv);
+  questionDiv.errDiv = errDiv;
+
+  var parser = questionDiv.type + "Parser.parse";
+  eval("register(questionDiv.id, " + parser + ", questionDiv.textArea)");
 }

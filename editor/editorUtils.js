@@ -1,3 +1,9 @@
+function isRegOrGram(type) {
+    //TODO !!!
+
+    return type == "GRA" || type == "REG";
+}
+
 /* ------------------------------ HTML elements utils ------------------------------ */
 
 function hideElem(element) {
@@ -25,6 +31,7 @@ function clickGraph(questionDiv) {
         return;
     }
     hideElem(questionDiv.textArea);
+    hideElem(questionDiv.errDiv);
     hideElem(questionDiv.tableDiv);
 
     showElem(questionDiv.graphDiv);
@@ -48,6 +55,7 @@ function clickTable(questionDiv) {
     hideElem(questionDiv.graphDiv);
     hideElem(questionDiv.hintDiv);
     hideElem(questionDiv.textArea);
+    hideElem(questionDiv.errDiv);
 
     disableControlButtons(questionDiv.tableDiv);
     createTableFromData(questionDiv);
@@ -68,6 +76,7 @@ function clickText(questionDiv) {
         generateTextFromData(questionDiv);
     }
     showElem(questionDiv.textArea);
+    showElem(questionDiv.errDiv);
     questionDiv.lastEdited = "text";
 }
 
@@ -1254,7 +1263,7 @@ function tableAcceptingOnClick(tableDiv) {
 
     //edit state in graph
     var stateG = getStateGroupById(table.questionDiv, stateId);
-    toggleAcceptingState(stateG.datum(), stateG);
+    toggleAcceptingState(tableDiv.parentNode, stateG.datum(), stateG);
 
     jQuery_new(input).trigger("input");
 }
@@ -1346,7 +1355,7 @@ function updateStateInitAcc(questionDiv, stateData, sym) {
         setInitStateAsNotInitial(questionDiv);
     }
     if (accepting != stateData.accepting) {
-        toggleAcceptingState(stateData, getStateGroupById(questionDiv, stateData.id));
+        toggleAcceptingState(questionDiv, stateData, getStateGroupById(questionDiv, stateData.id));
     }
 }
 

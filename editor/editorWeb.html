@@ -30,26 +30,28 @@
     </script>
     
     <div id="constrainer">
-        <div id="q0">
-            <script> initialise("q0", "DFA"); </script>
-        </div>
-        <!-- 
-            <textarea cols="80" name="tst_1_e_a_1" rows="10"></textarea>
-        -->
+        <div id="q0"></div>
+        <script src="Parsers/DFAParser.js"></script>
+        <script> initialise("q0", "DFA"); </script>
         
-        <div id="q1">
-            <div id="aaaaa"></div>
-        </div>
+
+        <p> ------------------------ </p>
+        <p>Napište regulární gramatiku popisující následující jazyk nad abecedou.... </p>
+        <div id="q0005-8-8"></div>
+        <script src="Parsers/GRAParser.js"></script>
+        <script> initialise("q0005-8-8", "GRA"); </script>
+
+
+        <div id="q1"></div>
+        <script src="Parsers/NFAParser.js"></script>
         <script> initialise("q1", "NFA"); </script>
-        <!-- 
-            <textarea cols="80" name="tst_2_e_a_1" rows="10"></textarea>
-        -->
+        
+
     
         <div id="q2"></div>
+        <script src="Parsers/EFAParser.js"></script>
         <script> initialise("q2", "EFA"); </script>
-        <!-- 
-            <textarea cols="80" name="tst_3_e_a_1" rows="10"></textarea>
-        -->
+
 
     </div>
 

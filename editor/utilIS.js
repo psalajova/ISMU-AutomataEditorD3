@@ -33,12 +33,12 @@ function register(id, func, elemType)
 {
 	
 	// when we are in inspection mode, we do not want the syntax check to work
-/* 	if(jeProhlizeciStranka()) {
+	if(jeProhlizeciStranka()) {
 		if (document.getElementById(id + "-error"))
         	document.getElementById(id + "-error").setAttribute("hidden", '');
         return;
-    } */
-	console.log("registering");
+    }
+	//console.log("registering");
 	var elem;
 	if(elemType == "area") elem = vysledkovePole(id, "_a_a_1");
 	else if(elemType == "text") elem = vysledkovePole(id, "_t_a_1");
@@ -167,6 +167,7 @@ function vysledkovePole(idOtazky, pripona) {
  * Pomocne pro pouziti v zacniVysledkovaPole() a zapisVysledkovaPoleAT().
  */
 function jeProhlizeciStranka() {
+	return false;
 	var vse = document.forms; // do promenne se ulozi vsechny tagy <form> pro vyhledani
 	// vyhledam spravny testovy <form> podle jmena "testform"
 	for (i=vse.length-1; i>=0; i--) {
