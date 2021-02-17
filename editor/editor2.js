@@ -1,7 +1,7 @@
 var menuButtonClass = "menu-button";
 var contextMenuClass = "context-menu";
 var GRAPH_DIV_CLASS = "graphDiv";
-var QUESTION_DIV_CLASS = "tab-content";
+var QUESTION_DIV_CLASS = "question-content";
 
 const graphConsts = {
   selectedClass: "selected",
@@ -200,6 +200,7 @@ function initialiseGraph(questionDiv) {
 
   var defs = svg.append("svg:defs");
 
+  //arrow marker for edges that is VISIBLE
   defs
     .append("svg:marker")
     .attr("id", "end-arrow" + questionDiv.getAttribute("id"))
@@ -226,11 +227,25 @@ function initialiseGraph(questionDiv) {
     .append("svg:path")
     .attr("d", "M0,-5L10,0L0,5");
 
+  //arrow marker for init arrow
+  defs
+    .append("svg:marker")
+    .attr("id", "init-arrow-end" + questionDiv.getAttribute("id"))
+    .attr("viewBox", "0 0 10 10")
+    .attr("refY", "5")
+    .attr("refX", 32)
+    .attr("markerWidth", 4)
+    .attr("markerHeight", 4)
+    .attr("orient", "auto")
+    .append("svg:path")
+    .attr("d", "M 0 0 L 10 5 L 0 10 z")
+    .attr("fill", "black");
+
   var svgGroup = svg.append("svg:g").classed("graph-svg-group", true);
   svg.svgGroup = svgGroup;
 
   //"temporary" path when creating edges
-  //TODO ID!!
+  //TODO ID!!???
   var temporaryEdgeG = svgGroup.append("g").classed("temp-edge-group", true);
   svgGroup.temporaryEdgeG = temporaryEdgeG;
 
@@ -240,7 +255,6 @@ function initialiseGraph(questionDiv) {
     .attr("d", "M0,0L0,0")
     .style("marker-end", "url(#temporary-arrow-end" + questionDiv.getAttribute("id") + ")");
 
-  //MARKER ???
   temporaryEdgeG
     .append("svg:path")
     .classed(graphConsts.edgeMarkerClass, true)
@@ -250,10 +264,11 @@ function initialiseGraph(questionDiv) {
   var initArrow = svgGroup
     .append("svg:path")
     .attr("class", graphConsts.edgePathClass + " init-arrow")
-    .style("marker-end", "url(#temporary-arrow-end" + questionDiv.getAttribute("id") + ")");
-
+    .style("marker-end", "url(#init-arrow-end" + questionDiv.getAttribute("id") + ")");
+  
   svgGroup.initArrow = initArrow;
   initArrow.node().questionDiv = questionDiv;
+  initArrow.node().angle = 3.14;
 
   svgGroup.append("svg:g").classed("edges", true);
   svgGroup.append("svg:g").classed("states", true);
@@ -298,7 +313,7 @@ function initialiseGraph(questionDiv) {
     rect.on("contextmenu", svgRectContextmenu)
       .on("dblclick", svgRectDblclick);
 
-    //initArrow.call(dragInitArrow)
+    initArrow.call(dragInitArrow)
 
     initInitialState(questionDiv);
   }
@@ -317,7 +332,7 @@ function initialiseTableDiv(questionDiv) {
   questionDiv.tableDiv.appendChild(alertP);
 }
 
-function initialiseTextArea(div) {
+/* function initialiseTextArea(div) {
   var res = null;
   res = getTextArea(div.id, "_e_a_1");
   if (!res) {
@@ -325,12 +340,12 @@ function initialiseTextArea(div) {
     div.appendChild(res);
   }
   return res;
-}
+} */
 
 function initInitialState(questionDiv) {
   var initialData = newStateData(questionDiv, null, 100, 100, true, false);
   addState(questionDiv, initialData);
-  repositionInitArrow(questionDiv.graphDiv, initialData);
+  repositionInitArrow(questionDiv.graphDiv, initialData, 3.14);
   questionDiv.graphDiv.graphState.initialState = initialData;
 }
 
@@ -364,13 +379,12 @@ var dragState = d3
   .on("end", stateDragend);
 
 var dragInitArrow = d3.drag().on("drag", function(event) {
-  var initialState = d3.select(this).node().questionDiv.graphDiv.graphState.initialState;
-  var cp = closestPointOnCircle(event.x, event.y, initialState.x, initialState.y);
-
-  d3.select(this).attr("d",
-      "M" + event.x + "," + event.y +
-      "L" + cp.x  +   "," + cp.y
-  );
+  var arrow =  d3.select(this).node();
+  var s = arrow.questionDiv.graphDiv.graphState.initialState;
+  arrow.angle = calculateAngle(s.x, s.y, event.x, event.y);
+  d3.select(this).attr("d", "M " + s.x + " " + s.y
+        + " C " + cubicControlPoints(s.x, s.y, arrow.angle, 90, 2000)
+        + " " + s.x + " " + s.y);
 });
 
 
@@ -619,7 +633,7 @@ function stateDragmove(event, d) {
   d3.select(this).attr("transform", "translate(" + d.x + "," + d.y + ")");
 
   if (d.initial) {
-    repositionInitArrow(graphDiv, d);
+    repositionInitArrow(graphDiv, d, graphDiv.svg.svgGroup.initArrow.node().angle);
   }
 
   updateOutgoingEdges(graphDiv.svg.svgGroup.edgeGroups, d);
@@ -1030,7 +1044,7 @@ function setNewStateAsInitial(questionDiv, stateData) {
     .map(function (d) { d.initial = true; });
   
   questionDiv.graphDiv.graphState.initialState = stateData;
-  repositionInitArrow(questionDiv.graphDiv, stateData);
+  repositionInitArrow(questionDiv.graphDiv, stateData, 3.14);
   //generateTextFromData(questionDiv);
 }
 
@@ -1200,6 +1214,7 @@ function addEdgeSvg(questionDiv, newEdge, origin, tempEdgeDef) {
       var w = parseInt((input.style.width).substring(0, input.style.width.length - 2));
       if (w && (w - len) < 20) {
         setEdgeInputWidth(input, len + 50);
+        updateEdgeInputPosition(questionDiv, getEdgeGroupById(questionDiv, d.id));
       }      
 
       if (e.keyCode == 13) {
@@ -1469,14 +1484,18 @@ function repositionMarkerTo(path, markerPath, distance) {
   markerPath.attr("d", "M" + pathPoint2.x + " " + pathPoint2.y + " L " + pathPoint.x + " " + pathPoint.y);
 }
 
-function repositionInitArrow(graphDiv, stateData) {
-  d3.select(graphDiv)
-    .select(".init-arrow")
+function repositionInitArrow(graphDiv, stateData, angle) {
+  var arrow = graphDiv.svg.svgGroup.initArrow;
+  
+  arrow
     .classed("hidden", false) //if it was hidden after deleting previous initial state, show it
     .attr("d",
-      "M" + (stateData.x - graphConsts.nodeRadius * 2) + "," + stateData.y +
-      "L" + (stateData.x - graphConsts.nodeRadius - 4) + "," + stateData.y
+      "M " + stateData.x + " " + stateData.y
+      + " C " + cubicControlPoints(stateData.x, stateData.y, angle, 90, 2000)
+      + " " + stateData.x + " " + stateData.y
     );
+
+  arrow.node().angle = angle;
 }
 
 function hideInitArrow(graphDiv) {
@@ -1512,10 +1531,12 @@ function removeSelectionFromEdge(graphDiv) {
 /* ------------------------------ Updating functions ------------------------------ */
 function generateTextFromData(questionDiv) {
   var result = "";
+  var initState;
   var acceptingStates = [];
 
   questionDiv.statesData.forEach(function (state) {
     if (state.initial) {
+      initState = state;
       result += "init=" + state.id + " ";
     }
     if (state.accepting) {
@@ -1584,10 +1605,13 @@ function generateTextFromData(questionDiv) {
       + d.source.id
       + ";" + d.target.id
       + ";" + d.symbols
-      + ";" + d.dx
-      + ";" + d.dy
-      + ";" + d.angle.toFixed(2);
+      + ";" + d.dx.toFixed(2)
+      + ";" + d.dy.toFixed(2)
+      + ";" + d.angle.toFixed(3);
   });
+  if (initState) {
+    result += "@initAngle:" + questionDiv.graphDiv.svg.svgGroup.initArrow.node().angle.toFixed(3);
+  }
   questionDiv.textArea.value = result;
   $(questionDiv.textArea).trigger("change");
 }
@@ -1641,14 +1665,15 @@ function reversePopulateGraph(questionDiv, dataString) {
       var sourceId = edgeData[0];
       var targetId = edgeData[1];
       var symbols = edgeData[2];
-      var dx = parseInt(edgeData[3]);
-      var dy = parseInt(edgeData[4]);
+      var dx = parseFloat(edgeData[3]);
+      var dy = parseFloat(edgeData[4]);
       var angle = parseFloat(edgeData[5]);
 
       var data = newEdgeData(questionDiv, sourceId, targetId, symbols, dx, dy, angle);
       addEdge(questionDiv, data, elementOrigin.fromExisting);
     }
   }
+  //TODO parse init arrow angle
 }
 
 function setupSyntaxCheck(id) {

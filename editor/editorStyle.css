@@ -18,8 +18,9 @@
     transition: all 0.4s ease 0s;
 }
 
-.tab-content {
+.question-content {
     background-color: rgba(255, 255, 255, 0);
+    margin-top: 15px;
 }
 
 .graphDiv {
@@ -202,7 +203,7 @@
 
 .state-group.selected circle{
     stroke:#3e3e3e;
-    fill: #84d7ff;
+    fill: #84d6ff;
 }
 
 .state-fullname-rect {
@@ -215,7 +216,7 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 15px;
     cursor: default;
-    fill: #ebebeb;
+    fill: #ebebeb17;
 }
 
 .stateEl>.stateInput {
@@ -245,6 +246,10 @@
 
 /*  edges ------------------------------------------------------------ */
 .edge-group.mouse-over-node path{
+    stroke:#8bd0ff;
+}
+
+.init-arrow:hover{
     stroke:#8bd0ff;
 }
 
@@ -285,12 +290,15 @@
 }
 
 .edgeInput {
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
     text-align: center;
     outline: none;
-    background: #daffb5;
-    border: 0px solid #6b6b6b81;
+    background: white;
+    border: 0px solid #2d2d2d;
     border-radius: 4px;
-    box-shadow: 0px 0px 2px 0px #797979c4;
+    box-shadow: 0px 0px 1px 1px #2882bdd6;
     color: black;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 1.2em;
@@ -301,7 +309,7 @@
 }
 
 .edgeInput::selection {
-    background:#8bd0ff;
+    background:#8ba6ff;
   }
 
 .edgeInput:read-only{
@@ -310,6 +318,7 @@
   -ms-user-select: none;
   user-select: none;
   background: white;
+  box-shadow: 0px 0px 1px 1px #797979c4;
   color: black;
   cursor: default;
 }

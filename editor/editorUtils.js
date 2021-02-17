@@ -591,14 +591,19 @@ function closestPointOnCircle(x, y, circleX, circleY) {
     };
 }
 
-function cubicControlPoints(x, y, d) {
-    var mult = 110; //how long the self loop will be
-    var div = 6; //thickness of loop
-
-    var x1 = +x + (Math.cos(d + Math.PI / div) * mult);
-    var y1 = +y - (Math.sin(d + Math.PI / div) * mult);
-    var x2 = +x + (Math.cos(d - Math.PI / div) * mult);
-    var y2 = +y - (Math.sin(d - Math.PI / div) * mult);
+/**
+ * 
+ * @param {*} x 
+ * @param {*} y 
+ * @param {*} d 
+ * @param {*} mult  how long the self loop will be
+ * @param {*} div   wideness of loop - the lesser the wider
+ */
+function cubicControlPoints(x, y, d, mult = 110, div = 6) {
+    var x1 = (+x + (Math.cos(d + Math.PI / div) * mult)).toFixed(3);
+    var y1 = (+y - (Math.sin(d + Math.PI / div) * mult)).toFixed(3);
+    var x2 = (+x + (Math.cos(d - Math.PI / div) * mult)).toFixed(3);
+    var y2 = (+y - (Math.sin(d - Math.PI / div) * mult)).toFixed(3);
 
     return x1 + " " + y1 + " " + x2 + " " + y2;
 }
@@ -646,7 +651,7 @@ function removeDuplicates(array) {
 
 /* ------------------------------ Table ------------------------------ */
 const STATE_INDEX = 1;
-var MIN_TABLE_CELL_WIDTH = "50px";
+var MIN_TABLE_CELL_WIDTH = "70px";
 
 function createTable(questionDiv) {
     var table = document.createElement("table");
