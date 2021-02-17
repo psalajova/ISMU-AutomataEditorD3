@@ -300,9 +300,10 @@ function setStateInputValue(input, value) {
 function getCroppedTitle(input) {
     var title = input.realValue;
 
-    while (visualLength(title) >= (graphConsts.nodeRadius * 2) - 9) {
-
-        title = title.substring(0, title.length - 4);
+    while (visualLength(title.concat("...")) >= (graphConsts.nodeRadius * 2) - 4) {
+        title = title.substring(0, title.length - 1);
+    }
+    if (title != input.realValue) {
         title = title.concat("...");
     }
     return title;

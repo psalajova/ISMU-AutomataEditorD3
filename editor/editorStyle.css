@@ -216,7 +216,7 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 15px;
     cursor: default;
-    fill: #ebebeb17;
+    fill: white;
 }
 
 .stateEl>.stateInput {

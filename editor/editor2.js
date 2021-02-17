@@ -957,7 +957,7 @@ function addStateSvg(newState, graphDiv) {
   var input = newState
     .append("foreignObject")
     .classed(graphConsts.stateElClass, true)
-    .attr("x", -25)
+    .attr("x", -24)
     .attr("y", -12)
     .attr("height", 23)
     .attr("width", 50)
@@ -1031,7 +1031,7 @@ function addAcceptingCircle(stateG) {
     .append("circle")
     .classed(graphConsts.stateAccCircle, true)
     .classed(graphConsts.stateElClass, true)
-    .attr("r", graphConsts.nodeRadius - 4);
+    .attr("r", graphConsts.nodeRadius - 3.5);
   //TODO parameter namiesto stringu
   stateG.select("foreignObject").raise();
 }
@@ -1215,7 +1215,7 @@ function addEdgeSvg(questionDiv, newEdge, origin, tempEdgeDef) {
       if (w && (w - len) < 20) {
         setEdgeInputWidth(input, len + 50);
         updateEdgeInputPosition(questionDiv, getEdgeGroupById(questionDiv, d.id));
-      }      
+      }
 
       if (e.keyCode == 13) {
         e.preventDefault();
