@@ -54,10 +54,6 @@ function setupLanguage() {
 }
 
 function initialise(id, textArea) {
-  if (!window.jQuery_new) {
-    jQuery_new = $;
-  }
-
   var div = document.getElementById(id);
   div.setAttribute("class", QUESTION_DIV_CLASS);
   div.setAttribute("id", id);
@@ -75,25 +71,41 @@ function initialise(id, textArea) {
     initialiseEditor(div);
   }
 
-  if (jeProhlizeciStranka()){
-/*     textArea.value = TEST_DFA1;
-    if (type == "EFA") {
-      textArea.value = TEST_GRAPH_EFA;
-    } */
+  if (jeProhlizeciStranka_new()){
     textArea.disabled = true;
     if (!isRegOrGram(div.type)) {
-      reversePopulateGraph(div, textArea.value);
+      reversePopulateGraph(div, textArea.innerText);
     }
   }
   else {
-    setupSyntaxCheck(div.id);
+    //setupSyntaxCheck(div.id);
   }
 
-  $(document.getElementsByClassName("form")).submit(function() {
-    if (div.lastEdited === "text") {
-      generateTextFromData(div);
-    }
+  $('form').submit(function() {
+    console.log("*****submitting");
+    generateTextFromData(div);
+    $(textArea).addClass("editor-submitted");
   });
+}
+
+function initialise_test(div, textArea) {
+  div.setAttribute("class", QUESTION_DIV_CLASS);
+  var type = div.getAttribute("id").substring(0, 3);
+  div.type = type; 
+
+  if (!textArea) { //only for local testing!
+    textArea = document.createElement("textarea");
+  }
+  div.textArea = textArea;
+
+  if (!isRegOrGram(type)) {
+    initialiseEditor(div);
+    $(textArea).prop('readonly', true);
+    reversePopulateGraph(div, textArea.value);
+    if (div.statesData.length == 0 && div.edgesData.length == 0) {
+      initInitialState(div);
+    }
+  }
 }
 
 function initialiseEditor(questionDiv) {
@@ -158,12 +170,10 @@ function initialiseEditor(questionDiv) {
   initialiseTableDiv(questionDiv);
 
   hideElem(questionDiv.textArea);
-  //questionDiv.textArea.setAttribute("class", "textArea");
-  questionDiv.appendChild(questionDiv.textArea);
+  questionDiv.appendChild(questionDiv.textArea); //moves the existing textarea into div
 
   questionDiv.graphDiv.lastHeight = questionDiv.graphDiv.offsetHeight;
   questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
-
 }
 
 function initialiseGraph(questionDiv) {
@@ -305,7 +315,7 @@ function initialiseGraph(questionDiv) {
   questionDiv.graphDiv.stateIdCounter = 0;
   questionDiv.graphDiv.edgeIdCounter = 0;
 
-  if (!jeProhlizeciStranka()) {
+  if (!jeProhlizeciStranka_new()) {
     svg.on("mousemove", svgMousemove)
       .on("click", svgRectClick)
       .on("contextmenu", svgRectContextmenu);
@@ -314,8 +324,6 @@ function initialiseGraph(questionDiv) {
       .on("dblclick", svgRectDblclick);
 
     initArrow.call(dragInitArrow)
-
-    initInitialState(questionDiv);
   }
 }
 
@@ -396,7 +404,7 @@ document.addEventListener('keyup', windowKeyUp);
  * @param {*} event 
  */
 function windowKeyUp(event) {
-  if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka()) {
+  if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka_new()) {
     return;
   }
   var graphDiv = SELECTED_ELEM_GROUP.node().parentGraphDiv;
@@ -553,7 +561,6 @@ function tryToRenameEdge(questionDiv, edgeData, newSymbols, prompt = null) {
   if (!validityCheck.result) {
     showRenameError(validityCheck.errMessage, questionDiv);
     input.correct = false;
-    input.select();
   }
   else {
     input.correct = true;
@@ -573,7 +580,6 @@ function tryToRenameState(questionDiv, stateData, newId, prompt = null) {
   if (!validityCheck.result) {
     showRenameError(validityCheck.errMessage, questionDiv);
     input.correct = false;
-    input.select();
   }
   else {
     input.correct = true;
@@ -675,7 +681,7 @@ function stateDragend(event, d) {
     graphState.currentState = graphStateEnum.creatingEdge;
     initCreatingTransition(event, graphDiv);
   }
-  //generateTextFromData(graphDiv.parentNode);
+  generateTextFromData(graphDiv.parentNode);
 }
 
 function updateOutgoingEdges(edgeGroups, stateData) {
@@ -771,8 +777,8 @@ function edgeDragmove(event, d) {
 }
 
 function edgeDragend(event, d) {
-  //var graphDiv = d3.select(this).node().parentGraphDiv;
-  //generateTextFromData(graphDiv.parentNode);
+  var graphDiv = d3.select(this).node().parentGraphDiv;
+  generateTextFromData(graphDiv.parentNode);
 }
 
 function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
@@ -887,9 +893,9 @@ function addState(questionDiv, stateData) {
   addStateSvg(newState, questionDiv.graphDiv);
   updateStateGroups(questionDiv.graphDiv.svg.svgGroup);
   
-  if (!jeProhlizeciStranka()) {
+  if (!jeProhlizeciStranka_new()) {
     addStateEvents(newState, questionDiv.graphDiv);
-    //generateTextFromData(questionDiv);
+    generateTextFromData(questionDiv);
   }
 }
 
@@ -1023,7 +1029,7 @@ function toggleAcceptingState(questionDiv, stateData, stateG) {
     addAcceptingCircle(stateG);
   }
   stateData.accepting = !stateData.accepting;
-  //generateTextFromData(questionDiv);
+  generateTextFromData(questionDiv);
 }
 
 function addAcceptingCircle(stateG) {
@@ -1045,7 +1051,7 @@ function setNewStateAsInitial(questionDiv, stateData) {
   
   questionDiv.graphDiv.graphState.initialState = stateData;
   repositionInitArrow(questionDiv.graphDiv, stateData, 3.14);
-  //generateTextFromData(questionDiv);
+  generateTextFromData(questionDiv);
 }
 
 function setInitStateAsNotInitial(questionDiv) {
@@ -1062,7 +1068,7 @@ function renameState(questionDiv, stateData, newTitle) {
     .map(function (d) { d.id = newTitle; });
 
   setStateInputValue(getStateGroupById(questionDiv, stateData.id).select(".stateInput").node(), newTitle);
-  //generateTextFromData(questionDiv);
+  generateTextFromData(questionDiv);
 }
 
 function deleteState(questionDiv, stateData) {
@@ -1073,7 +1079,7 @@ function deleteState(questionDiv, stateData) {
   deleteStateEdges(questionDiv, stateData);
   deleteStateData(questionDiv, stateData);
   updateStateGroups(questionDiv.graphDiv.svg.svgGroup);
-  //generateTextFromData(questionDiv);
+  generateTextFromData(questionDiv);
 }
 
 function deleteStateData(questionDiv, stateData) {
@@ -1134,9 +1140,11 @@ function addEdge(questionDiv, edgeData, origin = elementOrigin.default) {
   updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
 
 
-  if (!jeProhlizeciStranka()) {
+  if (!jeProhlizeciStranka_new()) {
     addEdgeEvents(questionDiv, newEdge, origin);
-    //generateTextFromData(questionDiv);
+    if (checkEdgeSymbolsValidity(questionDiv, edgeData.id, edgeData.source, edgeData.symbols).result) {
+      generateTextFromData(questionDiv);
+    }
   }
   
   return newEdge;
@@ -1290,13 +1298,14 @@ function renameEdge(questionDiv, edgeData, symbols) {
   setEdgeInput(input, symbols);
   setEdgeInputWidth(input);
   updateEdgeInputPosition(questionDiv, edgeGroup);
-  //generateTextFromData(questionDiv);
+  generateTextFromData(questionDiv);
 }
 
 function deleteEdge(questionDiv, edgeData) {
   deleteEdgeSvg(questionDiv.graphDiv.svg.svgGroup, edgeData);
   updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
   deleteEdgeData(questionDiv.edgesData, edgeData);
+  generateTextFromData(questionDiv);
 }
 
 function deleteEdgeSvg(svgGroup, edgeData) {
@@ -1392,7 +1401,6 @@ function initRenaming(questionDiv, state, defaultValue, errMsg = null) {
   elemG.node().classList.add("activeRenaming");//.classed("activeRenaming", true);
   input = elemG.select("input").node();
   enableInput(input);
-  input.select();
   input.focus();
 
   setRenameErrorPosition(state, questionDiv.graphDiv.renameError, elemG, questionDiv.graphDiv.k);
@@ -1426,7 +1434,6 @@ function setRenameErrorPosition(state, errDiv, activeElemG, k) {
 function setStateAsInitialHandler(questionDiv) {
   setNewStateAsInitial(questionDiv, questionDiv.graphDiv.graphState.selectedState);
   hideElem(questionDiv.graphDiv.stateContextMenuDiv);
-  //generateTextFromData(questionDiv);
 }
 
 function toggleAcceptingStateHandler(questionDiv) {
@@ -1612,7 +1619,8 @@ function generateTextFromData(questionDiv) {
   if (initState) {
     result += "@initAngle:" + questionDiv.graphDiv.svg.svgGroup.initArrow.node().angle.toFixed(3);
   }
-  questionDiv.textArea.value = result;
+  //questionDiv.textArea.value = result;
+  questionDiv.textArea.innerText = result;
   $(questionDiv.textArea).trigger("change");
 }
 
@@ -1630,7 +1638,7 @@ function generateTextFromData(questionDiv) {
 function reversePopulateGraph(questionDiv, dataString) {
   if (!dataString) return;
 
-  var splitted = dataString.split("states");
+  var splitted = dataString.split("##states");
   var data = splitted[1].split("edges");
   var states = data[0];
   var edges = data[1];
@@ -1697,7 +1705,7 @@ function setupSyntaxCheck(id) {
   div.appendChild(errDiv);
   div.errDiv = errDiv;
 
-  if (jeProhlizeciStranka() || !isRegOrGram(div.dataset.type)) {
+  if (jeProhlizeciStranka_new() || !isRegOrGram(div.dataset.type)) {
     hideElem(errDiv);
   }
 

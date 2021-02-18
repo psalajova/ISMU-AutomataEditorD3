@@ -23,6 +23,10 @@
     <script src="myUtils.js"></script>
     <script src="editorUtils.js"></script>
     <script src="languages/CS.js"></script>
+    <script src="Parsers/DFAParser.js"></script>
+    <script src="Parsers/GRAParser.js"></script>
+    <script src="Parsers/NFAParser.js"></script>
+    <script src="Parsers/EFAParser.js"></script>
     <span id="ruler"></span>
 
     <script>
@@ -31,7 +35,7 @@
     
     <div id="constrainer">
         <div id="q0" data-type="DFA"></div>
-        <script src="Parsers/DFAParser.js"></script>
+
         <script> 
             initialise("q0"); 
             //setupSyntaxCheck("q0");
@@ -41,29 +45,23 @@
         <p> ------------------------ </p>
         <p>Napište regulární gramatiku popisující následující jazyk nad abecedou.... </p>
         <div id="q0005-8-8" data-type="GRA"></div>
-        <script src="Parsers/GRAParser.js"></script>
+
         <script> 
             initialise("q0005-8-8"); 
-            //setupSyntaxCheck("q0005-8-8");
         </script>
 
 
         <div id="q1" data-type="NFA"></div>
-        <script src="Parsers/NFAParser.js"></script>
         <script> 
             initialise("q1"); 
-            //setupSyntaxCheck("q1");
         </script>
         
 
     
         <div id="q2" data-type="EFA"></div>
-        <script src="Parsers/EFAParser.js"></script>
         <script> 
             initialise("q2"); 
-            //setupSyntaxCheck("q2");
         </script>
-
 
     </div>
 

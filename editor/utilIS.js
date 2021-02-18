@@ -33,7 +33,7 @@ function register(id, func, elemType)
 {
 	
 	// when we are in inspection mode, we do not want the syntax check to work
-	if(jeProhlizeciStranka()) {
+	if(jeProhlizeciStranka_new()) {
 		if (document.getElementById(id + "-error"))
         	document.getElementById(id + "-error").setAttribute("hidden", '');
         return;
@@ -166,8 +166,7 @@ function vysledkovePole(idOtazky, pripona) {
 /* Funkce zjisti, zda aktualni stranka je v modu prohlizeni testu (tj. ne skladani).
  * Pomocne pro pouziti v zacniVysledkovaPole() a zapisVysledkovaPoleAT().
  */
-function jeProhlizeciStranka() {
-	return false;
+function jeProhlizeciStranka_original() {
 	var vse = document.forms; // do promenne se ulozi vsechny tagy <form> pro vyhledani
 	// vyhledam spravny testovy <form> podle jmena "testform"
 	for (i=vse.length-1; i>=0; i--) {

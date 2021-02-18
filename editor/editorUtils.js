@@ -26,12 +26,12 @@ function hideAllContextMenus(questionDiv) {
 }
 
 function clickGraph(questionDiv) {
-    if (!jeProhlizeciStranka() && questionDiv.lastEdited == "graph") {
+    if (!jeProhlizeciStranka_new() && questionDiv.lastEdited == "graph") {
         deselectAll();
         return;
     }
     hideElem(questionDiv.textArea);
-    hideElem(questionDiv.errDiv);
+    //hideElem(questionDiv.errDiv);
     hideElem(questionDiv.tableDiv);
 
     showElem(questionDiv.graphDiv);
@@ -45,7 +45,7 @@ function clickTable(questionDiv) {
     }
     if (questionDiv.lastEdited == "graph") {
         updateSvgDimensions(questionDiv);
-        if (!jeProhlizeciStranka()) deselectAll();
+        if (!jeProhlizeciStranka_new()) deselectAll();
     }
     /*
     if (questionDiv.lastEdited == "text") {
@@ -55,7 +55,7 @@ function clickTable(questionDiv) {
     hideElem(questionDiv.graphDiv);
     hideElem(questionDiv.hintDiv);
     hideElem(questionDiv.textArea);
-    hideElem(questionDiv.errDiv);
+    //hideElem(questionDiv.errDiv);
 
     disableControlButtons(questionDiv.tableDiv);
     createTableFromData(questionDiv);
@@ -72,10 +72,6 @@ function clickText(questionDiv) {
     hideElem(questionDiv.hintDiv);
     hideElem(questionDiv.tableDiv);
 
-    if (!jeProhlizeciStranka()) {
-        generateTextFromData(questionDiv);
-        showElem(questionDiv.errDiv);
-    }
     showElem(questionDiv.textArea);
     questionDiv.lastEdited = "text";
 }
@@ -173,10 +169,10 @@ function showRenameError(msg, questionDiv) {
 
 function setRenameStyle(renameInput, isState = true) {
     if (isState) {
-        jQuery_new(renameInput).switchClass("edge-renaming", "state-renaming", 0);
+        $(renameInput).switchClass("edge-renaming", "state-renaming", 0);
     }
     else {
-        jQuery_new(renameInput).switchClass("state-renaming", "edge-renaming", 0);
+        $(renameInput).switchClass("state-renaming", "edge-renaming", 0);
     }
 }
 
@@ -262,25 +258,25 @@ function checkEdgeSymbolsValidity(questionDiv, edgeId, sourceStateData, symbols)
     var err = "", valid = true;
 
     //TODO
-    var correctSyntax = questionDiv.type == "EFA" ? "OÄŤekĂˇvanĂ© Ĺ™etÄ›zce znakĹŻ z {a-z,A-Z,0-9,\\e,ε} oddÄ›lenĂ© ÄŤĂˇrkami." : "OÄŤekĂˇvanĂ© Ĺ™etÄ›zce znakĹŻ z {a-z,A-Z,0-9} oddÄ›lenĂ© ÄŤĂˇrkami.";
+    var expectedSyntax = questionDiv.type == "EFA" ? expectedEFASyntax : expectedDFASyntax;
 
     if (symbols == null || symbols == "") {
-        err = errors.EMPTY_TRANSITION;
+        err = errors.emptyTransition;
         valid = false;
     }
     else if (incorrectGraphTransitionsSyntax(questionDiv.type, symbols)) {
-        err = INVALID_SYNTAX_ERROR + "<br>" + correctSyntax;
+        err = INVALID_SYNTAX_ERROR + "<br>" + expectedSyntax;
         valid = false;
     }
     else if (questionDiv.type == "DFA") {
         if (edgeId != null && transitionWithSymbolExists(questionDiv, edgeId, sourceStateData.id, symbols)
             || edgeId == null && transitionWithSymbolExists(questionDiv, null, sourceStateData.id, symbols)) {
-            err = DFA_invalid_transition;
+            err = DFAInvalidTransition;
             valid = false;
         }
     }
     if (symbols.length > 300) {
-        err = "Prekrocena maximalna dlzka symbolov prechodu (300)!";
+        err = errors.transitionSymbolsTooLong;
         valid = false;
     }
 
@@ -347,17 +343,17 @@ function checkStateNameValidity(questionDiv, stateData, newId) {
     var valid = true;
 
     if (!newId) {
-        err = errors.EMPTY_STATE_NAME;
+        err = errors.emptyState;
         valid = false;
     }
 
     else if (!stateIdIsUnique(questionDiv.statesData, stateData, newId)) {
-        err = stateNameAlreadyExistsPrompt;
+        err = stateNameAlreadyExists;
         valid = false;
     }
 
     else if (incorrectStateSyntax(newId)) {
-        err = errors.INCORRECT_STATE_SYNTAX;
+        err = errors.incorrectStateSyntax;
         valid = false;
     }
 
@@ -482,7 +478,7 @@ function disableAllDragging(svg) {
 }
 
 function enableAllDragging(svg) {
-    if (!jeProhlizeciStranka()) {
+    if (!jeProhlizeciStranka_new()) {
         svg.svgGroup.selectAll("." + graphConsts.stateGroupClass).call(dragState);
         svg.svgGroup.selectAll("." + graphConsts.edgeGroupClass).call(dragEdge);
         svg.call(zoom).on("dblclick.zoom", null);
@@ -771,14 +767,14 @@ function createTableFromData(questionDiv) {
     questionDiv.tableDiv.removeChild(questionDiv.tableDiv.alertText);
     questionDiv.tableDiv.appendChild(questionDiv.tableDiv.alertText);
 
-    if (jeProhlizeciStranka()) {
-        jQuery_new(table).find("input").prop("disabled", true).addClass("mydisabled");
+    if (jeProhlizeciStranka_new()) {
+        $(table).find("input").prop("disabled", true).addClass("mydisabled");
     }
 }
 
 function insertColumnAddButton(table, row) {
     var cell = insertCellWithDiv(row, null, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
-    if (!jeProhlizeciStranka()) {
+    if (!jeProhlizeciStranka_new()) {
         cell.addEventListener("click", () => insertColumn(table));
     }
 }
@@ -787,7 +783,7 @@ function insertColumnDeleteButton(table, row) {
     var cell = insertCellWithDiv(row, null,
         [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
 
-    if (!jeProhlizeciStranka()) {
+    if (!jeProhlizeciStranka_new()) {
         cell.addEventListener("click", () => deleteColumn(table, cell.cellIndex));
     }
 }
@@ -796,7 +792,7 @@ function insertRowAddButton(table) {
     var newRow = table.insertRow(table.rows.length);
     var cell = insertCellWithDiv(newRow, 0, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
 
-    if (!jeProhlizeciStranka()) {
+    if (!jeProhlizeciStranka_new()) {
         cell.addEventListener("click", function (e) { insertRow(table); });
     }
 }
@@ -805,7 +801,7 @@ function insertRowDeleteButton(table, row) {
     var cell = insertCellWithDiv(row, 0,
         [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
 
-    if (!jeProhlizeciStranka()) {
+    if (!jeProhlizeciStranka_new()) {
         cell.addEventListener("click", function () { deleteRow(table, cell.parentNode.rowIndex); });
     }
 }
@@ -846,10 +842,10 @@ function insertRowHeader(row, name) {
 
     input.defaultClass = tableClasses.rowHeader; // whhy>?
 
-    jQuery_new(input).click(() => tableHeaderCellClick(table, input));
-    jQuery_new(input).on("input", (e) => tableRhChanged(e, table));
-    jQuery_new(input).focusout((e) => tableRhChangedFinal(e, table, input));
-    jQuery_new(input).keypress((e) => cellKeypressHandler(e, stateSyntax()));
+    $(input).click(() => tableHeaderCellClick(table, input));
+    $(input).on("input", (e) => tableRhChanged(e, table));
+    $(input).focusout((e) => tableRhChangedFinal(e, table, input));
+    $(input).keypress((e) => cellKeypressHandler(e, stateSyntax()));
 
     cell.myDiv = input;
     cell.appendChild(input);
@@ -976,16 +972,16 @@ function tableChChanged(e, table, input) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
         var err;
         if (type == "EFA") {
-            err = errors.EFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX;
+            err = errors.EFA_incorrectTransitionSymbol;
         }
         else {
-            err = errors.NFA_INCORRECT_TRANSITION_SYMBOL_SYNTAX;
+            err = errors.NFA_incorrectTransitionSymbol;
         }
         activateAlertMode(table, err, input);
     }
     else if (tableColumnSymbolAlreadyExists(table, input, value)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
-        activateAlertMode(table, errors.DUPLICIT_TRANSITION_SYMBOL, input);
+        activateAlertMode(table, errors.duplicitTransitionSymbol, input);
     }
     else {
         d3.select(input).classed(tableClasses.incorrectCell, false);
@@ -997,7 +993,7 @@ function tableChChanged(e, table, input) {
 }
 
 function tableChChangedFinal(_, table, input) {
-    if (jQuery_new(input).hasClass(tableClasses.incorrectCell) || table.locked) {
+    if ($(input).hasClass(tableClasses.incorrectCell) || table.locked) {
         return;
     }
     var prevName = input.prevValue;
@@ -1033,11 +1029,11 @@ function tableRhChanged(e, table) {
 
     if (incorrectStateSyntax(stateName)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
-        activateAlertMode(table, errors.INCORRECT_STATE_SYNTAX, input);
+        activateAlertMode(table, errors.incorrectStateSyntax, input);
     }
     else if (tableStateAlreadyExists(table, input, stateName)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
-        activateAlertMode(table, errors.DUPLICIT_STATE_NAME, input);
+        activateAlertMode(table, errors.duplicitState, input);
     }
     else {
         d3.select(input).classed(tableClasses.incorrectCell, false);
@@ -1063,7 +1059,7 @@ function tableRhChanged(e, table) {
 }
 
 function tableRhChangedFinal(e, table, input) {
-    if (jQuery_new(input).hasClass(tableClasses.incorrectCell) == false && !table.locked) {
+    if ($(input).hasClass(tableClasses.incorrectCell) == false && !table.locked) {
         if (input.prevValue == input.value) return;
 
         var prevName = removePrefix(input.prevValue);
@@ -1120,12 +1116,12 @@ function tableCellChangedFinal(e, table, input) {
     if (incorrectTableInnerCellSyntax(type, input.value)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
 
-        var err = errors.INCORRECT_TRANSITION_SYNTAX + " ";
+        var err = errors.innerCellIncorrectSyntaxBase + " ";
         if (type == "DFA") {
-            err += errors.DFA_TRANSITION_EXPECTED_SYNTAX;
+            err += errors.DFAInnerCellSyntax;
         }
         else {
-            err += errors.NFA_TRANSITION_EXPECTED_SYNTAX
+            err += errors.NFAInnerCellSyntax
         }
         activateAlertMode(table, err, input);
     }
@@ -1243,7 +1239,7 @@ function tableInitialOnClick(tableDiv) {
     input.prevValue = input.value;
 
     setNewStateAsInitial(table.questionDiv, getStateDataById(table.questionDiv, stateId));
-    jQuery_new(input).trigger("input");
+    $(input).trigger("input");
 }
 
 function tableAcceptingOnClick(tableDiv) {
@@ -1271,7 +1267,7 @@ function tableAcceptingOnClick(tableDiv) {
     var stateG = getStateGroupById(table.questionDiv, stateId);
     toggleAcceptingState(tableDiv.parentNode, stateG.datum(), stateG);
 
-    jQuery_new(input).trigger("input");
+    $(input).trigger("input");
 }
 
 
@@ -1286,7 +1282,7 @@ function activateAlertMode(table, error, exc) {
 function setAlert(table, error, tableLocked = true) {
     table.alertStatus.innerHTML = error;
     if (tableLocked) {
-        table.alertStatus.innerHTML += " " + errors.TABLE_LOCKED;
+        table.alertStatus.innerHTML += " " + errors.tableLocked;
     }
 }
 
@@ -1306,7 +1302,7 @@ function lockTable(table, exceptionInput) {
             if (table.rows[i].cells[j].myDiv == exceptionInput) {
                 continue;
             }
-            jQuery_new(table.rows[i].cells[j].myDiv).prop('readonly', true);
+            $(table.rows[i].cells[j].myDiv).prop('readonly', true);
         }
     }
     table.locked = true;
@@ -1316,7 +1312,7 @@ function lockTable(table, exceptionInput) {
 function unlockTable(table) {
     for (var i = 1; i < table.rows.length - 1; i++) {
         for (var j = 1; j < table.rows[i].cells.length; j++) {
-            jQuery_new(table.rows[i].cells[j].myDiv).prop('readonly', false);
+            $(table.rows[i].cells[j].myDiv).prop('readonly', false);
         }
     }
     table.locked = false;
@@ -1530,7 +1526,7 @@ function selectDifferentRowHeaderCell(table, input) {
 }
 
 function addResizable(table, cell) {
-    jQuery_new(cell).resizable({
+    $(cell).resizable({
         handles: 'e',
         resize: function () {
             var minSize = MIN_TABLE_CELL_WIDTH.substring(0, 2);
@@ -1548,7 +1544,6 @@ function addResizable(table, cell) {
     });
     cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
 }
-
 
 /* ------------------------------ Syntax functions ------------------------------ */
 
@@ -1641,7 +1636,7 @@ function incorrectTableColumnHeaderSyntax(type, value) {
 function registerElem(id, func, elem)
 {	
 	// when we are in inspection mode, we do not want the syntax check to work
-	if(jeProhlizeciStranka()) {
+	if(jeProhlizeciStranka_new()) {
 		if (document.getElementById(id + "-error"))
         	document.getElementById(id + "-error").setAttribute("hidden", '');
         return;
@@ -1688,4 +1683,13 @@ function registerElem(id, func, elem)
 	elem.focus();
 	elem.blur();
 	scroll(0,0);
+}
+
+//TODO not like this...
+function jeProhlizeciStranka_new() {
+    var sp = document.getElementById("app_name");
+    if (sp && sp.innerText.includes("– prohlídka")) {
+        return true;
+    }
+    return false;
 }
