@@ -46,6 +46,7 @@ function clickTable(questionDiv) {
     }
     if (questionDiv.lastEdited == "graph") {
         updateSvgDimensions(questionDiv);
+        
     }
     /*
     if (questionDiv.lastEdited == "text") {
@@ -55,9 +56,13 @@ function clickTable(questionDiv) {
     hideElem(questionDiv.graphDiv);
     hideElem(questionDiv.hintDiv);
     hideElem(questionDiv.textArea);
+
+    //TODO delete
+    hideElem(questionDiv.tableDiv.buttonInit);
+    hideElem(questionDiv.tableDiv.buttonAcc);
     //hideElem(questionDiv.errDiv);
 
-    disableControlButtons(questionDiv.tableDiv);
+    //disableControlButtons(questionDiv.tableDiv);
     createTableFromData(questionDiv);
     showElem(questionDiv.tableDiv);
     questionDiv.lastEdited = "table";
@@ -643,7 +648,7 @@ function removeDuplicates(array) {
 
 
 /* ------------------------------ Table ------------------------------ */
-const STATE_INDEX = 1;
+const STATE_INDEX = 2;
 var MIN_TABLE_CELL_WIDTH = "70px";
 
 function createTable(questionDiv) {
@@ -651,6 +656,7 @@ function createTable(questionDiv) {
     table.setAttribute("class", tableClasses.myTable);
     table.style.width = "0";
     table.selectedCellInput = null;
+    table.selectedInitDiv = null;
     table.questionDiv = questionDiv;
     table.alertStatus = questionDiv.tableDiv.alertText;
     questionDiv.tableDiv.table = table;
@@ -681,18 +687,20 @@ function createTableFromData(questionDiv) {
         });
     });
 
-    table.states.sort();
+    //table.states.sort();
     table.symbols.sort();
 
-    //create first row = consisting of 2 inactive cells
+    //create first row = consisting of 3 inactive cells
     var row1 = table.insertRow(table.rows.length); // -1 ?
     insertInactiveCell(row1, 0);
     insertInactiveCell(row1, 1);
+    insertInactiveCell(row1, 2);
 
     //create second row - "symbols" row
     var row2 = table.insertRow(table.rows.length);
     insertInactiveCell(row2, 0);
-    var cell = insertInactiveCell(row2, 1);
+    insertInactiveCell(row2, 1);
+    var cell = insertInactiveCell(row2, 2);
     addResizable(table, cell);
 
     // filling out columns' headers from symbols and delete buttons above them
@@ -703,33 +711,29 @@ function createTableFromData(questionDiv) {
     insertColumnAddButton(table, row1);
 
     // filling out rows' headers (states' titles)
-    var prevRh;
+    //var prevRh;
     table.states.forEach(stateTitle => {
         var row = table.insertRow(table.rows.length);
         insertRowDeleteButton(table, row);
-        var headerValue = "";
-        if (table.initState == stateTitle) {
-            if (table.exitStates.includes(stateTitle)) {
-                headerValue += bothSymbol;
-            }
-            else {
-                headerValue += initSymbol;
-            }
-        }
-        else if (table.exitStates.includes(stateTitle)) {
-            headerValue += accSymbol;
-        }
-        headerValue += stateTitle;
-        //TODO
-        var rh = insertRowHeader(row, headerValue);
+
+        var arrCell = insertArrows(table, row, row.cells.length);
+
+        var rh = insertRowHeader(row, stateTitle);
         /*         if (prevRh && parseInt(prevRh.style.width)) {
         
                 } */
+        if (table.initState == stateTitle) {
+            $(arrCell.initArrow).addClass("selected-arrow");
+            table.selectedInitDiv = arrCell.initArrow;
+        }
+        if (table.exitStates.includes(stateTitle)) {
+            $(arrCell.accArrow).addClass("selected-arrow");
+        }
 
         for (var j = 0; j < table.symbols.length; j++) {
             insertInnerCell(table, row);
         }
-        prevRh = rh;
+        //prevRh = rh;
 
     });
     insertRowAddButton(table);
@@ -739,7 +743,7 @@ function createTableFromData(questionDiv) {
         var row = table.rows[table.states.indexOf(ed.source.id) + 2];
 
         ed.symbols.split(",").forEach(symb => {
-            var cell = row.cells[table.symbols.indexOf(symb) + 2];
+            var cell = row.cells[table.symbols.indexOf(symb) + 3];
 
             if (questionDiv.type == "DFA") {
                 cell.myDiv.value = ed.target.id;
@@ -771,6 +775,7 @@ function createTableFromData(questionDiv) {
 function insertColumnAddButton(table, row) {
     var cell = insertCellWithDiv(row, null, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
     if (!jeProhlizeciStranka_new()) {
+        $(cell).prop("title", tableAddSymbolHover);
         cell.addEventListener("click", () => insertColumn(table));
     }
 }
@@ -779,7 +784,9 @@ function insertColumnDeleteButton(table, row) {
     var cell = insertCellWithDiv(row, null,
         [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
 
+    
     if (!jeProhlizeciStranka_new()) {
+        $(cell).prop("title", tableDelSymbolHover);
         cell.addEventListener("click", () => deleteColumn(table, cell.cellIndex));
     }
 }
@@ -789,6 +796,7 @@ function insertRowAddButton(table) {
     var cell = insertCellWithDiv(newRow, 0, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
 
     if (!jeProhlizeciStranka_new()) {
+        $(cell).prop("title", tableAddRowHover);
         cell.addEventListener("click", function (e) { insertRow(table); });
     }
 }
@@ -798,6 +806,7 @@ function insertRowDeleteButton(table, row) {
         [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
 
     if (!jeProhlizeciStranka_new()) {
+        $(cell).prop("title", tableDelRowHover);
         cell.addEventListener("click", function () { deleteRow(table, cell.parentNode.rowIndex); });
     }
 }
@@ -878,9 +887,10 @@ function insertRow(table, title) {
     deselectCell(table);
     table.rows[table.rows.length - 1].deleteCell(0);
     insertRowDeleteButton(table, table.rows[table.rows.length - 1]);
+    insertArrows(table, table.rows[table.rows.length - 1], 1);
     insertRowHeader(table.rows[table.rows.length - 1], title);
 
-    for (i = 2; i < table.rows[0].cells.length - 1; i++) {
+    for (i = 3; i < table.rows[0].cells.length - 1; i++) {
         insertInnerCell(table, table.rows[table.rows.length - 1]);
     }
     insertRowAddButton(table);
@@ -913,15 +923,14 @@ function insertColumn(table, symb = null) {
 function deleteRow(table, rowIndex) {
     if (table.locked) return;
 
-    var stateId = table.rows[rowIndex].cells[1].myDiv.value;
-    stateId = removePrefix(stateId);
+    var stateId = table.rows[rowIndex].cells[STATE_INDEX].myDiv.value;
     table.states.splice(table.states.indexOf(stateId), 1);
     //delete state in graph (& from data)
     var data = getStateDataById(table.questionDiv, stateId);
     deleteState(table.questionDiv, data);
 
-    for (i = 2; i < table.rows.length - 1; i++) {
-        for (j = 2; j < table.rows[i].cells.length; j++) {
+    for (i = STATE_INDEX; i < table.rows.length - 1; i++) { //for each row
+        for (j = 3; j < table.rows[i].cells.length; j++) { //for each column
             var value = table.rows[i].cells[j].myDiv.value;
             if (typeIsNondeterministic(table.questionDiv.type)) {
                 value = value.replace(/{|}/g, "");
@@ -1020,8 +1029,8 @@ function tableChChangedFinal(_, table, input) {
 
 function tableRhChanged(e, table) {
     var input = e.target;
-    var stateName = removePrefix(input.value);
-    var rowIndex = input.parentNode.parentNode.rowIndex;
+    var stateName = input.value;
+    //var rowIndex = input.parentNode.parentNode.rowIndex;
 
     if (incorrectStateSyntax(stateName)) {
         d3.select(input).classed(tableClasses.incorrectCell, true);
@@ -1037,20 +1046,6 @@ function tableRhChanged(e, table) {
             unlockTable(table);
             hideElem(table.alertStatus);
         }
-        // we have to check if this state is newly initial and if yes remove '→’'
-        // from prev.initial state name IN TABLE
-        if (input.value[0] == initSymbol || input.value[0] == bothSymbol) {
-            for (var i = 2; i < table.rows.length - 1; i++) {
-                var statePrevVal = table.rows[i].cells[STATE_INDEX].myDiv.prevValue;
-                if (i != rowIndex && (statePrevVal[0] == initSymbol || statePrevVal[0] == bothSymbol)) {
-                    var val = statePrevVal[0] == bothSymbol ? accSymbol : "";
-                    val += statePrevVal.substring(1);
-                    table.rows[i].cells[STATE_INDEX].myDiv.value = val;
-                    table.rows[i].cells[STATE_INDEX].myDiv.prevValue = val;
-                }
-            }
-        }
-        resolveInitButton(table.parentNode, input.value[0]);
     }
 }
 
@@ -1058,8 +1053,8 @@ function tableRhChangedFinal(e, table, input) {
     if ($(input).hasClass(tableClasses.incorrectCell) == false && !table.locked) {
         if (input.prevValue == input.value) return;
 
-        var prevName = removePrefix(input.prevValue);
-        var newName = removePrefix(input.value);
+        var prevName = input.prevValue;
+        var newName = input.value;
 
         table.states.splice(table.states.indexOf(prevName), 1);
         table.states.push(newName);
@@ -1128,7 +1123,7 @@ function tableCellChangedFinal(e, table, input) {
             prevName = prevName.substring(1, prevName.length - 1);
             newName = newName.substring(1, newName.length - 1);
         }
-        var sourceStateId = removePrefix(table.rows[input.parentNode.parentNode.rowIndex].cells[1].myDiv.value);
+        var sourceStateId = table.rows[input.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
         var symbol = table.rows[1].cells[input.parentNode.cellIndex].myDiv.prevValue;
         var prevStates = prevName.split(",");
         var newStates = newName.split(",");
@@ -1163,7 +1158,7 @@ function tableCellChangedFinal(e, table, input) {
             if (getStateDataById(questionDiv, newStates[i]) == null) {
                 var addRowBool = true;
                 for (var j = 2; j < table.rows.length - 1; j++) { //skontrolovanie, ze sa nazov tohto stavu nenachadza v inom riadku tabulky
-                    if (table.rows[j].cells[1].myDiv.value == newStates[i]) {
+                    if (table.rows[j].cells[STATE_INDEX].myDiv.value == newStates[i]) {
                         addRowBool = false;
                         break;
                     }
@@ -1208,62 +1203,8 @@ function stateExistsInRow(table, row, state) {
 function tableHeaderCellClick(table, input) {
     if (!table.locked && table.selectedCellInput != input) {
         selectDifferentRowHeaderCell(table, input);
-        disableControlButtons(table.parentNode, false);
-        resolveInitButton(table.parentNode, input.prevValue[0]);
+        //disableControlButtons(table.parentNode, false);
     }
-}
-
-function tableInitialOnClick(tableDiv) {
-    var table = tableDiv.table;
-    var input = table.selectedCellInput;
-    if (input == null || input.parentNode.cellIndex != STATE_INDEX) {
-        return;
-    }
-    var stateId = removePrefix(input.value);
-    if (/[↔]/.test(input.value)) {
-        input.value = '←' + stateId;
-    }
-    else if (/[←]/.test(input.value)) {
-        input.value = '↔' + stateId;
-    }
-    else if (/[→]/.test(input.value)) {
-        input.value = stateId;
-    }
-    else {
-        input.value = '→' + stateId;
-    }
-    input.prevValue = input.value;
-
-    setNewStateAsInitial(table.questionDiv, getStateDataById(table.questionDiv, stateId));
-    $(input).trigger("input");
-}
-
-function tableAcceptingOnClick(tableDiv) {
-    var table = tableDiv.table;
-    var input = table.selectedCellInput;
-    if (input == null || input.parentNode.cellIndex != STATE_INDEX) {
-        return;
-    }
-    var stateId = removePrefix(input.value);
-    if (/[↔]/.test(input.value)) {
-        input.value = initSymbol + stateId;
-    }
-    else if (/[←]/.test(input.value)) {
-        input.value = stateId;
-    }
-    else if (/[→]/.test(input.value)) {
-        input.value = bothSymbol + stateId;
-    }
-    else {
-        input.value = accSymbol + stateId;
-    }
-    input.prevValue = input.value;
-
-    //edit state in graph
-    var stateG = getStateGroupById(table.questionDiv, stateId);
-    toggleAcceptingState(tableDiv.parentNode, stateG.datum(), stateG);
-
-    $(input).trigger("input");
 }
 
 
@@ -1315,22 +1256,6 @@ function unlockTable(table) {
     lockButtons(table.questionDiv);
 }
 
-function removePrefix(stateId) {
-    var first = stateId.charAt(0);
-    if (first == initSymbol || first == accSymbol || first == bothSymbol) {
-        stateId = stateId.substring(1, stateId.length);
-    }
-    return stateId;
-}
-
-function resolveInitButton(tableDiv, symbol) {
-    if (symbol == initSymbol || symbol == bothSymbol) {
-        tableDiv.buttonInit.disabled = true;
-    }
-    else {
-        tableDiv.buttonInit.disabled = false;
-    }
-}
 
 function updateStateInitAcc(questionDiv, stateData, sym) {
     var initial = false, accepting = false;
@@ -1376,7 +1301,7 @@ function findSymbol(table) {
 function tableStateAlreadyExists(table, input, value) {
     var ri = input.parentNode.parentNode.rowIndex;
     for (var i = 2; i < table.rows.length - 1; i++) {
-        if (i != ri && value == removePrefix(table.rows[i].cells[STATE_INDEX].myDiv.value)) {
+        if (i != ri && value == table.rows[i].cells[STATE_INDEX].myDiv.value) {
             return true;
         }
     }
@@ -1502,7 +1427,6 @@ function deselectCell(table) {
         d3.select(input).classed(tableClasses.rowHeader, true);
         table.selectedCellInput = null;
     }
-    disableControlButtons(table.parentNode);
 }
 
 function selectDifferentRowHeaderCell(table, input) {

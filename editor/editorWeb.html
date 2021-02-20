@@ -21,7 +21,7 @@
     <script src="editor2.js"></script>
     <script src="utilIS.js"></script>
     <script src="myUtils.js"></script>
-    <script src="editorUtils.js"></script>
+    <script src="editorUtils-tableTest.js"></script>
     <script src="languages/CS.js"></script>
     <script src="Parsers/DFAParser.js"></script>
     <script src="Parsers/GRAParser.js"></script>
@@ -34,33 +34,31 @@
     </script>
     
     <div id="constrainer">
-        <div id="q0" data-type="DFA"></div>
+        <div id="DFA-q0" data-type="DFA"></div>
 
         <script> 
-            initialise("q0"); 
-            //setupSyntaxCheck("q0");
+            initialise(document.getElementById("DFA-q0")); 
         </script>
         
 
         <p> ------------------------ </p>
         <p>Napište regulární gramatiku popisující následující jazyk nad abecedou.... </p>
-        <div id="q0005-8-8" data-type="GRA"></div>
+        <div id="GRA-q0005-8-8" data-type="GRA"></div>
 
         <script> 
-            initialise("q0005-8-8"); 
+            initialise(document.getElementById("GRA-q0005-8-8")); 
         </script>
 
 
-        <div id="q1" data-type="NFA"></div>
+        <div id="NFA-q1"></div>
         <script> 
-            initialise("q1"); 
+            initialise(document.getElementById("NFA-q1")); 
         </script>
         
 
-    
-        <div id="q2" data-type="EFA"></div>
+        <div id="EFA-q2"></div>
         <script> 
-            initialise("q2"); 
+            initialise(document.getElementById("EFA-q2")); 
         </script>
 
     </div>

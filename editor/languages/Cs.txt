@@ -1,27 +1,42 @@
-// -------------------
-//  CS
-// -------------------
+/**
+ * Czech language for finite automata editor
+ */
 
+/* ------------------------------ symbols ------------------------------ */
+var delSymbol = "×"; //table delete row/column
+var addSymbol = "+"; //table add row/column
+var initSymbol = "→";
+var accSymbol = "←";
+var bothSymbol = "↔";
+var epsSymbol = 'ε';
+
+/* ------------------------------ main menu ------------------------------ */
 var graphMenuButton = "Graf";
 var textMenuButton = "Text";
 var tableMenuButton = "Tabulka";
 var hintLabel = "Nápověda";
-var stateNameAlreadyExists = "<strong>Chyba:</strong> Takto pojmenovaný stav již existuje.";
-var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. <br>Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
-var DFAInvalidTransition = "<strong>Chyba:</strong> Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
+var hintTitle = "Nápověda k používání grafového editoru";
 
-const tableInitialButtonName = "Počáteční stav"; 
-const tableAcceptingButtonName = "Akceptující stav";
+var tableInitialButtonName = "Počáteční stav"; //table button to toggle initial state
+var tableAcceptingButtonName = "Akceptující stav"; //table button to toggle accepting state
 
-//context menus
+/* ------------------------------ context menus ------------------------------ */
+//state
 var renameStateText = "Přejmenovat";
 var deleteStateText = "Odstranit";
 var setAsInitialText = "Nastavit jako počáteční";
 var setStateAsAcceptingText = "Nastavit jako akceptující";
 var setStateAsNonAcceptingText ="Nastavit jako neakceptující";
+
+//edge
+var deleteEdgeText = "Odstranit";
 var renameEdgeText = "Upravit symboly přechodu";
 
+//new state
+var addStateText = addSymbol + " Nový stav";
 
+
+/* ------------------------------ hint ------------------------------ */
 var hints = {
   addState : "<b>Vytvoření stavu:</b> double click na plátno nebo right click na plátno.",
   addTransition : "<b>Vytvoření prechodu:</b> click na stav + click na cílový stav.",
@@ -32,6 +47,8 @@ var hints = {
   delete : "Vymazat stav/přechod můžete i označením daného elementu a stisknutím klávesy DEL."
 }
 
+
+/* ------------------------------ errors ------------------------------ */
 var STATE_SYNTAX = "{a-z,A-Z,0-9}";
 var DFA_TRANSITION_SYNTAX = "{a-z,A-Z,0-9}";
 var EFA_TRANSITION_SYNTAX = "{a-z,A-Z,0-9}, \\e, ε}";
@@ -59,15 +76,15 @@ var errors = {
   transitionSymbolsTooLong: "Prekrocena maximalna dlzka symbolov prechodu (300)!"
 }
 
-var delSymbol = "×";
-var addSymbol = "+";
-var initSymbol = "→";
-var accSymbol = "←";
-var bothSymbol = "↔";
-var epsSymbol = 'ε';
+var stateNameAlreadyExists = "<strong>Chyba:</strong> Takto pojmenovaný stav již existuje.";
+var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. <br>Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
+var DFAInvalidTransition = "<strong>Chyba:</strong> Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
 
 var expectedEFASyntax = "Očekávané znaky z " + EFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + EFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
 var expectedDFASyntax = "Očekávané znaky z " + DFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + DFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
 
+
+/* ------------------------------ syntax check div ------------------------------ */
+//currently unused
 var syntaxDivTitle = "Nápověda syntaxe učitele.";
 var syntaxTextDefault = "Zde se zobrazuje nápověda syntaxe.";

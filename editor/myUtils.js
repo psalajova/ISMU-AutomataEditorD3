@@ -135,3 +135,74 @@ if (typeof editor_init !== 'function') {
 	//var jQuery_new = $;
 	//$ = jQuery = jQuery_old;
 </script> */
+
+
+function insertArrows(table, row, index) {
+	var cell = insertCell(row, index, ["arrow-td"], "40px");
+	
+	var initArr = document.createElement("div");
+	$(initArr).prop("class", "top-arrow base-arrow");
+	$(initArr).prop("title", tableInitialButtonName);
+	initArr.innerHTML = initSymbol;
+	
+	
+	var accArr = document.createElement("div");
+	$(accArr).prop("class", "bottom-arrow base-arrow");
+	$(accArr).prop("title", tableAcceptingButtonName);
+	accArr.innerHTML = accSymbol;
+
+	if (!jeProhlizeciStranka_new()) {
+		$(initArr).click(() => setInitDiv(table, initArr));
+		$(accArr).click(() => toggleAccArrow(accArr));
+	}
+
+	cell.initArrow = initArr;
+	cell.accArrow = accArr;
+
+	cell.appendChild(initArr);
+	cell.appendChild(accArr);
+
+	return cell;
+}
+
+function setInitDiv(table, div) {
+	if (!table.locked) {
+        deselectCell(table);
+    }
+
+	if (table.selectedInitDiv == div) {
+		unselectInitDiv(table);
+		setInitStateAsNotInitial(table.questionDiv);
+		return;
+	}
+	if (table.selectedInitDiv != null) {
+		unselectInitDiv(table);
+	}
+	$(div).addClass("selected-arrow");
+	table.selectedInitDiv = div;
+
+	//edit state in graph
+	var stateId = table.rows[div.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
+	var data = getStateDataById(table.questionDiv, stateId);
+	setNewStateAsInitial(table.questionDiv, data);
+}
+
+function unselectInitDiv(table) {
+	$(table.selectedInitDiv).removeClass("selected-arrow");
+	table.selectedInitDiv = null;
+}
+
+
+function toggleAccArrow(div) {
+	var table = findParentWithClass(div, tableClasses.myTable);
+	if (!table.locked) {
+        deselectCell(table);
+    }
+	$(div).toggleClass("selected-arrow");
+	
+	var stateId = table.rows[div.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
+
+	//edit state in graph
+	var stateG = getStateGroupById(table.questionDiv, stateId);
+	toggleAcceptingState(table.questionDiv, stateG.datum(), stateG);
+}
