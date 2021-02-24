@@ -7,10 +7,12 @@ function isRegOrGram(type) {
 /* ------------------------------ HTML elements utils ------------------------------ */
 
 function hideElem(element) {
+    if (!element) return;
     element.style.display = "none";
 }
 
 function showElem(element, inline = false) {
+    if (!element) return;
     if (inline) {
         element.style.display = "inline-block";
     }
@@ -24,6 +26,13 @@ function hideAllContextMenus(questionDiv) {
     hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
     hideElem(questionDiv.graphDiv.addStateContextMenu);
 }
+
+function hideAllExtras(graphDiv) {
+    hideAllContextMenus(graphDiv.parentNode);
+    hideElem(graphDiv.renameError);
+    hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
+}
+
 
 function clickGraph(questionDiv) {
     hideElem(questionDiv.textArea);
@@ -158,6 +167,12 @@ function visualLength(val) {
     var ruler = document.getElementById("ruler");
     ruler.innerHTML = val;
     return ruler.offsetWidth;
+}
+
+function visualHeight(val) {
+    var ruler = document.getElementById("ruler");
+    ruler.innerHTML = val;
+    return ruler.offsetHeight;
 }
 
 function showRenameError(msg, questionDiv) {
@@ -609,13 +624,23 @@ function distBetween(x1, y1, x2, y2) {
     return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
-function getCoordinates(oldXy, svgGroup) {
-    var transform = d3.zoomTransform(svgGroup.node());
-    var newXy = transform.invert(oldXy);
+function getPointWithoutTransform(oldXy, selection) {
+    var transform = d3.zoomTransform(selection.node());
+    var res = transform.invert(oldXy);
 
     return {
-        x: newXy[0],
-        y: newXy[1],
+        x: res[0],
+        y: res[1],
+    };
+}
+
+function applyTransformationToPoint(point, selection) {
+    var transform = d3.zoomTransform(selection.node());
+    var res = transform.apply(point);
+
+    return {
+        x: res[0],
+        y: res[1],
     };
 }
 
@@ -771,6 +796,7 @@ function createTableFromData(questionDiv) {
 function insertColumnAddButton(table, row) {
     var cell = insertCellWithDiv(row, null, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
     if (!jeProhlizeciStranka_new()) {
+        $(cell).prop("title", tableAddSymbolHover);
         cell.addEventListener("click", () => insertColumn(table));
     }
 }
@@ -780,6 +806,7 @@ function insertColumnDeleteButton(table, row) {
         [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
 
     if (!jeProhlizeciStranka_new()) {
+        $(cell).prop("title", tableDelSymbolHover);
         cell.addEventListener("click", () => deleteColumn(table, cell.cellIndex));
     }
 }
@@ -789,6 +816,7 @@ function insertRowAddButton(table) {
     var cell = insertCellWithDiv(newRow, 0, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
 
     if (!jeProhlizeciStranka_new()) {
+        $(cell).prop("title", tableAddRowHover);
         cell.addEventListener("click", function (e) { insertRow(table); });
     }
 }
@@ -798,6 +826,7 @@ function insertRowDeleteButton(table, row) {
         [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
 
     if (!jeProhlizeciStranka_new()) {
+        $(cell).prop("title", tableDelRowHover);
         cell.addEventListener("click", function () { deleteRow(table, cell.parentNode.rowIndex); });
     }
 }

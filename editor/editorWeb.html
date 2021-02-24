@@ -10,15 +10,23 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
-    
+
     <link rel="stylesheet" type="text/css" href="editorStyle.css">
 
 
 </head>
 
 <body>
-    
-    <script src="editor2.js"></script>
+    <script>
+        //first check jquery i guess
+        if ($('script[src="editor2.js"]').length === 0) { //if document doesnt have script with this src
+            var editorPath = "editor2.js";
+            document.write("\<script src=\"" + editorPath + "\"><\/script>");
+
+            //var stylePath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editorStyle.css";
+            //document.write("\<style type=\"text/css\">@import \"" + stylePath + "\";<\/style>");
+        }
+    </script>
     <script src="utilIS.js"></script>
     <script src="myUtils.js"></script>
     <script src="editorUtils-tableTest.js"></script>
@@ -29,41 +37,50 @@
     <script src="Parsers/EFAParser.js"></script>
     <span id="ruler"></span>
 
-    <script>
-        //setupLanguage();
-    </script>
-    
-    <div id="constrainer">
+
+
+
+    <div id="constrainer" style="width: 800px;">
         <div id="DFA-q0" data-type="DFA"></div>
 
-        <script> 
+        <script>
+
             initialise(document.getElementById("DFA-q0")); 
         </script>
-        
+
 
         <p> ------------------------ </p>
         <p>Napište regulární gramatiku popisující následující jazyk nad abecedou.... </p>
         <div id="GRA-q0005-8-8" data-type="GRA"></div>
 
-        <script> 
+        <script>
             initialise(document.getElementById("GRA-q0005-8-8")); 
         </script>
 
 
         <div id="NFA-q1"></div>
-        <script> 
+        <script>
             initialise(document.getElementById("NFA-q1")); 
         </script>
-        
+
 
         <div id="EFA-q2"></div>
-        <script> 
+        <script>
             initialise(document.getElementById("EFA-q2")); 
         </script>
 
     </div>
 
-    
+    <script>
+        if ($('script[src="editor2.js"]').length === 0) { //if document doesnt have script with this src
+            var editorPath = "editorStyle.css";
+            document.write("\<script src=\"" + editorPath + "\"><\/script>");
+                
+            //var stylePath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editorStyle.css";
+            //document.write("\<style type=\"text/css\">@import \"" + stylePath + "\";<\/style>");
+        }
+    </script>
+
 
 </body>
 

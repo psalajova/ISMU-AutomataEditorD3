@@ -43,8 +43,8 @@ var hints = {
   drag : "Stavy i přechody můžete přesouvat taháním myší.",
   stateMenu: "Kliknutím pravého tlačítka myši na stav otevřete menu, kde můžete stav <b>přejmenovat, odstranit, nastavit jako počáteční, označit jako akceptující/neakceptujúci</b>.",
   transitionMenu: "Kliknutím pravého tlačítka myši na přechod otevřete menu, kde můžete <b>upravit symboly přechodu</b> nebo přechod <b>odstranit</b>.",
-  rename : "Pro uložení změn po přejmenování stiskněte ENTER nebo klikněte vedle.",
-  delete : "Vymazat stav/přechod můžete i označením daného elementu a stisknutím klávesy DEL."
+  rename : "Přechod můžete upravit i dvojklikem. Pro uložení změn po přejmenování stiskněte ENTER.",
+  delete : "Vymazat stav/přechod můžete i označením daného elementu a stisknutím klávesy DEL.",
 }
 
 
@@ -78,16 +78,18 @@ var errors = {
 
 var stateNameAlreadyExists = "<strong>Chyba:</strong> Takto pojmenovaný stav již existuje.";
 var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. <br>Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
-var DFAInvalidTransition = "<strong>Chyba:</strong> Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu už existuje).";
+var DFAInvalidTransition = "<strong>Chyba:</strong> Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu již existuje).";
 
 var expectedEFASyntax = "Očekávané znaky z " + EFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + EFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
 var expectedDFASyntax = "Očekávané znaky z " + DFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + DFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
 
 
-var tableDelSymbolHover = "Vymazat sloupec (symbol ze vsetch prechodu)";
-var tableDelRowHover = "Vymazat stav a vsechny jeho prechody";
-var tableAddRowHover = "Pridat stav";
-var tableAddSymbolHover = "Pridat symbol";
+var tableDelSymbolHover = "Vymazat sloupec (symbol ze všech přechodů)";
+var tableDelRowHover = "Vymazat řádek (stav a všechny jeho přechody)";
+var tableAddRowHover = "Přidat stav";
+var tableAddSymbolHover = "Přidat symbol";
+
+var emptyGraphText = "Spustit editor";
 
 /* ------------------------------ syntax check div ------------------------------ */
 //currently unused

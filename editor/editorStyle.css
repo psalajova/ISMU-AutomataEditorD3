@@ -25,11 +25,10 @@
 
 .graphDiv {
     display: inline-block;
+    position: relative;
     background-color: rgba(255, 255, 255, 0);
     /*resize: both;
     overflow: hidden;*/
-    min-width: 500px;
-    min-height: 400px;
     width: 100%;
     height: 700px;
     margin-top: 5px;
@@ -91,11 +90,13 @@ textarea:read-only {
     font-size: 14px;
     color: black;
     font-family: Roboto, Open Sans, Arial, sans-serif;
+    transition: all 0.2s ease 0s;
 }
 
 .context-menu-button:hover {
     background-color: #e7e7e7;
     color: black;
+    transition: all 0.2s ease 0s;
 }
 
 .context-menu {
@@ -107,45 +108,40 @@ textarea:read-only {
     box-shadow: 0px 0px 6px #adadadc4;
 }
 
+.empty-graph-button {
+    position: absolute;
+    background-color: #002776;
+    color: white;
+    font-size: 17px;
+    font-family: Roboto, Open Sans, Arial, sans-serif;
+    border: 0px solid #002776;
+    padding: 10px;
+    margin: 0px;
+    transition: fill 0.2s ease 0s;
+    box-shadow: 0px 0px 6px #707070c4;
+}
+
+.empty-graph-button:hover {
+    background-color: #002164;
+    transition: fill 0.2s ease 0s;
+}
 
 .rename-error-p {
     display: none;
     position: absolute;
 
-    color: #a94442;
+    color: #a92523;
     font-family: Roboto, Open Sans, Arial, sans-serif;
     font-size: 1em;
 
-    border: 1px solid #ebccd1 !important;
-    border-radius: 2px;
+    border: 1px solid #d2959f !important;
+    border-radius: 5px;
     background-color: #f2dede;
     box-shadow: 0px 0px 0px #0000003a;
     margin: 0px;
-    padding: 3px;
+    padding: 5px;
 
     max-width: 550px;
-}
-
-.state-renaming {
-    background-color: #8bd0ff;
-    border: 0px solid #3e3e3e;
-    text-align: center;
-}
-
-.edge-renaming {
-    background-color: #ffffff;
-    border: 1.8px solid #3e3e3e;
-    text-align: left;
-}
-
-.rename-enter-p {
-    font-size: 10px;
-    font-family: Roboto, Open Sans, Arial, sans-serif;
-    margin: 0px 0px 2px 5px;
-    text-align: left;
-    color: #a94442;
-    background-color: #f2dede;
-    border-color: #ebccd1 !important;
 }
 
 #ruler { 
@@ -156,13 +152,18 @@ textarea:read-only {
     padding: 0px 2px 0px 2px;
 }
 
-.svg-rect {
-    fill: #e7e7e7;
+.main-svg {
+    border: 1px solid #dcdcdc;
 }
+
+/* .svg-rect {
+    fill: #f9f9f9;
+} */
 
 .defs-arrow-end {
     fill: #3e3e3e;
 }
+
 
 /*  states  ------------------------------------------------------------ */
 .state-group circle{
@@ -171,15 +172,15 @@ textarea:read-only {
     stroke-width: 2px;
 }
 
-.state-group.mouse-over-node circle{
+.state-group.mouse-over-node circle {
     stroke: #3e3e3e;
-    fill:#acf5b3;
+    fill:#bfdcf7;
     cursor: default;
 }
 
 .state-group.selected circle{
     stroke:#3e3e3e;
-    fill: #70e682;
+    fill: #8dc5f9;
 }
 
 .state-fullname-rect {
@@ -195,12 +196,20 @@ textarea:read-only {
     fill: white;
 }
 
+/* .state-group.mouse-over-node .stateEl>.stateInput{
+    background-color: #bfdcf7;
+}
+
+.state-group.selected .stateEl>.stateInput{
+    background-color: #8dc5f9;
+} */
+
 .stateEl>.stateInput {
     color: black;
     text-align: center;
     outline: none;
     background: rgba(255, 255, 255, 0.562);
-    border: 0px solid transparent;
+    border: 0px solid rgba(0,0,0,0);
     font-family: Roboto, Open Sans, Arial, sans-serif;
     font-size: 17px;
     width: 47px;
@@ -214,23 +223,23 @@ textarea:read-only {
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    background: transparent;
+    background: rgba(0,0,0,0);
     color: black;
-    cursor: default;
+    cursor: pointer;
 }
 
 
 /*  edges ------------------------------------------------------------ */
 .init-arrow:hover{
-    stroke:#8bd0ff;
+    stroke:#929cff;
 }
 
 .edge-group.mouse-over-node path{
-    stroke:#70e682;
+    stroke:#add8ff;
 }
 
 .edge-group.selected path{
-    stroke:#52bd8a;
+    stroke: #8dc5f9;
 }
 
 .temp-edge-group.selected path {
@@ -253,26 +262,14 @@ textarea:read-only {
     stroke-width: 2.1px;
 }
 
-.edge-rect {
-    fill: white;
-    stroke:  #3e3e3e;
-    stroke-width: 1px;
-}
-
-/* .edge-text, .state-text, .mock-text {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 16px;
-    cursor: default;
-} */
-
 .edgeInput {
     text-align: center;
     outline: none;
-    background: white;
+    background: #ffffff;
     border: 0px solid #2d2d2d;
     border-radius: 4px;
-    box-shadow: 0px 0px 1px 1px #52bd8a;
-    color: black;
+    box-shadow: 0px 0px 1px 1px #5a9cda;
+    color: #002779;
     font-family: Roboto, Open Sans, Arial, sans-serif;
     font-size: 17px;
     width: 32px;
@@ -282,7 +279,7 @@ textarea:read-only {
 }
 
 .edgeInput::selection {
-    background:#8ba6ff;
+    background:#ffdf4f;
   }
 
 .edgeInput:read-only{
@@ -293,33 +290,21 @@ textarea:read-only {
   background: white;
   box-shadow: 0px 0px 1px 1px #797979c4;
   color: black;
+  font-style: normal;
   cursor: default;
 }
 
-
 .foreignObject {
-    background-color: transparent;
+    background-color: rgba(0,0,0,0);
 }
 
 
 /* Table ----------------------------------------- */
-.control-button {
-    font-family: Roboto, Open Sans, Arial, sans-serif;
-    font-size: 1em;
-    padding: 7px;
-    margin: 8px 8px 0px 0px;
-    /*
-    background-color: #e0e0e0;
-    border: 0px solid rgb(179, 179, 179);
-    */
-}
-
 .myTable {
     margin-top: 5px;
     border-collapse:separate; 
 border-spacing:2px;
 }
-
 
 .myCell {
     /*! border: 1px solid #cecece; */
@@ -388,8 +373,8 @@ border-spacing:2px;
 }
 
 .inactive-cell { /*td, topleft corner of table*/
-    background-color: #fff;
-    border: 1px solid #fff;
+    background-color: white;
+    border: 1px solid white;
     cursor: default;
 }
 
@@ -398,7 +383,6 @@ border-spacing:2px;
 }
 
 .delete-button-cell { /* td */
-    /*! border: 1px solid #e6c9c9; */
     padding: 0px 10px 0px 10px;
     background-color: #f0f0f0;
     
@@ -410,14 +394,13 @@ border-spacing:2px;
 }
 
 .delete-button-cell:hover {
-    
+    background-color: #ecdada;
     border: 0px solid #cf9090;
     color: red;
     text-decoration: none;
 }
 
 .add-button-cell { /* td */
-    /*! border: 1px solid #a6c7a6; */
     padding: 0px 10px 0px 10px;
     background-color: #f0f0f0;
 
@@ -438,7 +421,6 @@ border-spacing:2px;
 
 .arrow-td{
     background-color: #f1f1f1;
-    /*! border: 1px solid #cecece; */
     padding: 0;
     font-size: 1.2rem;
 }
@@ -464,20 +446,24 @@ border-spacing:2px;
 }
 
 .selected-arrow {
-    background: #70e682;
-    color: #1f1f2b;
+    background: #002776;
+    color: white;
 }
 
 .selected-arrow:hover{
-    background: #70e682;
-    color: #1f1f2b;
+    background: #002164;
+    color: white;
 }
 
-.selected-arrow:hover{
-    background: #a1a1a1;
-    color: #3d3d3d;
+.top-arrow.selected-arrow {
+    background-color: #00a442;
 }
 
+.top-arrow.selected-arrow:hover {
+    background-color: #008334;
+}
+
+/* ------------------------------ Syntax check ------------------------------ */
 
 .alert {
     font-family: Roboto, Open Sans, Arial, sans-serif;
@@ -485,7 +471,7 @@ border-spacing:2px;
     padding: 15px;
     margin-top: 15px;
     margin-bottom: 20px;
-    border: 1px solid transparent;
+    border: 1px solid rgba(0,0,0,0);
     border-radius: 4px;
 }
 
@@ -517,6 +503,10 @@ border-spacing:2px;
     outline: none;
 }
 
+
+
+/* ------------------------------ To delete ------------------------------ */
+
 .my-type {
     font-family: Roboto, Open Sans, Arial, sans-serif;
     color: rgb(56, 56, 56);
@@ -532,4 +522,3 @@ border-spacing:2px;
     background-color: rgb(255, 255, 255);
     width: 1000px;
 }
-

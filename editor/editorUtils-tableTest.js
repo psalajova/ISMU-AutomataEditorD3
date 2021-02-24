@@ -11,6 +11,8 @@ function hideElem(element) {
 }
 
 function showElem(element, inline = false) {
+    if (!element) return;
+
     if (inline) {
         element.style.display = "inline-block";
     }
@@ -48,21 +50,11 @@ function clickTable(questionDiv) {
         updateSvgDimensions(questionDiv);
         
     }
-    /*
-    if (questionDiv.lastEdited == "text") {
-      updateDataFromText(questionDiv);
-    } */
 
     hideElem(questionDiv.graphDiv);
     hideElem(questionDiv.hintDiv);
     hideElem(questionDiv.textArea);
 
-    //TODO delete
-    hideElem(questionDiv.tableDiv.buttonInit);
-    hideElem(questionDiv.tableDiv.buttonAcc);
-    //hideElem(questionDiv.errDiv);
-
-    //disableControlButtons(questionDiv.tableDiv);
     createTableFromData(questionDiv);
     showElem(questionDiv.tableDiv);
     questionDiv.lastEdited = "table";
@@ -165,19 +157,16 @@ function visualLength(val) {
     return ruler.offsetWidth;
 }
 
+function visualHeight(val) {
+    var ruler = document.getElementById("ruler");
+    ruler.innerHTML = val;
+    return ruler.offsetHeight;
+}
+
 function showRenameError(msg, questionDiv) {
     var p = questionDiv.graphDiv.renameError;
     p.innerHTML = msg;
     showElem(p);
-}
-
-function setRenameStyle(renameInput, isState = true) {
-    if (isState) {
-        $(renameInput).switchClass("edge-renaming", "state-renaming", 0);
-    }
-    else {
-        $(renameInput).switchClass("state-renaming", "edge-renaming", 0);
-    }
 }
 
 function setElemPosition(elem, top, left) {
@@ -508,10 +497,16 @@ function deselectAll(exceptionId = null) {
                 hideElem(graphDiv.renameError);
                 hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
 
-                graphDiv.svg.svgGroup.temporaryEdgeG.classed(graphConsts.selectedClass, false);
+                //graphDiv.svg.svgGroup.temporaryEdgeG.classed(graphConsts.selectedClass, false);
                 enableAllDragging(graphDiv.svg);
             }
         });
+}
+
+function hideAllExtras(graphDiv) {
+    hideAllContextMenus(graphDiv.parentNode);
+    hideElem(graphDiv.renameError);
+    hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
 }
 
 
@@ -614,13 +609,23 @@ function distBetween(x1, y1, x2, y2) {
     return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
-function getCoordinates(oldXy, svgGroup) {
-    var transform = d3.zoomTransform(svgGroup.node());
-    var newXy = transform.invert(oldXy);
+function getPointWithoutTransform(oldXy, selection) {
+    var transform = d3.zoomTransform(selection.node());
+    var res = transform.invert(oldXy);
 
     return {
-        x: newXy[0],
-        y: newXy[1],
+        x: res[0],
+        y: res[1],
+    };
+}
+
+function applyTransformationToPoint(point, selection) {
+    var transform = d3.zoomTransform(selection.node());
+    var res = transform.apply(point);
+
+    return {
+        x: res[0],
+        y: res[1],
     };
 }
 
@@ -880,6 +885,10 @@ function insertColumnHeader(row, symbol) {
 function insertRow(table, title) {
     if (table.locked) {
         return;
+    }
+    //if this is a first state to be created in editor
+    if (isEmpty(table.questionDiv) && table.questionDiv.emptyButton.style.visibility != "hidden") {
+        endEmptyGraphState(table.questionDiv, false);
     }
     if (title == null) {
         title = generateStateId(table.parentNode.parentNode);

@@ -206,3 +206,4 @@ function toggleAccArrow(div) {
 	var stateG = getStateGroupById(table.questionDiv, stateId);
 	toggleAcceptingState(table.questionDiv, stateG.datum(), stateG);
 }
+
