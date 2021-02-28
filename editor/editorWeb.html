@@ -28,9 +28,7 @@
         }
     </script>
     <script src="utilIS.js"></script>
-    <script src="myUtils.js"></script>
-    <script src="editorUtils-tableTest.js"></script>
-    <script src="languages/CS.js"></script>
+    <script src="languages/EN.js"></script>
     <script src="Parsers/DFAParser.js"></script>
     <script src="Parsers/GRAParser.js"></script>
     <script src="Parsers/NFAParser.js"></script>
@@ -40,11 +38,10 @@
 
 
 
-    <div id="constrainer" style="width: 800px;">
+    <div id="constrainer" style="width: 914px;">
         <div id="DFA-q0" data-type="DFA"></div>
 
         <script>
-
             initialise(document.getElementById("DFA-q0")); 
         </script>
 
@@ -71,17 +68,13 @@
 
     </div>
 
+    <input type="button" value="scroll" id="scrollB">
     <script>
         if ($('script[src="editor2.js"]').length === 0) { //if document doesnt have script with this src
             var editorPath = "editorStyle.css";
             document.write("\<script src=\"" + editorPath + "\"><\/script>");
-                
-            //var stylePath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editorStyle.css";
-            //document.write("\<style type=\"text/css\">@import \"" + stylePath + "\";<\/style>");
         }
     </script>
-
-
 </body>
 
 </html>

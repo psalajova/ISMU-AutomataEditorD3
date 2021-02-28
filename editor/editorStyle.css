@@ -7,9 +7,7 @@
     text-decoration: none;
     display: inline-block;
     text-transform: uppercase;
-    /*display: inline-block;*/
     transition: all 0.4s ease 0s;
-    margin-right: 10px;
 }
 .menu-button:hover {
     color: #ffffff;
@@ -18,20 +16,16 @@
     transition: all 0.4s ease 0s;
 }
 
-.question-content {
-    background-color: rgba(255, 255, 255, 0);
-    margin-top: 15px;
+.editor-content {
+    margin-top: 10px;
 }
 
 .graphDiv {
     display: inline-block;
     position: relative;
     background-color: rgba(255, 255, 255, 0);
-    /*resize: both;
-    overflow: hidden;*/
     width: 100%;
     height: 700px;
-    margin-top: 5px;
 }
 
 textarea {
@@ -68,9 +62,9 @@ textarea:read-only {
     font-family: Roboto,Open Sans,Arial,sans-serif;
     font-size: 1em;
     color:#002776;
-    margin-top: 0.5em;
     border: 0px solid #dedede;
     background-color: #dedede;
+    min-width: 60px;
     display: block;
 }
 
@@ -117,6 +111,8 @@ textarea:read-only {
     border: 0px solid #002776;
     padding: 10px;
     margin: 0px;
+    bottom: 50%;
+    left: 44%;
     transition: fill 0.2s ease 0s;
     box-shadow: 0px 0px 6px #707070c4;
 }
@@ -145,20 +141,42 @@ textarea:read-only {
 }
 
 #ruler { 
-    visibility: hidden; 
+    visibility: hidden;
+    display: inline-block;
     white-space: nowrap;
     font-size: 17px;
     font-family: Roboto, Open Sans, Arial, sans-serif;
     padding: 0px 2px 0px 2px;
 }
 
-.main-svg {
-    border: 1px solid #dcdcdc;
+#table-ruler {
+    visibility: hidden;
+    display: inline-block;
+    white-space: nowrap;
+    font-size: 1.4em;
+    font-family: Roboto, Open Sans, Arial, sans-serif;
+    padding: 0px 2px 0px 2px;
 }
 
-/* .svg-rect {
+.main-svg {
+    /* border: 1px solid #dcdcdc; */
+}
+
+.svg-rect {
     fill: #f9f9f9;
-} */
+    stroke: #c0c0c0;
+    stroke-width: 1px;
+}
+
+.svg-rect.empty {
+    stroke: #808080;
+    fill: #c1c1c1
+}
+
+.initial-text {
+    cursor: default;
+    fill: black;
+}
 
 .defs-arrow-end {
     fill: #3e3e3e;
@@ -185,8 +203,6 @@ textarea:read-only {
 
 .state-fullname-rect {
     fill: #4646468c;
-    /*stroke-width: 1px;
-    stroke: #1a1a1a7e;*/
 }
 
 .state-fullname-text {
@@ -195,14 +211,6 @@ textarea:read-only {
     cursor: default;
     fill: white;
 }
-
-/* .state-group.mouse-over-node .stateEl>.stateInput{
-    background-color: #bfdcf7;
-}
-
-.state-group.selected .stateEl>.stateInput{
-    background-color: #8dc5f9;
-} */
 
 .stateEl>.stateInput {
     color: black;
@@ -254,7 +262,6 @@ textarea:read-only {
 }
 
 .edge-path.hidden, .edge-marker-path.hidden {
-   /* stroke-width: 0; */
    visibility: hidden;
 }
 
@@ -307,10 +314,8 @@ border-spacing:2px;
 }
 
 .myCell {
-    /*! border: 1px solid #cecece; */
     padding: 0;
     background-color: #f0f0f0;
-    /*! border-bottom: 1px solid #b5b5b5; */
 }
 
 .cell-input { /*input inside td*/
@@ -329,7 +334,6 @@ border-spacing:2px;
 
 .column-header-cell { /* td */
     background-color: #d0d0d0;
-    /*! border: 1px solid #cecece; */
     padding: 0;
 }
 
@@ -340,18 +344,15 @@ border-spacing:2px;
 
 .row-header-cell {
     background-color:#d0d0d0;
-    /*! border: 1px solid #cecece; */
     padding: 0em;
     margin: 0em;
-    /*! color: ; */
 }
 
-.row-header-cell:hover{
+/* .row-header-cell:hover{
     background-color: #bababa;
-}
+} */
 
-.row-header-input { /*input inside td*/
-    transition: background-color 0.2s ease;
+.row-header-cell>.row-header-input { /*input inside td*/
     background-color:#d0d0d0;
     text-align: left;
     cursor: pointer;
@@ -359,14 +360,15 @@ border-spacing:2px;
     color: #002779;
 }
 
-.row-header-input:hover {
-    background-color: #bababa;
+.row-header-cell>.row-header-input:hover {
+    /* background-color: #bababa; */
+    color: #00123a;
     cursor: pointer;
 }
 
 /*selected row header input*/
-.selected-header-input {
-    background-color: #bababa;
+.row-header-cell>.selected-header-input {
+    background-color: #d0d0d0;
     text-align: left;
     cursor: text;
     border-radius: 0px;
@@ -520,5 +522,5 @@ border-spacing:2px;
 
 #constrainer {
     background-color: rgb(255, 255, 255);
-    width: 1000px;
+    width: 914px;
 }

@@ -38,8 +38,8 @@ var addStateText = addSymbol + " Nový stav";
 
 /* ------------------------------ hint ------------------------------ */
 var hints = {
-  addState : "<b>Vytvoření stavu:</b> double click na plátno nebo right click na plátno.",
-  addTransition : "<b>Vytvoření prechodu:</b> click na stav + click na cílový stav.",
+  addState : "<b>Vytvoření stavu:</b> dvojklikem na plátno nebo kliknutím pravého tlačítka na plátno.",
+  addTransition : "<b>Vytvoření prechodu:</b> klik na stav + klik na cílový stav.",
   drag : "Stavy i přechody můžete přesouvat taháním myší.",
   stateMenu: "Kliknutím pravého tlačítka myši na stav otevřete menu, kde můžete stav <b>přejmenovat, odstranit, nastavit jako počáteční, označit jako akceptující/neakceptujúci</b>.",
   transitionMenu: "Kliknutím pravého tlačítka myši na přechod otevřete menu, kde můžete <b>upravit symboly přechodu</b> nebo přechod <b>odstranit</b>.",
@@ -73,7 +73,8 @@ var errors = {
   NFAInnerCellSyntax: "Očekávané řetězce znaků z {a-z,A-Z,0-9} oddělené čárkami, uzavřeny do složených závorek {}.",
   DFAInnerCellSyntax: "Očekávaný řetězec znaků z {a-z,A-Z,0-9}.",
 
-  transitionSymbolsTooLong: "Prekrocena maximalna dlzka symbolov prechodu (300)!"
+  transitionSymbolsTooLong: "Prekrocena maximalna dlzka symbolov prechodu (300)!",
+  stateNameTooLong: "Název stavu je příliš dlouhý (max. 50 znaků)."
 }
 
 var stateNameAlreadyExists = "<strong>Chyba:</strong> Takto pojmenovaný stav již existuje.";
@@ -88,6 +89,8 @@ var tableDelSymbolHover = "Vymazat sloupec (symbol ze všech přechodů)";
 var tableDelRowHover = "Vymazat řádek (stav a všechny jeho přechody)";
 var tableAddRowHover = "Přidat stav";
 var tableAddSymbolHover = "Přidat symbol";
+
+var emptyGraphText = "První stav vytvoříte dvojklikem.";
 
 /* ------------------------------ syntax check div ------------------------------ */
 //currently unused
