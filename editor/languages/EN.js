@@ -9,6 +9,7 @@ var initSymbol = "→";
 var accSymbol = "←";
 var bothSymbol = "↔";
 var epsSymbol = 'ε';
+var hintSymbol = "•";
 
 /* ------------------------------ main menu ------------------------------ */
 var graphMenuButton = "Graph";
@@ -95,4 +96,9 @@ var emptyGraphText = "Double click to create first state.";
 /* ------------------------------ syntax check div ------------------------------ */
 //currently unused
 var syntaxDivTitle = "Syntax help.";
-var syntaxTextDefault = "Syntax help is displayed here. ";
+var syntaxDefaultText = "Syntax help is displayed here. ";
+var syntaxIsCorrect = "Syntax is correct.";
+
+/* ------------------------------ IS related ------------------------------ */
+var browse = "– browse";
+var browse2 = "Browse";

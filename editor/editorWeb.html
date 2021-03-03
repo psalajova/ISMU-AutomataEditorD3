@@ -12,6 +12,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
 
     <link rel="stylesheet" type="text/css" href="editorStyle.css">
+    <style>
+        body {
+            font-family: "Open Sans", Arial, sans-serif;
+            font-size: 14px;
+            text-rendering: optimizeLegibility;
+            font-smooth: auto;
+        }
+    </style>
 
 
 </head>
@@ -28,7 +36,7 @@
         }
     </script>
     <script src="utilIS.js"></script>
-    <script src="languages/EN.js"></script>
+    <script src="languages/CS.js"></script>
     <script src="Parsers/DFAParser.js"></script>
     <script src="Parsers/GRAParser.js"></script>
     <script src="Parsers/NFAParser.js"></script>
@@ -38,37 +46,39 @@
 
 
 
-    <div id="constrainer" style="width: 914px;">
+    <div id="constrainer">
+        <p>DFA</p>
         <div id="DFA-q0" data-type="DFA"></div>
-
         <script>
             initialise(document.getElementById("DFA-q0")); 
         </script>
 
 
-        <p> ------------------------ </p>
+        <hr style="margin-top: 30px; margin-bottom: 30px; border-top: 1px solid #cacaca; border-bottom: 0px solid;">
+
         <p>Napište regulární gramatiku popisující následující jazyk nad abecedou.... </p>
         <div id="GRA-q0005-8-8" data-type="GRA"></div>
-
         <script>
             initialise(document.getElementById("GRA-q0005-8-8")); 
         </script>
 
+        <hr style="margin-top: 30px; margin-bottom: 30px; border-top: 1px solid #cacaca; border-bottom: 0px solid;">
 
+        <p>NFA bez eps.krokov</p>
         <div id="NFA-q1"></div>
         <script>
             initialise(document.getElementById("NFA-q1")); 
         </script>
 
+        <hr style="margin-top: 30px; margin-bottom: 30px; border-top: 1px solid #cacaca; border-bottom: 0px solid;">
 
+        <p>EFA</p>
         <div id="EFA-q2"></div>
         <script>
             initialise(document.getElementById("EFA-q2")); 
         </script>
 
     </div>
-
-    <input type="button" value="scroll" id="scrollB">
     <script>
         if ($('script[src="editor2.js"]').length === 0) { //if document doesnt have script with this src
             var editorPath = "editorStyle.css";

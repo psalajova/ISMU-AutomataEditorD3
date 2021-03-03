@@ -9,6 +9,7 @@ var initSymbol = "→";
 var accSymbol = "←";
 var bothSymbol = "↔";
 var epsSymbol = 'ε';
+var hintSymbol = "•";
 
 /* ------------------------------ main menu ------------------------------ */
 var graphMenuButton = "Graf";
@@ -95,4 +96,9 @@ var emptyGraphText = "První stav vytvoříte dvojklikem.";
 /* ------------------------------ syntax check div ------------------------------ */
 //currently unused
 var syntaxDivTitle = "Nápověda syntaxe učitele.";
-var syntaxTextDefault = "Zde se zobrazuje nápověda syntaxe.";
+var syntaxDefaultText = "Zde se zobrazuje nápověda syntaxe.";
+var syntaxIsCorrect = "Syntax je korektní.";
+
+/* ------------------------------ IS related ------------------------------ */
+var browse = "– prohlídka";
+var browse2 = "Prohlídka";

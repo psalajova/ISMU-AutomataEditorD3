@@ -30,6 +30,15 @@
 
 textarea {
     background-color: #e6e6e6;
+    /*To delete:*/
+    width: 898px;
+    color: #3a3a3a;
+    border: 1px solid rgb(179, 179, 179);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px;
+    line-height: 21px;
+    margin-top: 5px;
 }
 
 textarea:read-only {
@@ -42,9 +51,9 @@ textarea:read-only {
 
 /* Graph ----------------------------------------- */
 .hint-content-div {
-    margin-bottom: 0px;
-    margin-top: 5px;
-    width: 100%;
+    margin-bottom: 5px;
+    margin-top: 0px;
+    width: 902px;
     background-color: #b5e9a5;
     border: 1px solid #95cf84;
     padding: 5px;
@@ -100,26 +109,6 @@ textarea:read-only {
     background-color: #ffffff;
     border-radius: 4.5px;
     box-shadow: 0px 0px 6px #adadadc4;
-}
-
-.empty-graph-button {
-    position: absolute;
-    background-color: #002776;
-    color: white;
-    font-size: 17px;
-    font-family: Roboto, Open Sans, Arial, sans-serif;
-    border: 0px solid #002776;
-    padding: 10px;
-    margin: 0px;
-    bottom: 50%;
-    left: 44%;
-    transition: fill 0.2s ease 0s;
-    box-shadow: 0px 0px 6px #707070c4;
-}
-
-.empty-graph-button:hover {
-    background-color: #002164;
-    transition: fill 0.2s ease 0s;
 }
 
 .rename-error-p {
@@ -523,4 +512,11 @@ border-spacing:2px;
 #constrainer {
     background-color: rgb(255, 255, 255);
     width: 914px;
+    position: absolute;
+	top:0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+  	
+	margin: auto;
 }

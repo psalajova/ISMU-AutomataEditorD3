@@ -2,7 +2,7 @@
 
 setupLanguage();
 
-var editor_init, upload, idCount = 0;
+var editor_init, upload;
 
 if (typeof editor_init !== 'function') {
   var otazky = {};
@@ -23,7 +23,8 @@ if (typeof editor_init !== 'function') {
     window.scrollTo(0, 0);
   }
   editor_init = function (type) {
-    var id = generateId(type);
+    var d = new Date();
+    var id = type + "-" + d.getTime();
     otazky[document.getElementsByTagName('textarea').length] = id;
   };
   upload = function () { editor_init(null); };
@@ -68,9 +69,6 @@ const tableClasses = {
 
 var SELECTED_ELEM_GROUP, params, zoom, dragEdge, dragState, dragInitArrow, maxZoomout = 0.5;
 
-/**
- * States of editor in graph mode.
- */
 const graphStateEnum = Object.freeze({
   "default": 0,
   "creatingEdge": 1,
@@ -78,35 +76,25 @@ const graphStateEnum = Object.freeze({
   "renamingEdge": 3,
   "renamingState": 4,
   "mergingEdge": 5,
-  "initial": 6 //when editor contains no states
+  "empty": 6
 });
 
-/**
- * Enum to specify state and edge data origin.
- */
-const elemOrigin = Object.freeze( {
-    "default": 0, //from graph
+const elemOrigin = Object.freeze(
+  {
+    "default": 0,
     "fromTable": 1,
-    "fromExisting": 2 //when reverse creating editor from existing data (IS in browse mode)
-});
+    "fromExisting": 2
+  });
 
-/**
- * Decides editor language based on actual IS language and loads correct language file.
- */
 function setupLanguage() {
   var lang = document.documentElement.lang;
   if (!lang) {
     lang = "cs";
   }
-  var src = `//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/${lang.toUpperCase()}.js`;
+  var src = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/" + lang.toUpperCase() + ".js";
   document.write("\<script src=\"" + src + "\"type='text/javascript'><\/script>");
 }
 
-/**
- * Initialises editor.
- * @param {div elem}      div       div element where the editor will be created
- * @param {textArea elem} textArea  
- */
 function initialise(div, textArea) {
   div.setAttribute("class", QUESTION_DIV);
   var type = div.getAttribute("id").substring(0, 3);
@@ -126,21 +114,17 @@ function initialise(div, textArea) {
     reversePopulateGraph(div, textArea.value);
     $(textArea).prop('readonly', true);
     if (isEmpty(div) && !jeProhlizeciStranka_new()) {
+      //initEmptyGraphState(div);
       initEmptyGraphState(div);
     }
   }
 }
 
-/**
- * Initialises editor - graph, table and textArea elements.
- * @param {div elem} div div element inside which the editor will be created
- */
-function initialiseEditor(div) {
-  div.lastEdited = "graph";
-  div.statesData = [];
-  div.edgesData = [];
+function initialiseEditor(questionDiv) {
+  questionDiv.lastEdited = "graph";
+  questionDiv.statesData = [];
+  questionDiv.edgesData = [];
 
-  //create rulers - elements used to calculate svg and table text length
   var ruler = document.getElementById("ruler");
   if (!ruler) {
     ruler = document.createElement("span");
@@ -152,25 +136,41 @@ function initialiseEditor(div) {
     tableRuler.innerHTML = "x";
     tableRuler.setAttribute("id", "table-ruler");
   }
-  div.parentNode.insertBefore(ruler, div.nextSibling);
-  div.parentNode.insertBefore(tableRuler, div.nextSibling);
+  questionDiv.parentNode.insertBefore(ruler, questionDiv.nextSibling);
+  questionDiv.parentNode.insertBefore(tableRuler, questionDiv.nextSibling);
 
-  //create menu buttons
+  //create menu BUTTONS
+
   var graphButton = createButton(graphMenuButton, MENU_BUTTON);
-  graphButton.addEventListener("click", function () { clickGraph(div) });
+  graphButton.addEventListener("click", function () { clickGraph(questionDiv) });
 
   var textButton = createButton(textMenuButton, MENU_BUTTON);
-  textButton.addEventListener("click", function () { clickText(div) });
+  textButton.addEventListener("click", function () { clickText(questionDiv) });
 
   var tableButton = createButton(tableMenuButton, MENU_BUTTON);
-  tableButton.addEventListener("click", function () { clickTable(div) });
+  tableButton.addEventListener("click", function () { clickTable(questionDiv) });
 
-  div.appendChild(graphButton);
-  div.appendChild(tableButton);
-  div.appendChild(textButton);
+  questionDiv.appendChild(graphButton);
+  questionDiv.appendChild(tableButton);
+  questionDiv.appendChild(textButton);
 
-  //create hint
-  var hintDiv = initHint(div);
+  //HINT
+  var hintDiv = document.createElement("div");
+  hintDiv.setAttribute("class", "hintDiv");
+
+  var hintButton = createButton(hintLabel, "hintButton");
+  hintButton.style.marginBottom = "7px";
+  hintButton.addEventListener("click", function () { clickHintButton(questionDiv); });
+
+  var hintContentDiv = document.createElement("div");
+  hintContentDiv.setAttribute("class", "hint-content-div");
+  hideElem(hintContentDiv);
+  hintDiv.appendChild(hintButton);
+  hintDiv.appendChild(hintContentDiv);
+  hintDiv.contentDiv = hintContentDiv;
+  hintDiv.hintButton = hintButton;
+
+  setupHints(hintContentDiv);
 
   var graphDiv = document.createElement("div");
   graphDiv.setAttribute("class", GRAPH_DIV);
@@ -179,28 +179,28 @@ function initialiseEditor(div) {
   var tableDiv = document.createElement("div");
   tableDiv.setAttribute("class", "tableDiv");
 
-  div.appendChild(hintDiv);
-  div.appendChild(graphDiv);
-  div.appendChild(tableDiv);
+  questionDiv.appendChild(hintDiv);
+  questionDiv.hintDiv = hintDiv;
 
-  div.graphDiv = graphDiv;
-  div.hintDiv = hintDiv;
-  div.tableDiv = tableDiv;
+  questionDiv.appendChild(graphDiv);
+  questionDiv.graphDiv = graphDiv;
 
-  //graph context menus
-  createStateContextMenu(div);
-  createEdgeContextMenu(div);
-  createAddStateMenu(div);
-  initRenameError(div);
+  questionDiv.appendChild(tableDiv);
+  questionDiv.tableDiv = tableDiv;
 
-  initGraph(div);
-  initTableDiv(div);
+  createStateContextMenu(questionDiv);
+  createEdgeContextMenu(questionDiv);
+  createAddStateMenu(questionDiv);
+  initRenameError(questionDiv);
 
-  hideElem(div.textArea);
-  div.appendChild(div.textArea); //moves the existing textarea into div
+  initGraph(questionDiv);
+  initTableDiv(questionDiv);
 
-  div.graphDiv.lastHeight = div.graphDiv.offsetHeight;
-  div.graphDiv.lastWidth = div.graphDiv.offsetWidth;
+  hideElem(questionDiv.textArea);
+  questionDiv.appendChild(questionDiv.textArea); //moves the existing textarea into div
+
+  questionDiv.graphDiv.lastHeight = questionDiv.graphDiv.offsetHeight;
+  questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
 }
 
 /* function initTest_unused(type) {
@@ -230,10 +230,10 @@ function initGraph(questionDiv) {
   };
 
   params = {
-/*     width: questionDiv.graphDiv.offsetWidth,
-    height: questionDiv.graphDiv.offsetHeight */
-    width: 900,
-    height: 700
+    width: questionDiv.graphDiv.offsetWidth,
+    height: questionDiv.graphDiv.offsetHeight
+    /*     width: 700,
+        height: 700 */
   };
 
   zoom = d3.zoom()
@@ -409,44 +409,14 @@ function initGraph(questionDiv) {
   }
 }
 
-/**
- * Creates hint elements.
- * @param {div elem} div div element inside which hint will be created
- */
-function initHint(div) {
-  var hintDiv = document.createElement("div");
-  hintDiv.setAttribute("class", "hintDiv");
-
-  var hintButton = createButton(hintLabel, "hintButton");
-  hintButton.style.marginBottom = "7px";
-  hintButton.addEventListener("click", function () { clickHintButton(div); });
-
-  var hintContentDiv = document.createElement("div");
-  hintContentDiv.setAttribute("class", "hint-content-div");
-  hideElem(hintContentDiv);
-  hintDiv.appendChild(hintButton);
-  hintDiv.appendChild(hintContentDiv);
-  hintDiv.contentDiv = hintContentDiv;
-  hintDiv.hintButton = hintButton;
-
-  setupHints(hintContentDiv);
-  return hintDiv;
-}
-
-/**
- * Create text shown when there are no states = graph is empty.
- * @param {div elem} div div element inside which initial text will be created
- */
+// text shown when there's no states = graph is empty
 function initStartText(div) {
-  let w = div.graphDiv.offsetWidth;
-  let h = div.graphDiv.offsetHeight;
-
   div.initText = div.graphDiv.svg
     .append("text")
     .classed("initial-text", true)
     .text(emptyGraphText)
-    .attr("x", (w - visualLength(emptyGraphText)) / 2)
-    .attr("y", (h - visualHeight(emptyGraphText)) / 2)
+    .attr("x", (params.width - visualLength(emptyGraphText)) / 2)
+    .attr("y", (params.height - visualHeight(emptyGraphText)) / 2)
     .style("visibility", "hidden")
     .on("dblclick", function (event) {
       endEmptyGraphState(div);
@@ -455,50 +425,44 @@ function initStartText(div) {
     });
 }
 
-/**
- * Creates table div where editor's table will be.
- * @param {div elem} div div element inside which table div will be created
- */
-function initTableDiv(div) {
-  createTable(div);
+function initTableDiv(questionDiv) {
+  createTable(questionDiv);
 
-  //create error message paragraph
+  //error alert paragraph
   var alertP = document.createElement("p");
   alertP.setAttribute("class", "alert alert-danger");
   hideElem(alertP);
-  div.tableDiv.alertText = alertP;
-  div.tableDiv.appendChild(alertP);
+  questionDiv.tableDiv.alertText = alertP;
+  questionDiv.tableDiv.appendChild(alertP);
 }
 
-/**
- * Creates state set as initial.
- * @param {div elem}  div parent div element
- * @param {number}    x   x coordinate
- * @param {number}    y   y coordinate
- */
-function initInitialState(div, x, y) {
-  var initialData = newStateData(div, null, x, y, true, false);
-  addState(div, initialData);
-  repositionInitArrow(div.graphDiv, initialData, 3.14);
-  div.graphDiv.graphState.initialState = initialData;
+/* function initialiseTextArea(div) {
+  var res = null;
+  res = getTextArea(div.id, "_e_a_1");
+  if (!res) {
+    res = document.createElement("textarea");
+    div.appendChild(res);
+  }
+  return res;
+} */
+
+function initInitialState(questionDiv, x, y) {
+  /*   var x = -(params.width /2) + 100;
+    var y = -(params.height/2) + 100; */
+  var initialData = newStateData(questionDiv, null, x, y, true, false);
+  addState(questionDiv, initialData);
+  repositionInitArrow(questionDiv.graphDiv, initialData, 3.14);
+  questionDiv.graphDiv.graphState.initialState = initialData;
 }
 
-/**
- * Creates div where graph's errors will be shown.
- * @param {div elem} div parent div element
- */
-function initRenameError(div) {
-  var p = document.createElement("p");
-  p.setAttribute("class", "rename-error-p");
-  hideElem(p);
-  div.graphDiv.appendChild(p);
-  div.graphDiv.renameError = p;
+function initRenameError(questionDiv) {
+  var errorParagraph = document.createElement("p");
+  errorParagraph.setAttribute("class", "rename-error-p");
+  hideElem(errorParagraph);
+  questionDiv.graphDiv.appendChild(errorParagraph);
+  questionDiv.graphDiv.renameError = errorParagraph;
 }
 
-/**
- * Creates div where syntax check will be shown.
- * @param {string} id id of div where syntax check will belong
- */
 function initSyntaxCheck(id) {
   var div = document.getElementById(id);
 
@@ -527,21 +491,13 @@ function initSyntaxCheck(id) {
   eval("registerElem(id, " + div.type + "Parser.parse" + ", div.textArea)");
 }
 
-/**
- * Sets editor into "initial state" (when there are no states).
- * @param {div elem} div div to which editor belongs
- */
 function initEmptyGraphState(div) {
   div.graphDiv.svg.select(".initial-text").style("visibility", "visible");
   div.graphDiv.svg.rect.classed("empty", true);
-  div.graphDiv.graphState.currentState = graphStateEnum.initial;
+  div.graphDiv.graphState.currentState = graphStateEnum.empty;
   disableAllDragging(div.graphDiv.svg);
 }
 
-/**
- * Ends editor's "initial state" (when there are no states).
- * @param {div elem} div div to which editor belongs
- */
 function endEmptyGraphState(div) {
   div.graphDiv.svg.select(".initial-text").style("visibility", "hidden");
   div.graphDiv.svg.rect.classed("empty", false);
@@ -552,27 +508,30 @@ function endEmptyGraphState(div) {
 document.addEventListener('keyup', windowKeyUp);
 
 /**
- * Handles editor's key up events.
- * @param {event} event
+ * SELECTED_ELEM_GROUP is alaways either a stateGroup or an edgeGroup
+ * both have .node().graphDiv.questionDiv to which they belong
+ * @param {*} event 
  */
 function windowKeyUp(event) {
-  //SELECTED_ELEM_GROUP is either null, or a d3 selection - stateGroup or an edgeGroup
-  if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka_new()) return;
-
+  if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka_new()) {
+    return;
+  }
   var graphDiv = SELECTED_ELEM_GROUP.node().parentGraphDiv;
   var questionDiv = graphDiv.parentNode;
   var data = SELECTED_ELEM_GROUP.datum();
 
-  if (graphDiv.style.display == "none") return;
+  if (graphDiv.style.display == "none") {
+    return;
+  }
 
   if (event.key.toLowerCase() == "escape") {
-    if (graphDiv.graphState.currentState == graphStateEnum.creatingEdge 
-      || SELECTED_ELEM_GROUP.classed("activeRenaming")) {
+    if (SELECTED_ELEM_GROUP.classed("activeRenaming")) {
+      SELECTED_ELEM_GROUP.select("input").node().blur();
       deselectAll();
     }
   }
   if (event.key.toLowerCase() == "delete") {
-    if (SELECTED_ELEM_GROUP.classed("activeRenaming")) return; //allow delete while renaming
+    if (SELECTED_ELEM_GROUP.classed("activeRenaming")) return;
 
     if (SELECTED_ELEM_GROUP.node().classList.contains(graphConsts.stateElem)) { // if selected element is state
       deleteState(questionDiv, data);
@@ -582,64 +541,82 @@ function windowKeyUp(event) {
       deleteEdge(questionDiv, data);
       graphDiv.graphState.selectedEdge = null;
     }
-    graphDiv.graphState.currentState = isEmpty(questionDiv) ? graphStateEnum.initial : graphStateEnum.default;
-    hideAllExtras(graphDiv);
+
+    graphDiv.graphState.currentState = graphStateEnum.default;
+    hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
     SELECTED_ELEM_GROUP = null;
     enableAllDragging(graphDiv.svg);
   }
 }
 
-/**
- * Handles clicks on graph's canvas.
- * @param {event} event
- */
 function svgRectClick(event) {
   event.preventDefault();
   var cl = event.srcElement.classList;
   var graphDiv = findParentWithClass(event.srcElement, GRAPH_DIV);
-  var isState = cl.contains(graphConsts.stateElem);
-  var isEdge = cl.contains(graphConsts.edgeElem) || cl.contains("edge-path");
-  var state = graphDiv.graphState.currentState;
+  var isState = cl.contains(graphConsts.stateElem); //cl.contains("state-text") || cl.contains("state-main-circle") || cl.contains("accepting-circle");
+  var isEdge = cl.contains(graphConsts.edgeElem) || cl.contains("edge-path"); //cl.contains("edge-rect") || cl.contains("edge-path") || cl.contains("edge-text");
+  var currentState = graphDiv.graphState.currentState;
 
-  if (state == graphStateEnum.initial) return;
-  if (isEdge && state == graphStateEnum.default) return; //so we can select edge
-  if (isState && (
-    state == graphStateEnum.creatingEdge || 
-    state == graphStateEnum.renamingState || //so we can click into input when renaming state
-    state == graphStateEnum.namingEdge || //when naming new edge and merging edges, we click on the second state, and we dont want to cancel the state's selection
-    state == graphStateEnum.mergingEdge)) {
+  if (currentState == graphStateEnum.empty) {
+    //return;
+  }
+
+  //so we can select edge
+  else if (isEdge && currentState == graphStateEnum.default) {
     return;
   }
-  deselectAll();
+  else if (isState && (currentState == graphStateEnum.creatingEdge || graphStateEnum.renamingState)) {
+    return;
+  }
+
+  //when naming new edge and merging edges, we click on the second state, and we dont want to cancel its SELECTION !
+  else if (currentState == graphStateEnum.namingEdge && isState) {
+
+    return;
+  }
+  else if (currentState == graphStateEnum.mergingEdge && isState) {
+    return;
+  }
+  else {
+    deselectAll();
+  }
+
+
+  //TODO: init selection of multiple elements???
 }
 
-/**
- * Handler for right clicks on graph's canvas.
- * @param {event} event 
- */
 function svgRectContextmenu(event) {
   event.preventDefault();
   var cl = event.srcElement.classList;
   var graphDiv = findParentWithClass(event.srcElement, GRAPH_DIV);
   var isState = cl.contains(graphConsts.stateElem);
   var isEdge = cl.contains(graphConsts.edgeElem);
-  var state = graphDiv.graphState.currentState;
   var elem;
 
-  if (state == graphStateEnum.initial) return;
+  if (graphDiv.graphState.currentState == graphStateEnum.empty) return;
 
   if (isState) {
     elem = graphDiv.stateContextMenuDiv;
-    if (state == graphStateEnum.renamingState) return;
-  }
-  else if (isEdge) { //when edge editing is active its ok to right click into input
-    elem = graphDiv.edgeContextMenuDiv;
-    if (state == graphStateEnum.renamingEdge ||
-      state == graphStateEnum.namingEdge ||
-      state == graphStateEnum.mergingEdge) {
+    if (graphDiv.graphState.currentState == graphStateEnum.renamingState) {
       return;
     }
   }
+  else if (isEdge) { //when edge editing is active its ok to right click into input
+    elem = graphDiv.edgeContextMenuDiv;
+    if (graphDiv.graphState.currentState == graphStateEnum.renamingEdge ||
+      graphDiv.graphState.currentState == graphStateEnum.namingEdge ||
+      graphDiv.graphState.currentState == graphStateEnum.mergingEdge) {
+      return;
+    }
+  }
+  /*   if (isState || isEdge) {
+      if (graphIsInRenamingState(graphDiv.graphState.currentState)) {
+        endRenaming(graphDiv.parentNode);
+      }
+      else if (graphDiv.graphState.currentState == graphStateEnum.creatingEdge) {
+        deselectAll();
+      }
+    } */
   else {
     deselectAll();
     elem = graphDiv.addStateContextMenu;
@@ -648,16 +625,13 @@ function svgRectContextmenu(event) {
   showElem(elem);
 }
 
-/**
- * Handler for double clicks on graph's canvas.
- * @param {event} event 
- */
-function svgRectDblclick(event) {
+function svgRectDblclick(event, d) {
   //if we clicked on other svg elements do nothing
   if (event.srcElement.tagName == "rect") {
     var graphDiv = d3.select(this).node().parentGraphDiv;
     var p = getPointWithoutTransform(d3.pointer(event), graphDiv.svg.svgGroup);
-    if (graphDiv.graphState.currentState != graphStateEnum.initial) {
+
+    if (graphDiv.graphState.currentState != graphStateEnum.empty) {
       addState(graphDiv.parentNode, newStateData(graphDiv.parentNode, null, p.x, p.y, false, false));
     }
     else {
@@ -667,22 +641,14 @@ function svgRectDblclick(event) {
   }
 }
 
-/**
- * Defines graph's behavior on mouse move.
- * @param {event} event 
- */
-function svgMousemove(event) {
+function svgMousemove(event, data) {
   var graphDiv = d3.select(this).node().parentNode;
+
   if (graphDiv.graphState.currentState == graphStateEnum.creatingEdge) {
     initCreatingTransition(event, graphDiv);
   }
 }
 
-/**
- * Defines graph's behavior when creating transition.
- * @param {event}     event
- * @param {div elem}  graphDiv div containing graph's svg elements
- */
 function initCreatingTransition(event, graphDiv) {
   var temporaryEdgePath = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePath);
   temporaryEdgePath.classed("hidden", false);
@@ -738,7 +704,7 @@ function resetZoom(svg) {
   t.x = params.width / 2;
   t.y = params.height / 2;
 
-  //reset zoom scale
+  //reset zoom
   t.k = 1;
   svg.svgGroup.attr("transform", t);
 }
@@ -934,21 +900,12 @@ function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
     return getNewSelfloopDefinition(str[1], str[2], mouseX, mouseY, edgeData);
   }
   else {
-    return getNewPathDefinition(mouseX, mouseY, oldPathDefinition, edgeData);
+    return getNewPathDefinition(edgeData.id, mouseX, mouseY, oldPathDefinition, edgeData);
   }
 }
 
-/**
- * Edge (transition) has its path definition (@param pathDef) based on which it is drawn in svg.
- * Based on mouse and edge's source and target states positions gets new edge path.
- * @param   {number}  mouseX    mouse x coordinate
- * @param   {number}  mouseY    mouse y coordinate
- * @param   {string}  pathDef   previous edge path definition
- * @param   {object}  edgeData  edge data
- * @return  {string}  new edge path definition
- */
-function getNewPathDefinition(mouseX, mouseY, pathDef, edgeData) {
-  var str = pathDef.split(" ");
+function getNewPathDefinition(edgeID, mouseX, mouseY, pathD, edgeData) {
+  var str = pathD.split(" ");
 
   var dx = 2 * (mouseX - ((+str[1] + (+str[6])) / 2));
   var dy = 2 * (mouseY - ((+str[2] + (+str[7])) / 2));
@@ -957,18 +914,25 @@ function getNewPathDefinition(mouseX, mouseY, pathDef, edgeData) {
 
   edgeData.dx = dx;
   edgeData.dy = dy;
+  /*
+  edgesData
+    .filter(function (d) {
+      return d.id == edgeID;
+    })
+    .map(function (d) {
+      d.dx = dx;
+      d.dy = dy;
+    });*/
 
-  //snap into straight line if edge curve is small
-  if (Math.abs(dy) <= 17 && Math.abs(dx) <= 17){
-    return getStraightPathDefinition(edgeData.source.x, edgeData.source.y, edgeData.target.x, edgeData.target.y);
-  }
   return str.join(" ");
 }
 
-function getNewSelfloopDefinition(x1, y1, x2, y2, edgeData) {
-  if (edgeData != null) {
-    edgeData.angle = calculateAngle(x1, y1, x2, y2);
-    return `M ${x1} ${y1} C ${cubicControlPoints(x1, y1, edgeData.angle)} ${x1} ${y1}`;
+function getNewSelfloopDefinition(x1, y1, x2, y2, edge) {
+  if (edge != null) {
+    edge.angle = calculateAngle(x1, y1, x2, y2);
+    return "M " + x1 + " " + y1 + " C "
+      + cubicControlPoints(x1, y1, edge.angle)
+      + " " + x1 + " " + y1;
   }
   return calculateSelfloop(x1, y1, calculateAngle(x1, y1, x2, y2));
 }
@@ -992,7 +956,10 @@ function calculateAngle(x1, y1, x2, y2) {
 }
 
 function getStraightPathDefinition(x1, y1, x2, y2) {
-  return `M ${x1} ${y1} Q ${midpoint(x1, x2)} ${midpoint(y1, y2)} ${x2} ${y2}`;
+  return "M " + x1 + " " + y1 + " Q " +
+    midpoint(x1, x2) + " " +
+    midpoint(y1, y2) + " " +
+    x2 + " " + y2;
 }
 
 function updateEdgeInputPosition(questionDiv, edgesSelection) {
@@ -1239,6 +1206,7 @@ function deleteState(questionDiv, stateData) {
   if (!jeProhlizeciStranka_new()) {
     generateTextFromData(questionDiv);
     if (isEmpty(questionDiv)) {
+      resetZoom(questionDiv.graphDiv.svg);
       resetStateIds(questionDiv);
       initEmptyGraphState(questionDiv);
     }
@@ -2031,7 +1999,7 @@ function setupHints(div) {
 function createParagraph(string) {
   var p = document.createElement("P");
   p.setAttribute("class", "hint-paragraph");
-  p.innerHTML = `${hintSymbol} ${string}`;
+  p.innerHTML = "• " + string;
   return p;
 }
 
@@ -2151,8 +2119,7 @@ function reverseCalculateEdge(source, target, dx, dy) {
   var c1 = ((s1.x + s2.x) / 2) + dx;
   var c2 = ((s1.y + s2.y) / 2) + dy;
 
-  return `M ${s1.x} ${s1.y} Q ${c1} ${c2} ${s2.x} ${s2.y}`;
-  //return "M " + s1.x + " " + s1.y + " Q " + c1 + " " + c2 + " " + s2.x + " " + s2.y;
+  return "M " + s1.x + " " + s1.y + " Q " + c1 + " " + c2 + " " + s2.x + " " + s2.y;
 }
 
 /**
@@ -2442,7 +2409,7 @@ function deselectAll(exceptionId = null) {
           SELECTED_ELEM_GROUP.select("input").node().blur();
         }
 
-        if (graphDiv.graphState.currentState != graphStateEnum.initial) {
+        if (graphDiv.graphState.currentState != graphStateEnum.empty) {
           graphDiv.graphState.currentState = graphStateEnum.default;
         }
         graphDiv.graphState.lastTargetState = null;
@@ -2453,6 +2420,7 @@ function deselectAll(exceptionId = null) {
         hideElem(graphDiv.renameError);
         hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
 
+        //graphDiv.svg.svgGroup.temporaryEdgeG.classed(graphConsts.selectedClass, false);
         enableAllDragging(graphDiv.svg);
       }
     });
@@ -2511,7 +2479,9 @@ function getEdgeGroupById(questionDiv, id) {
 /* ------------------------------ Math utils ------------------------------ */
 
 function calculateSelfloop(x, y, angle) {
-  return `M ${x} ${y} C ${cubicControlPoints(x, y, angle)} ${x1} ${y1}`;
+  return "M " + x + " " + y
+    + " C " + cubicControlPoints(x, y, angle)
+    + " " + x + " " + y;
 }
 
 function closestPointOnCircle(x, y, circleX, circleY) {
@@ -2538,7 +2508,7 @@ function cubicControlPoints(x, y, d, mult = 110, div = 6) {
   var x2 = (+x + (Math.cos(d - Math.PI / div) * mult)).toFixed(3);
   var y2 = (+y - (Math.sin(d - Math.PI / div) * mult)).toFixed(3);
 
-  return `${x1} ${y1} ${x2} ${y2}`;
+  return x1 + " " + y1 + " " + x2 + " " + y2;
 }
 
 function midpoint(x1, x2) {
@@ -2591,17 +2561,6 @@ function removeDuplicates(array) {
   });
 }
 
-function generateId(type) {
-  var result = `${type}-`;
-  var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-  for (let i = 0; i < 6; i++) {
-    result += symbols.charAt(Math.floor(Math.random() * symbols.length));
-  }
-
-  result += `-${idCount++}`;
-  return result;
-}
 
 /* ------------------------------ Table ------------------------------ */
 const STATE_INDEX = 2;
@@ -2722,7 +2681,7 @@ function createTableFromData(questionDiv) {
     });
   });
 
-  setInnerCellSizes(table, maxColWidth + 10 + "px");
+  resetInnerCellSizes(table, maxColWidth + 10 + "px");
 
   questionDiv.tableDiv.removeChild(oldTable);
   questionDiv.tableDiv.removeChild(questionDiv.tableDiv.alertText);
@@ -2818,6 +2777,7 @@ function insertInnerCell(table, row) {
 
   cell.myDiv = input;
   cell.appendChild(input);
+  return cell;
 }
 
 function insertRowHeader(row, name, width) {
@@ -2861,7 +2821,7 @@ function insertRow(table, title) {
     return;
   }
   //if this is a first state to be created in editor
-  if (isEmpty(table.questionDiv) && table.questionDiv.graphDiv.graphState.currentState == graphStateEnum.initial) {
+  if (isEmpty(table.questionDiv) && table.questionDiv.graphDiv.graphState.currentState == graphStateEnum.empty) {
     endEmptyGraphState(table.questionDiv);
   }
   if (title == null) {
@@ -2875,7 +2835,13 @@ function insertRow(table, title) {
   insertRowHeader(table.rows[table.rows.length - 1], title, table.rows[1].cells[STATE_INDEX].style.width);
 
   for (i = STATE_INDEX + 1; i < table.rows[0].cells.length - 1; i++) {
-    insertInnerCell(table, table.rows[table.rows.length - 1]);
+    var cell = insertInnerCell(table, table.rows[table.rows.length - 1]);
+
+    var cellAbove = table.rows[table.rows.length - 2].cells[i];
+    var w = cellAbove.style.width;
+    if (!w) w = MIN_TABLE_CELL_WIDTH;
+    cell.style.width        = w;
+    cell.myDiv.style.width  = w;
   }
   insertRowAddButton(table);
 
@@ -3233,24 +3199,12 @@ function tableHeaderCellClick(table, input) {
 
 /* ------------------------------ Table helper functions ------------------------------ */
 
-/**
- * Sets table into "alert" mode - table is locked and error is shown.
- * @param {table elem}  table table
- * @param {string}      error error message
- * @param {td elem}     exc   exception
- */
 function activateAlertMode(table, error, exc) {
   setAlert(table, error, true);
   showElem(table.alertStatus);
   lockTable(table, exc);
 }
 
-/**
- * Sets table error message.
- * @param {table elem}  table 
- * @param {string}      error error message
- * @param {boolean}     tableLocked 
- */
 function setAlert(table, error, tableLocked = true) {
   table.alertStatus.innerHTML = error;
   if (tableLocked) {
@@ -3258,20 +3212,15 @@ function setAlert(table, error, tableLocked = true) {
   }
 }
 
-/**
- * Lock or unlock editor menu buttons.
- * @param {div} questionDiv parent div of menu buttons
- * @param {boolean} val if null unlock, if true lock
- */
+function disableControlButtons(tableDiv, disable = true) {
+  tableDiv.buttonInit.disabled = disable;
+  tableDiv.buttonAcc.disabled = disable;
+}
+
 function lockButtons(questionDiv, val = null) {
   d3.select(questionDiv).selectAll("." + MENU_BUTTON).attr("disabled", val);
 }
 
-/**
- * Lock table and menu buttons except @param exceptionInput.
- * @param {table elem} table 
- * @param {input elem} exceptionInput input of table cell
- */
 function lockTable(table, exceptionInput) {
   for (var i = 1; i < table.rows.length - 1; i++) {
     for (var j = 1; j < table.rows[i].cells.length; j++) {
@@ -3285,10 +3234,6 @@ function lockTable(table, exceptionInput) {
   lockButtons(table.questionDiv, true);
 }
 
-/**
- * Unlocks table and menu buttons.
- * @param {table elem} table 
- */
 function unlockTable(table) {
   for (var i = 1; i < table.rows.length - 1; i++) {
     for (var j = 1; j < table.rows[i].cells.length; j++) {
@@ -3299,11 +3244,6 @@ function unlockTable(table) {
   lockButtons(table.questionDiv);
 }
 
-/**
- * Find next alphabet symbol to be added as column value. Original author is Matej Poklemba.
- * @param  {table elem} table 
- * @return {string}     symbol
- */
 function findSymbol(table) {
   var symbol, symbprefix = "";
   var k = 'a'.charCodeAt(0);
@@ -3320,32 +3260,19 @@ function findSymbol(table) {
   return symbol;
 }
 
-/**
- * Checks if state name already exists in table.
- * @param  {table elem}  table
- * @param  {input elem}  input 
- * @param  {string}      stateName state name
- * @return {boolean}     true if state name already exists, false otherwise
- */
-function tableStateAlreadyExists(table, input, stateName) {
+function tableStateAlreadyExists(table, input, value) {
   var ri = input.parentNode.parentNode.rowIndex;
   for (var i = 2; i < table.rows.length - 1; i++) {
-    if (i != ri && stateName == table.rows[i].cells[STATE_INDEX].myDiv.value) {
+    if (i != ri && value == table.rows[i].cells[STATE_INDEX].myDiv.value) {
       return true;
     }
   }
   return false;
 }
 
-/**
- * Checks if symbol already exists as table column.
- * @param  {table elem}  table 
- * @param  {input elem}  input 
- * @param  {string}      symbol transition symbol
- * @return {boolean}     true if symbol already exists, false otherwise
- */
 function tableColumnSymbolAlreadyExists(table, input, symbol) {
   var ci = input.parentNode.cellIndex;
+
   for (var i = 2; i < table.rows[1].cells.length; i++) {
     if (i != ci && symbol == table.rows[1].cells[i].myDiv.value) {
       return true;
@@ -3354,12 +3281,6 @@ function tableColumnSymbolAlreadyExists(table, input, symbol) {
   return false;
 }
 
-/**
- * Deletes symbol from all table and graph transitions.
- * If transition was containing only this symbol, it is deleted.
- * @param {div elem}  questionDiv parent div
- * @param {string}    symbol      transition symbol to delete
- */
 function deleteSymbolFromAllEdges(questionDiv, symbol) {
   var edgesToDelete = [];
 
@@ -3486,11 +3407,6 @@ function selectDifferentRowHeaderCell(table, input) {
   table.selectedCellInput = input;
 }
 
-/**
- * Adds jQuery resizable handles for table cell.
- * @param {table elem} table
- * @param {td elem}    cell
- */
 function addResizable(table, cell) {
   $(cell).resizable({
     handles: 'e',
@@ -3500,7 +3416,8 @@ function addResizable(table, cell) {
         this.style.minWidth = this.style.width;
         var ci = this.cellIndex;
 
-        //change width of all cells in column
+        //zmena sirky vsetkych cells v stlpci
+        //var t = findParentWithClass(this, tableClasses.myTable);
         for (var i = 1; i < table.rows.length - 1; i++) {
           table.rows[i].cells[ci].style.width = this.style.width;
           table.rows[i].cells[ci].myDiv.style.width = this.style.width;
@@ -3511,7 +3428,7 @@ function addResizable(table, cell) {
   cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
 }
 
-function setInnerCellSizes(table, maxCellWidth) {
+function resetInnerCellSizes(table, maxCellWidth) {
   for (var i = 1; i < table.rows.length - 1; i++) {
     for (var j = 3; j < table.rows[i].cells.length; j++) {
       table.rows[i].cells[j].style.width = maxCellWidth;
@@ -3547,7 +3464,7 @@ function graphTransitionsSyntax() {
 }
 
 function graphEFATransitionSyntax() {
-  return new RegExp("^(([a-zA-Z0-9])|(\"[a-zA-Z0-9]+\")|(Îµ)|(\\e))(,(([a-zA-Z0-9])|(\"[a-zA-Z0-9]+\")|(Îµ)|(\\e)))*$");
+  return new RegExp("^(([a-zA-Z0-9])|(\"[a-zA-Z0-9]+\")|(ε)|(\\e))(,(([a-zA-Z0-9])|(\"[a-zA-Z0-9]+\")|(ε)|(\\e)))*$");
 }
 
 function incorrectGraphTransitionsSyntax(type, value) {
@@ -3568,7 +3485,7 @@ function tableIncorrectNfaEfaInnerCellSyntax(val) {
 }
 
 function EFATransitionSyntax() {
-  return new RegExp("^Îµ$|^\\e$|^[a-zA-Z0-9]$|^\"[a-zA-Z0-9]+\"$");
+  return new RegExp("^ε$|^\\e$|^[a-zA-Z0-9]$|^\"[a-zA-Z0-9]+\"$");
 }
 
 function incorrectTableEFATransitionSyntax(val) {
@@ -3636,13 +3553,13 @@ function registerElem(id, func, elem) {
     if (elem.value == "") {
       document.getElementById(id + "-error").className = "alert alert-info";
       document.getElementById(id + "-i").className = "";
-      document.getElementById(id + "-error-text").innerHTML = syntaxDefaultText;
+      document.getElementById(id + "-error-text").innerHTML = "Zde se zobrazuje nápověda syntaxe.";
     }
     else {
       if (result.error_string != "")
         document.getElementById(id + "-error-text").innerHTML = htmlentities(result.error_string);
       else
-        document.getElementById(id + "-error-text").innerHTML = syntaxIsCorrect;
+        document.getElementById(id + "-error-text").innerHTML = "Syntax je korektní.";
 
       if (result.error == 2) {
         document.getElementById(id + "-error").className = "alert alert-danger";
@@ -3668,20 +3585,16 @@ function registerElem(id, func, elem) {
   scroll(0, 0);
 }
 
-/**
- * Find out if current IS page is in browsing mode or not (editor is editable).
- * Works for "new version" of IS.
- * @return {boolean} true if page is in browsing mode, false otherwise
- */
+
 function jeProhlizeciStranka_new() {
   var sp = document.getElementById("app_name");
-  if (sp && sp.innerText.includes(browse)) {
+  if (sp && (sp.innerText.includes("– prohlídka") || sp.innerText.includes("– browse"))) {
     return true;
   }
 
   var all = document.getElementsByClassName("drobecek_app");
   for (let i = 0; i < all.length; i++) {
-    if (all[i].innerHTML == browse2) {
+    if (all[i].innerHTML == "Prohlídka" || all[i].innerHTML == "Browse") {
       return true;
     }
   }
