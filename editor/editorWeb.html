@@ -77,6 +77,7 @@
         <script>
             initialise(document.getElementById("EFA-q2")); 
         </script>
+        <button id="zoomTest">button</button>
 
     </div>
     <script>
@@ -84,6 +85,23 @@
             var editorPath = "editorStyle.css";
             document.write("\<script src=\"" + editorPath + "\"><\/script>");
         }
+        var b = document.getElementById("zoomTest");
+        b.addEventListener("click", function(e) {
+            var graphDiv = document.getElementById("EFA-q2").graphDiv;
+            if (graphDiv && graphDiv.svg) {
+                var t = d3.zoomIdentity;
+                console.log(d3.zoomIdentity);
+
+                //set the view into the middle of the workspace
+                t.x = params.width / 2;
+                t.y = params.height / 2;
+
+                //reset zoom scale
+                t.k = 1;
+                graphDiv.svg.svgGroup.attr("transform", t);
+            }
+            
+        })
     </script>
 </body>
 
