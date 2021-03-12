@@ -225,6 +225,10 @@ textarea:read-only {
     cursor: pointer;
 }
 
+.stateEl>.stateInput:hover{
+    color: rgb(26, 20, 114);
+}
+
 
 /*  edges ------------------------------------------------------------ */
 .init-arrow:hover{
