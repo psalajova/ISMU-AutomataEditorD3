@@ -543,7 +543,7 @@ function initSyntaxCheck(id) {
 function initEmptyGraphState(div) {
   div.graphDiv.svg.select(".initial-text").style("visibility", "visible");
   div.graphDiv.svg.rect.classed("empty", true);
-  div.graphDiv.graphState.currentState = graphStateEnum.initial;
+  setGraphState(div, graphStateEnum.initial);
   disableAllDragging(div.graphDiv.svg);
 }
 
@@ -554,7 +554,7 @@ function initEmptyGraphState(div) {
 function endEmptyGraphState(div) {
   div.graphDiv.svg.select(".initial-text").style("visibility", "hidden");
   div.graphDiv.svg.rect.classed("empty", false);
-  div.graphDiv.graphState.currentState = graphStateEnum.default;
+  setGraphState(div, graphStateEnum.default);
   enableAllDragging(div);
 }
 
@@ -569,13 +569,13 @@ function windowKeyUp(event) {
   if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka_new()) return;
 
   var graphDiv = SELECTED_ELEM_GROUP.node().parentGraphDiv;
-  var questionDiv = graphDiv.parentNode;
+  var div = graphDiv.parentNode;
   var data = SELECTED_ELEM_GROUP.datum();
 
   if (graphDiv.style.display == "none") return;
 
   if (event.key.toLowerCase() == "escape") {
-    if (graphDiv.graphState.currentState == graphStateEnum.creatingEdge 
+    if (getGraphState(div) == graphStateEnum.creatingEdge 
       || SELECTED_ELEM_GROUP.classed("activeRenaming")) {
       deselectAll();
     }
@@ -584,17 +584,22 @@ function windowKeyUp(event) {
     if (SELECTED_ELEM_GROUP.classed("activeRenaming")) return; //allow delete while renaming
 
     if (SELECTED_ELEM_GROUP.node().classList.contains(graphConsts.stateElem)) { // if selected element is state
-      deleteState(questionDiv, data);
+      deleteState(div, data);
       graphDiv.graphState.selectedState = null;
     }
     else { // if selected element is edge
-      deleteEdge(questionDiv, data);
+      deleteEdge(div, data);
       graphDiv.graphState.selectedEdge = null;
     }
-    graphDiv.graphState.currentState = isEmpty(questionDiv) ? graphStateEnum.initial : graphStateEnum.default;
+    if (isEmpty(div)) {
+      setGraphState(div, graphStateEnum.initial);
+    }
+    else {
+      setGraphState(div, graphStateEnum.default)
+    }
     hideAllExtras(graphDiv);
     SELECTED_ELEM_GROUP = null;
-    enableAllDragging(questionDiv);
+    enableAllDragging(div);
   }
 }
 
@@ -608,7 +613,7 @@ function svgRectClick(event) {
   var graphDiv = findParentWithClass(event.srcElement, GRAPH_DIV);
   var isState = cl.contains(graphConsts.stateElem);
   var isEdge = cl.contains(graphConsts.edgeElem) || cl.contains("edge-path");
-  var state = graphDiv.graphState.currentState;
+  var state = getGraphState(graphDiv.parentNode);
 
   if (state == graphStateEnum.initial) return;
   if (isEdge && state == graphStateEnum.default) return; //so we can select edge
@@ -632,7 +637,7 @@ function svgRectContextmenu(event) {
   var graphDiv = findParentWithClass(event.srcElement, GRAPH_DIV);
   var isState = cl.contains(graphConsts.stateElem);
   var isEdge = cl.contains(graphConsts.edgeElem);
-  var state = graphDiv.graphState.currentState;
+  var state = getGraphState(graphDiv);
   var elem;
 
   if (state == graphStateEnum.initial) return;
@@ -666,7 +671,7 @@ function svgRectDblclick(event) {
   if (event.srcElement.tagName == "rect") {
     var graphDiv = d3.select(this).node().parentGraphDiv;
     var p = getPointWithoutTransform(d3.pointer(event), graphDiv.svg.svgGroup);
-    if (graphDiv.graphState.currentState != graphStateEnum.initial) {
+    if (getGraphState(graphDiv) != graphStateEnum.initial) {
       addState(graphDiv.parentNode, newStateData(graphDiv.parentNode, null, p.x, p.y, false, false));
     }
     else {
@@ -682,7 +687,7 @@ function svgRectDblclick(event) {
  */
 function svgMousemove(event) {
   var graphDiv = d3.select(this).node().parentNode;
-  if (graphDiv.graphState.currentState == graphStateEnum.creatingEdge) {
+  if (getGraphState(graphDiv) == graphStateEnum.creatingEdge) {
     initCreatingTransition(event, graphDiv);
   }
 }
@@ -784,7 +789,7 @@ function stateDragstart(event, d) {
 
   hideAllContextMenus(graphDiv.parentNode);
 
-  if (graphIsInRenamingState(graphDiv.graphState.currentState)) {
+  if (graphIsInRenamingState(getGraphState(graphDiv))) {
     endRenaming(graphDiv.parentNode);
     hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
   }
@@ -920,7 +925,7 @@ function edgeDragstart() {
   var graphDiv = d3.select(this).node().parentGraphDiv;
   deselectAll(graphDiv.parentNode.getAttribute("id"));
 
-  if (graphIsInRenamingState(graphDiv.graphState.currentState) && !d3.select(this).classed("activeRenaming")) {
+  if (graphIsInRenamingState(getGraphState(graphDiv)) && !d3.select(this).classed("activeRenaming")) {
     endRenaming(graphDiv.parentNode);
   }
 
@@ -1022,8 +1027,12 @@ function getStraightPathDefinition(x1, y1, x2, y2) {
   return `M ${x1} ${y1} Q ${midpoint(x1, x2)} ${midpoint(y1, y2)} ${x2} ${y2}`;
 }
 
-function updateEdgeInputPosition(questionDiv, edgesSelection) {
-  edgesSelection
+/**
+ * 
+ * @param {d3 selection} edge 
+ */
+function updateEdgeInputPosition(edge) {
+  edge
     .each(function (ed) {
       var fo = d3.select(this).select("foreignObject");
       var dAttr = d3.select(this).select("." + graphConsts.edgePath).attr("d");
@@ -1090,11 +1099,11 @@ function addStateEvents(state, graphDiv) {
     })
     .on("contextmenu", function (event, data) {
       //renaming this => do nothing
-      if (graphDiv.graphState.currentState == graphStateEnum.renamingState
+      if (getGraphState(graphDiv) == graphStateEnum.renamingState
         && graphDiv.graphState.selectedState == data) {
         return;
       }
-      if (graphIsInRenamingState(graphDiv.graphState.currentState)) {
+      if (graphIsInRenamingState(getGraphState(graphDiv))) {
         endRenaming(graphDiv.parentNode);
         return;
       }
@@ -1158,7 +1167,7 @@ function addStateSvg(newState, graphDiv) {
       if (d3.select(this).node().getAttribute("readonly") == "readonly") return;
       var validSymbols = checkStateNameValidity(graphDiv.parentNode, d, d3.select(this).node().value);
       d3.select(this).node().correct = validSymbols.result;
-      if (e.keyCode == 13 && graphDiv.graphState.currentState == graphStateEnum.renamingState) {
+      if (e.keyCode == 13 && getGraphState(graphDiv) == graphStateEnum.renamingState) {
         e.preventDefault();
         tryToRenameState(graphDiv.parentNode, graphDiv.graphState.selectedState, d3.select(this).node().value);
       }
@@ -1174,21 +1183,21 @@ function addStateSvg(newState, graphDiv) {
       var input = d3.select(this).node();
       if (input.getAttribute("readonly") == "readonly") return;
       if (input.correct == false) {
-        if (graphDiv.graphState.currentState == graphStateEnum.renamingState) {
+        if (getGraphState(graphDiv) == graphStateEnum.renamingState) {
           setStateInputValue(input, d.id);
         }
       }
       else {
         renameState(graphDiv.parentNode, d, input.value);
       }
-      disableInput(input);
+      makeReadonly(input);
       hideElem(graphDiv.renameError);
-      graphDiv.graphState.currentState = graphStateEnum.default;
+      setGraphState(graphDiv.parentNode, graphStateEnum.default);
       enableAllDragging(graphDiv.parentNode);
     });
 
 
-  disableInput(input.node());
+  makeReadonly(input.node());
   input.node().correct = false;
   if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
     input.node().correct = true;
@@ -1341,7 +1350,12 @@ function addEdge(questionDiv, edgeData, origin = elemOrigin.default) {
   var temporaryEdgePath = questionDiv.graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePath);
 
   if (edgeData.source == edgeData.target && origin == elemOrigin.default) {
-    edgeData.angle = temporaryEdgePath.node().angle;
+    if (temporaryEdgePath.node().angle) {
+      edgeData.angle = temporaryEdgePath.node().angle;
+    }
+    else {
+      edgeData.angle = 1.55;
+    }
   }
   questionDiv.edgesData.push(edgeData);
 
@@ -1354,19 +1368,19 @@ function addEdge(questionDiv, edgeData, origin = elemOrigin.default) {
   addEdgeSvg(questionDiv, newEdge, origin, temporaryEdgePath.attr("d"));
 
   repositionMarker(newEdge);
-  updateEdgeInputPosition(questionDiv, newEdge);
+  updateEdgeInputPosition(newEdge);
   updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
 
 
   if (!jeProhlizeciStranka_new()) {
-    addEdgeEvents(questionDiv, newEdge, origin);
+    addEdgeEvents(questionDiv, newEdge);
     generateTextFromData(questionDiv);
   }
 
   return newEdge;
 }
 
-function addEdgeEvents(questionDiv, edge, origin) {
+function addEdgeEvents(div, edge) {
   edge
     .call(dragEdge)
     .on("mouseover", function () {
@@ -1375,22 +1389,38 @@ function addEdgeEvents(questionDiv, edge, origin) {
     .on("mouseout", function () {
       d3.select(this).classed(graphConsts.mouseOver, false);
     })
-    .on("dblclick", function (event, d) {
-      if (questionDiv.graphDiv.graphState.selectedEdge == d) {
-        initRenaming(questionDiv, graphStateEnum.renamingEdge, questionDiv.graphDiv.graphState.selectedEdge.symbols);
+    .on("dblclick", function (_, d) {
+      if (div.graphDiv.graphState.selectedEdge == d) {
+        initRenaming(div, graphStateEnum.renamingEdge, div.graphDiv.graphState.selectedEdge.symbols);
       }
     })
-    .on("contextmenu", function (event, d) {
+    .on("contextmenu", function (event) {
       event.preventDefault();
 
-      if (questionDiv.graphDiv.graphState.currentState == graphStateEnum.renamingEdge) {
-        //endRenaming(questionDiv);
+      if (getGraphState(div) == graphStateEnum.renamingEdge) {
         return;
       }
+      deselectAll(div.getAttribute("id"));
+      hideAllExtras(div.graphDiv);
+      toggleEdgeSelection(d3.select(this), div.graphDiv);
+    });
 
-      deselectAll(questionDiv.getAttribute("id"));
-      hideAllContextMenus(questionDiv);
-      toggleEdgeSelection(d3.select(this), questionDiv.graphDiv);
+  edge.select("input")
+    .on("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    })
+    .on("keydown", function (e, d) {
+      edgeInputOnKeyDown(div, e, d, d3.select(this).node());
+    })
+    .on("keyup", function (_, d) {
+      var input = d3.select(this).node();
+      if (input.getAttribute("readonly") != "readonly") {
+        input.correct = checkEdgeSymbolsValidity(div, d.id, d.source, input.value).result;
+      }
+    })
+    .on("blur", function (_, d) {
+      edgeOnBlur(div, d, d3.select(this).node());
     });
 }
 
@@ -1428,65 +1458,9 @@ function addEdgeSvg(div, newEdge, origin, tempEdgeDef) {
   var input = fo
     .append("xhtml:input")
     .classed("edgeInput", true)
-    .classed(graphConsts.edgeElem, true)
-    .on("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation(); //aby sa to nebilo s oznacovanim edge
-    })
-    .on("keydown", function (e, d) {
-      var input = d3.select(this).node();
-      if (input.getAttribute("readonly") == "readonly") return;
-
-      var len = visualLength(input.value);
-      var w = parseInt((input.style.width).substring(0, input.style.width.length - 2));
-      if (w && (w - len) < 20) {
-        setEdgeInputWidth(input, len + 50);
-        updateEdgeInputPosition(div, getEdgeGroupById(div, d.id));
-      }
-
-      if (e.keyCode == 13) {
-        e.preventDefault();
-        tryToRenameEdge(div, d, input.value);
-      }
-    })
-    .on("keyup", function (e, d) {
-      var input = d3.select(this).node();
-      if (input.getAttribute("readonly") != "readonly") {
-        var validSymbols = checkEdgeSymbolsValidity(div, d.id, d.source, input.value);
-        input.correct = validSymbols.result;
-      }
-
-    })
-    .on("blur", function (e, d) {
-      getEdgeGroupById(div, d.id).classed("activeRenaming", false);
-      var input = d3.select(this).node();
-      disableInput(input);
-
-
-      if (input.correct == false) {
-        if (
-          div.graphDiv.graphState.currentState == graphStateEnum.mergingEdge ||
-          div.graphDiv.graphState.currentState == graphStateEnum.renamingEdge) {
-          setEdgeInput(input, d.symbols);
-          setEdgeInputWidth(input);
-          updateEdgeInputPosition(div, getEdgeGroupById(div, d.id));
-        }
-        else {
-          deleteEdge(div, d);
-          deselectAll(div);
-        }
-      }
-      else {
-        renameEdge(div, d, input.value);
-      }
-      div.graphDiv.graphState.currentState = graphStateEnum.default;
-      hideElem(div.graphDiv.renameError);
-      enableAllDragging(div);
-    });
-
+    .classed(graphConsts.edgeElem, true);
 
   input.node().correct = false;
-
 
   setEdgeInput(input.node(), newEdge.datum().symbols);
   if (origin == elemOrigin.default && div.type == "EFA") {
@@ -1496,8 +1470,62 @@ function addEdgeSvg(div, newEdge, origin, tempEdgeDef) {
   setEdgeInputWidth(input.node(), 50);
   if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
     setEdgeInputWidth(input.node());
-    disableInput(input.node());
+    makeReadonly(input.node());
     input.node().correct = true;
+  }
+}
+
+/**
+ * Defines editor's behaviour when editing transition is finished
+ * (input containing transition symbols goes out of focus = blur).
+ * @param {HTML element}  div   div element containing editor
+ * @param {object}        d     edge (transition) data
+ * @param {HTML element}  input input element
+ */
+function edgeOnBlur(div, d, input) {
+  getEdgeGroupById(div, d.id).classed("activeRenaming", false);
+  input.correct = checkEdgeSymbolsValidity(div, d.id, d.source, input.value).result;
+  makeReadonly(input);
+
+  if (input.correct == false) {
+    if (getGraphState(div) == graphStateEnum.mergingEdge || getGraphState(div) == graphStateEnum.renamingEdge) {
+      setEdgeInput(input, d.symbols);
+      setEdgeInputWidth(input);
+      updateEdgeInputPosition(getEdgeGroupById(div, d.id));
+    }
+    else {
+      deleteEdge(div, d);
+      deselectAll(div);
+    }
+  }
+  else {
+    renameEdge(div, d, input.value);
+  }
+  setGraphState(div, graphStateEnum.default);
+  hideElem(div.graphDiv.renameError);
+  enableAllDragging(div);
+}
+
+/**
+ * 
+ * @param {*} div 
+ * @param {*} e 
+ * @param {*} d 
+ * @param {*} input 
+ * @returns 
+ */
+function edgeInputOnKeyDown(div, e, d, input) {
+  if (input.getAttribute("readonly") == "readonly") return;
+
+  var len = visualLength(input.value);
+  var w = parseInt((input.style.width).substring(0, input.style.width.length - 2));
+  if (w && (w - len) < 20) {
+    setEdgeInputWidth(input, len + 50);
+    updateEdgeInputPosition(getEdgeGroupById(div, d.id));
+  }
+
+  if (e.key.toLowerCase() == "enter") {
+    tryToRenameEdge(div, d, input.value);
   }
 }
 
@@ -1522,7 +1550,7 @@ function renameEdge(questionDiv, edgeData, symbols) {
   var input = edgeGroup.select("input").node();
   setEdgeInput(input, symbols);
   setEdgeInputWidth(input);
-  updateEdgeInputPosition(questionDiv, edgeGroup);
+  updateEdgeInputPosition(edgeGroup);
   if (!jeProhlizeciStranka_new()) {
     generateTextFromData(questionDiv);
   }
@@ -1552,9 +1580,9 @@ function deleteEdgeData(edgesData, edgeData) {
 }
 
 function tryToRenameEdge(questionDiv, edgeData, newSymbols, prompt = null) {
-  var div = questionDiv.graphDiv;
+  var graphDiv = questionDiv.graphDiv;
   var edgeG = getEdgeGroupById(questionDiv, edgeData.id);
-  setRenameErrorPosition(div.graphState.currentState, div.renameError, edgeG, div.k);
+  setRenameErrorPosition(getGraphState(graphDiv), graphDiv.renameError, edgeG, graphDiv.k);
 
   if (prompt != null) {
     showRenameError(prompt, questionDiv);
@@ -1642,41 +1670,39 @@ function renameStateHandler(questionDiv) {
     questionDiv.graphDiv.graphState.selectedState.id);
 }
 
-function initRenaming(questionDiv, state, stateId, errMsg = null) {
-  
-
+function initRenaming(div, state, stateId, errMsg = null) {
   var input, elemG, isState;
   if (state == graphStateEnum.renamingState) {
-    elemG = getStateGroupById(questionDiv, stateId);
+    elemG = getStateGroupById(div, stateId);
     elemG.select("input").node().value = elemG.datum().id;
     isState = true;
   }
   else {
-    elemG = getEdgeGroupById(questionDiv, questionDiv.graphDiv.graphState.selectedEdge.id);
+    elemG = getEdgeGroupById(div, div.graphDiv.graphState.selectedEdge.id);
   }
 
   elemG.node().classList.add("activeRenaming");
   input = elemG.select("input").node();
-  enableInput(input);
+  removeReadonly(input);
 
   input.focus();
 
   input.selectionStart = input.selectionEnd = 10000; //set caret position to end
-  disableAllDragging(questionDiv.graphDiv.svg);
-  questionDiv.graphDiv.svg.svgGroup.selectAll("." + graphConsts.stateGroup).on(".drag", null);
+  disableAllDragging(div.graphDiv.svg);
+  div.graphDiv.svg.svgGroup.selectAll("." + graphConsts.stateGroup).on(".drag", null);
 
-  questionDiv.graphDiv.graphState.currentState = state;
-  if (isState) selectState(elemG, questionDiv.graphDiv, elemG.datum());
+  setGraphState(div, state);
+  if (isState) selectState(elemG, div.graphDiv, elemG.datum());
 
-  setRenameErrorPosition(state, questionDiv.graphDiv.renameError, elemG, questionDiv.graphDiv.k);
-  errMsg != null ? showRenameError(errMsg, questionDiv) : hideElem(questionDiv.graphDiv.renameError);
+  setRenameErrorPosition(state, div.graphDiv.renameError, elemG, div.graphDiv.k);
+  errMsg != null ? showRenameError(errMsg, div) : hideElem(div.graphDiv.renameError);
 }
 
 function endRenaming(div) {
   if (SELECTED_ELEM_GROUP) {
     SELECTED_ELEM_GROUP.select("input").node().blur();
   }
-  div.graphDiv.graphState.currentState = graphStateEnum.default;
+  setGraphState(div, graphStateEnum.default);
   hideElem(div.graphDiv.renameError);
   enableAllDragging(div);
 }
@@ -2130,11 +2156,11 @@ function findParentWithClass(childNode, parentClass) {
   return parent;
 }
 
-function disableInput(input) {
+function makeReadonly(input) {
   input.setAttribute("readonly", "readonly");
 }
 
-function enableInput(input) {
+function removeReadonly(input) {
   input.removeAttribute("readonly");
 }
 
@@ -2400,6 +2426,22 @@ function invalidStatePosition(states, state) {
 
 /* ------------------------------ General Graph related utils ------------------------------ */
 
+/**
+ * Returns graph's current state.
+ * @param {HTML elem} elem div element, either
+ * @returns {graphStateEnum} number
+ */
+function getGraphState(elem) {
+  if (elem.classList.contains(GRAPH_DIV)) {
+    return elem.graphState.currentState;
+  }
+  return elem.graphDiv.graphState.currentState;
+}
+
+function setGraphState(div, state) {
+  div.graphDiv.graphState.currentState = state;
+}
+
 function isEmpty(div) {
   return div.statesData.length === 0 && div.edgesData.length === 0;
 }
@@ -2504,8 +2546,8 @@ function deselectAll(exceptionId = null) {
           SELECTED_ELEM_GROUP.select("input").node().blur();
         }
 
-        if (graphDiv.graphState.currentState != graphStateEnum.initial) {
-          graphDiv.graphState.currentState = graphStateEnum.default;
+        if (getGraphState(graphDiv) != graphStateEnum.initial) {
+          setGraphState(graphDiv.parentNode, graphStateEnum.default);
         }
         graphDiv.graphState.lastTargetState = null;
 
@@ -2923,7 +2965,7 @@ function insertRow(table, title) {
     return;
   }
   //if this is a first state to be created in editor
-  if (isEmpty(table.questionDiv) && table.questionDiv.graphDiv.graphState.currentState == graphStateEnum.initial) {
+  if (isEmpty(table.questionDiv) && getGraphState(table.questionDiv) == graphStateEnum.initial) {
     endEmptyGraphState(table.questionDiv);
   }
   if (title == null) {
