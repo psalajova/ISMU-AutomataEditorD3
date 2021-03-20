@@ -37,6 +37,657 @@ if (typeof editor_init !== 'function') {
   upload = function () { editor_init(null); };
 }
 
+function appendChildren(parentElement, childrenArray) {
+  childrenArray.forEach(e => {
+    parentElement.appendChild(e);
+  });
+}
+
+class EditorManager {
+  editors = [];
+  constructor() {}
+
+  addEditor(editor) {
+    editors.add(editor);
+  }
+
+  deselectAll(exceptId) {
+    for (let i = 0; i < editors.length; i++) {
+      const editor = editors[i];
+      
+      if (editor.id != exceptId) {
+        //deselect stuff
+      }
+    }
+  }
+}
+
+class Editor {
+  constructor(id, type, textArea) {
+    this.id = id;
+    this.type = type;
+    this.div = document.getElementById(id);
+    this.TextArea = textArea;
+  }
+
+  initialise() {}
+}
+
+class Graph {
+  graphDiv;
+  graphState;
+  svg;
+  svgGroup;
+  constructor(editorId, statesData, edgesData) {
+    this.editorId = editorId;
+    this.statesData = statesData;
+    this.edgesData = edgesData;
+    this.stateGroups = [];
+    this.edgeGroups = [];
+    this.initialise();
+  }
+
+  initialise() {
+    this.graphDiv = document.createElement("div");
+    this.graphDiv.setAttribute("class", GRAPH_DIV);
+
+    this.graphState = {
+      selectedState: null,
+      selectedEdge: null,
+      initialState: null,
+      mouseOverState: null,
+      lastSourceState: null,
+      lastTargetState: null,
+      currentState: graphStateEnum.default
+    };
+
+    this.params = {
+      width: 900,
+      height: 700
+    };
+
+    this.zoom = d3.zoom()
+      .scaleExtent([0.4, 3])
+      .translateExtent([[-(this.params.width*2), -(this.params.height*2)], 
+        [this.params.width*2, this.params.height*2]])
+      .on("start", (e) => this.svgZoomStart(e))
+      .on("zoom", (e) => this.svgZoomed(e))
+      //.on("end", function(e) {svgZoomEnd(div, e);})
+      ;
+
+    this.dragEdge = d3
+      .drag()
+/*       .on("start", (e) => this.edgeDragstart(e))
+      .on("drag", edgeDragmove)
+      .on("end", edgeDragend) */
+      ;
+  
+    this.dragState = d3
+      .drag()
+      .on("start", stateDragstart)
+      .on("drag", stateDragmove)
+      .on("end", stateDragend)
+      ;
+  
+/*     this.dragInitArrow = d3.drag().on("drag", function (event) {
+      var arrow = d3.select(this).node();
+      var s = arrow.questionDiv.graphDiv.graphState.initialState;
+      arrow.angle = calculateAngle(s.x, s.y, event.x, event.y);
+      d3.select(this).attr("d", "M " + s.x + " " + s.y
+        + " C " + cubicControlPoints(s.x, s.y, arrow.angle, 90, 2000)
+        + " " + s.x + " " + s.y);
+    }); */
+  
+    var svg = d3
+      .select(this.graphDiv)
+      .append("svg")
+      .classed("main-svg", true)
+      .attr("width", "100%")
+      .attr("height", "100%");
+  
+    this.svg = svg;
+  
+    var rect = svg
+      .append("rect")
+      .attr("class", "svg-rect")
+      .attr("width", "100%")
+      .attr("height", "100%");
+  
+    //rect.node().parentGraphDiv = div.graphDiv;
+    rect.node().clickTimer = 0;
+    this.svg.rect = rect;
+  
+    var defs = svg.append("svg:defs");
+  
+    //arrow marker for edges that is VISIBLE
+    defs
+      .append("svg:marker")
+      .attr("id", "end-arrow" + this.editorId)
+      .classed("end-arrow", true)
+      .attr("viewBox", "0 0 10 10")
+      .attr("refY", "5")
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .attr('markerUnits', 'strokeWidth')
+      .append("svg:path")
+      .attr("d", "M 0 0 L 10 5 L 0 10 z")
+      .attr("fill", "black");
+  
+    defs
+      .append("svg:marker")
+      .attr("id", "temporary-arrow-end" + this.editorId)
+      .classed("defs-arrow-end", true)
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 7)
+      .attr("markerWidth", 3.5)
+      .attr("markerHeight", 3.5)
+      .attr("orient", "auto")
+      .append("svg:path")
+      .attr("d", "M0,-5L10,0L0,5");
+  
+    //arrow marker for init arrow
+    defs
+      .append("svg:marker")
+      .attr("id", "init-arrow-end" + this.editorId)
+      .attr("viewBox", "0 0 10 10")
+      .attr("refY", "5")
+      .attr("refX", 32)
+      .attr("markerWidth", 4)
+      .attr("markerHeight", 4)
+      .attr("orient", "auto")
+      .append("svg:path")
+      .attr("d", "M 0 0 L 10 5 L 0 10 z")
+      .attr("fill", "black");
+  
+    var svgGroup = svg.append("svg:g").classed("graph-svg-group", true);
+  
+    svg.call(this.zoom).on("dblclick.zoom", null);
+    svgGroup.attr("transform", "translate(0,0) scale(1)");
+  
+    this.svgGroup = svgGroup;
+    svg.svgGroup = svgGroup;
+  
+    //"temporary" path when creating edges
+    var temporaryEdgeG = svgGroup.append("g").classed("temp-edge-group", true);
+    svgGroup.temporaryEdgeG = temporaryEdgeG;
+  
+    temporaryEdgeG
+      .append("svg:path")
+      .attr("class", graphConsts.edgePath + " dragline hidden")
+      .attr("d", "M0,0L0,0")
+      .style("marker-end", "url(#temporary-arrow-end" + this.editorId + ")");
+  
+    temporaryEdgeG
+      .append("svg:path")
+      .classed(graphConsts.edgeMarker, true)
+      .attr("marker-end", "url(#end-arrow" + this.editorId + ")");
+  
+    //init-arrow
+    var initArrow = svgGroup
+      .append("svg:path")
+      .attr("class", graphConsts.edgePath + " init-arrow")
+      .style("marker-end", "url(#init-arrow-end" + this.editorId + ")");
+  
+    svgGroup.initArrow = initArrow;
+    //initArrow.node().questionDiv = div;
+    initArrow.node().angle = 3.14;
+  
+    svgGroup.append("svg:g").classed("edges", true);
+    svgGroup.append("svg:g").classed("states", true);
+  
+    svgGroup.stateGroups = svgGroup
+      .select(".states")
+      .selectAll("g")
+      .data(this.statesData)
+      .enter()
+      .append("g")
+      .classed(graphConsts.stateGroup, true);
+  
+    this.stateGroups = svgGroup.stateGroups;
+
+    svgGroup.edgeGroups = svgGroup
+      .select(".edges")
+      .selectAll("g")
+      .data(this.edgesData)
+      .enter()
+      .append("g")
+      .classed(graphConsts.edgeGroup, true);
+
+    this.edgeGroups = svgGroup.edgeGroups;
+  
+    //on hover rect + full state text
+    svgGroup.stateFullnameRect = svgGroup
+      .append("rect")
+      .attr("rx", 3)
+      .attr("height", 25)
+      .classed("state-fullname-rect", true)
+      .style("visibility", "hidden");
+  
+    svgGroup.stateFullnameRect.FullnameText = svgGroup
+      .append("text")
+      .classed("state-fullname-text", true)
+      .style("visibility", "hidden");
+  
+    this.stateIdCounter = 0;
+    this.edgeIdCounter = 0;
+  
+    if (!jeProhlizeciStranka_new()) {
+      this.zoom.scaleExtent([maxZoomout, 3])
+        .translateExtent([[-(this.params.width), -(this.params.height)], [this.params.width, this.params.height]]);
+  
+      //add event listeners if page is not in browse mode
+      svg.on("mousemove", (e) => this.svgMousemove(e))
+        .on("click", (e) => this.svgRectClick(e))
+        .on("contextmenu", (e) => this.svgRectContextmenu(e));
+  
+      rect.on("contextmenu", (e) => this.svgRectContextmenu(e))
+        .on("dblclick", (e) => this.svgRectDblclick(e));
+  
+      //initArrow.call(dragInitArrow);
+    }
+  }
+
+  initStartText() {
+    let w = this.graphDiv.offsetWidth;
+    let h = this.graphDiv.offsetHeight;
+  
+    this.initText = this.svg
+      .append("text")
+      .classed("initial-text", true)
+      .text(emptyGraphText)
+      .attr("x", (w - visualLength(emptyGraphText)) / 2)
+      .attr("y", (h - visualHeight(emptyGraphText)) / 2)
+      .style("visibility", "hidden")
+      .on("dblclick",  (e) => {
+        this.endEmptyState();
+        var p = getPointWithoutTransform(d3.pointer(e), this.svgGroup);
+        //initInitialState(div, p.x, p.y);
+      });
+
+  }
+  
+  svgRectClick(e) {
+
+  }
+
+  svgRectDblclick(e) {
+    if (e.srcElement.tagName == "rect") {
+      var p = getPointWithoutTransform(d3.pointer(e), this.svgGroup);
+      if (this.graphState.currentState != graphStateEnum.initial) {
+        this.createState(this.getNewStateData(null, p.x, p.y, false, false));
+      }
+      else {
+        //endEmptyGraphState(graphDiv.parentNode);
+        //initInitialState(graphDiv.parentNode, p.x, p.y);
+      }
+    }
+  }
+
+  svgMousemove(e) {
+    if (this.graphState.currentState == graphStateEnum.creatingEdge) {
+      this.initCreatingTransition(e);
+      console.log("creating edge");
+    }
+  }
+
+  initCreatingTransition(e) {
+
+  }
+
+
+  
+  svgZoomStart(e) {
+    
+  }
+
+  svgZoomed(e) {
+    this.svgGroup.attr("transform", e.transform);
+  }
+
+  setViewToMiddle(){
+    this.setTransform(1, this.params.width / 2, this.params.height / 2);
+  }
+
+  setTransform(k, x, y) {
+    this.svg.call(
+      this.zoom.transform, 
+      d3.zoomIdentity.translate(x, y).scale(k)
+    );
+  }
+
+  initEmptyState() {
+    this.svg.select(".initial-text").style("visibility", "visible");
+    this.svg.rect.classed("empty", true);
+    this.graphState.currentState = graphStateEnum.initial;
+    //disableAllDragging(div.graphDiv.svg);
+  }
+
+  endEmptyState() {
+    this.svg.select(".initial-text").style("visibility", "hidden");
+    this.svg.rect.classed("empty", false);
+    this.graphState.currentState = graphStateEnum.default;
+    //enableAllDragging(div);
+  }
+
+  createState(stateData) {
+    if (stateData.isNew) {
+      stateData = this.findStatePlacement(stateData);
+    }
+    this.statesData.push(stateData);
+  
+    if (!jeProhlizeciStranka_new()) {
+      //addStateEvents(newState, questionDiv.graphDiv);
+      //this.generateTextFromData();
+    }
+
+    var newState = this.stateGroups
+      .data(this.statesData).enter().append("g");
+  
+    newState.node().parentGraphDiv = this.graphDiv;
+    newState.node().clickTimer = 0;
+    newState.node().clickedOnce = false;
+  
+    this.addStateSvg(newState);
+    this.updateStateGroups();
+  }
+
+  updateStateGroups() {
+    this.stateGroups = this.svgGroup.select(".states").selectAll("g");
+  }
+
+  getNewStateData(id, x, y, initial, accepting, isNew = false) {
+    return {
+      id: id != null ? id : this.generateStateId(),
+      x: x,
+      y: y,
+      initial: initial,
+      accepting: accepting,
+      isNew: isNew
+    }
+  }
+
+  generateStateId() {
+    this.stateIdCounter++;
+    var id = "s" + this.stateIdCounter;
+  
+    while (!stateIdIsUnique(this.statesData, null, id)) {
+      this.stateIdCounter++;
+      id = "s" + this.stateIdCounter;
+    }
+    return id;
+  }
+
+  addStateSvg(newState) {
+    newState
+      .classed(graphConsts.stateGroup, true)
+      .classed(graphConsts.stateElem, true)
+      .attr("transform", function (d) {
+        return "translate(" + d.x + "," + d.y + ")";
+      });
+
+    newState
+      .append("circle")
+      .classed(graphConsts.stateMainCircle, true)
+      .classed(graphConsts.stateElem, true)
+      .attr("r", graphConsts.nodeRadius);
+  
+    var input = newState
+      .append("foreignObject")
+      .classed(graphConsts.stateElem, true)
+      .attr("x", -24)
+      .attr("y", -12)
+      .attr("height", 23)
+      .attr("width", 50)
+      .append("xhtml:input")
+      .classed("stateInput", true)
+      .classed(graphConsts.stateElem, true) //TODO into events
+      .on("dblclick", function(_, d) {
+  
+/*         deselectAll(graphDiv.parentNode.getAttribute("id"));
+        hideAllExtras(graphDiv);
+        selectState(getStateGroupById(graphDiv.parentNode, d.id), graphDiv, d);
+  
+        initRenaming(
+          graphDiv.parentNode,
+          graphStateEnum.renamingState,
+          graphDiv.graphState.selectedState.id); */
+        
+      })
+      .on("keyup", function (e, d) {
+/*         if (d3.select(this).node().getAttribute("readonly") == "readonly") return;
+        var validSymbols = checkStateNameValidity(graphDiv.parentNode, d, d3.select(this).node().value);
+        d3.select(this).node().correct = validSymbols.result;
+        if (e.keyCode == 13 && getGraphState(graphDiv) == graphStateEnum.renamingState) {
+          e.preventDefault();
+          tryToRenameState(graphDiv.parentNode, graphDiv.graphState.selectedState, d3.select(this).node().value);
+        } */
+      })
+      .on("keydown", function (e, d) {
+/*         if (d3.select(this).node().getAttribute("readonly") == "readonly") return;
+        if (e.keyCode == 13) {
+          e.preventDefault();
+        } */
+      })
+      .on("blur", function (e, d) {
+/*         getStateGroupById(graphDiv.parentNode, d.id).classed("activeRenaming", false);
+        var input = d3.select(this).node();
+        if (input.getAttribute("readonly") == "readonly") return;
+        if (input.correct == false) {
+          if (getGraphState(graphDiv) == graphStateEnum.renamingState) {
+            setStateInputValue(input, d.id);
+          }
+        }
+        else {
+          renameState(graphDiv.parentNode, d, input.value);
+        }
+        makeReadonly(input);
+        hideElem(graphDiv.renameError);
+        setGraphState(graphDiv.parentNode, graphStateEnum.default);
+        enableAllDragging(graphDiv.parentNode); */
+      });
+  
+  
+    makeReadonly(input.node());
+    input.node().correct = false;
+    if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
+      input.node().correct = true;
+    }
+    input.node().realValue = newState.datum().id;
+    setStateInputValue(input.node(), newState.datum().id);
+  }
+
+  deleteState(stateData) {
+    if (stateData.initial == true) {
+      this.hideInitArrow();
+      this.graphState.initialState = null;
+    }
+    this.deleteStateSvg(stateData);
+    this.deleteStateEdges(stateData);
+    this.editor.deleteStateData(stateData);
+    this.updateStateGroups();
+  }
+
+
+  hideInitArrow() {
+    d3.select(this.graphDiv)
+      .select(".init-arrow")
+      .classed("hidden", true);
+  }
+}
+
+class Table {
+  constructor(editorId, statesData, edgesData) {
+    this.editorId = editorId;
+    this.statesData = statesData;
+    this.edgesData = edgesData;
+    this.initialise();
+  }
+
+  initialise() {
+    this.tableDiv = document.createElement("div");
+    this.tableDiv.setAttribute("class", "tableDiv");
+  }
+}
+
+class TextEditor extends Editor {
+  constructor(id, type, textArea) {
+    super(id, type, textArea);
+  }
+
+  initialise() {
+    this.addSyntaxCheck();
+  }
+
+  addSyntaxCheck() {
+    var errDiv = document.createElement("div");
+    errDiv.setAttribute("id", this.id + "-error");
+    errDiv.setAttribute("class", "alert alert-info");
+    errDiv.setAttribute("title", syntaxDivTitle);
+  
+    var errIcon = document.createElement("div");
+    errIcon.setAttribute("id", this.id + "-i");
+  
+    var errText = document.createElement("div");
+    errText.setAttribute("id", this.id + "-error-text");
+    errText.innerHTML = syntaxDefaultText;
+  
+    errDiv.appendChild(errIcon);
+    errDiv.appendChild(errText);
+  
+    this.div.appendChild(errDiv);
+    this.div.errDiv = errDiv;
+  
+    if (jeProhlizeciStranka_new() || !typeIsRegOrGram(this.type)) {
+      hideElem(errDiv);
+    }
+  
+    eval("registerElem(this.id, " + this.type + "Parser.parse" + ", this.TextArea)");
+  }
+}
+
+class GraphEditor extends Editor {
+  graphState = {};
+/*   statesData = [];
+  edgesData = []; */
+
+  constructor(id, type, textArea) {
+    super(id, type, textArea);
+    this.initialise();
+  }
+
+  initialise() {
+    this.lastEdited = "graph";
+    this.statesData = [];
+    this.edgesData = [];
+  
+    //create rulers - elements used to calculate svg and table text length
+    var ruler = document.getElementById("ruler");
+    if (!ruler) {
+      ruler = document.createElement("span");
+      ruler.setAttribute("id", "ruler");
+    }
+    var tableRuler = document.getElementById("table-ruler");
+    if (!tableRuler) {
+      tableRuler = document.createElement("span");
+      tableRuler.innerHTML = "x";
+      tableRuler.setAttribute("id", "table-ruler");
+    }
+    this.div.parentNode.insertBefore(ruler, this.div.nextSibling);
+    this.div.parentNode.insertBefore(tableRuler, this.div.nextSibling);
+  
+    //create menu buttons
+    var graphButton = createButton(graphMenuButton, MENU_BUTTON);
+    graphButton.addEventListener("click", () => this.clickGraph());
+  
+    var textButton = createButton(textMenuButton, MENU_BUTTON);
+    textButton.addEventListener("click", () => this.clickText());
+  
+    var tableButton = createButton(tableMenuButton, MENU_BUTTON);
+    tableButton.addEventListener("click", () => this.clickTable());
+  
+    appendChildren(this.div, [graphButton, tableButton, textButton]);
+  
+    //create hint
+    var hintDiv = this.initHint();
+    this.Graph = new Graph(this.id, this.statesData, this.edgesData);
+    this.Table = new Table(this.id, this.statesData, this.edgesData);
+  
+    appendChildren(this.div, [hintDiv, this.Graph.graphDiv, this.Table.tableDiv]);
+
+    this.div.hintDiv = hintDiv;
+  
+    //graph context menus
+/*     createStateContextMenu(div);
+    createEdgeContextMenu(div);
+    createAddStateMenu(div);
+    initRenameError(div); */
+  
+    hideElem(this.TextArea);
+    this.div.appendChild(this.TextArea); //moves the existing textarea into div
+  
+    this.Graph.graphDiv.lastHeight = this.Graph.graphDiv.offsetHeight;
+    this.Graph.graphDiv.lastWidth = this.Graph.graphDiv.offsetWidth;
+
+    this.Graph.initStartText();
+  }
+
+  initHint() {
+    var hintDiv = document.createElement("div");
+    hintDiv.setAttribute("class", "hintDiv");
+    $(hintDiv).prop("title", hintTitle);
+  
+    var hintButton = createButton(hintLabel, "hintButton");
+    hintButton.style.marginBottom = "7px";
+    hintButton.addEventListener("click", function () { clickHintButton(this.div); });
+  
+    var hintContentDiv = document.createElement("div");
+    hintContentDiv.setAttribute("class", "hint-content-div");
+    hideElem(hintContentDiv);
+    hintDiv.appendChild(hintButton);
+    hintDiv.appendChild(hintContentDiv);
+    hintDiv.contentDiv = hintContentDiv;
+    hintDiv.hintButton = hintButton;
+  
+    setupHints(hintContentDiv);
+    return hintDiv;
+  }
+
+  clickGraph() {
+    alert("clicked graph of " + this.id);
+  }
+
+  clickText(){
+    alert("clicked text of " + this.id);
+  }
+
+  clickTable() {
+    console.log(this.statesData);
+    
+  }
+
+  reconstructGraph() {
+
+  }
+
+  addState(stateData) {
+    this.Graph.createState(stateData);
+  }
+
+  generateTextFromData() {
+    this.TextArea.innerText = "";
+    $(this.TextArea).trigger("change");
+  }
+
+  findStatePlacement() {
+
+  }
+
+  isEmpty() {
+    return this.statesData.length === 0 && this.edgesData.length === 0;
+  }
+}
+
 const MENU_BUTTON = "menu-button";
 const CONTEXT_MENU = "context-menu";
 const GRAPH_DIV = "graphDiv";
@@ -118,30 +769,25 @@ function setupLanguage() {
 function initialise(div, textArea) {
   div.setAttribute("class", QUESTION_DIV);
   var type = div.getAttribute("id").substring(0, 3);
-  div.type = type;
-
-/*   if (!textArea) { //only for local testing
-    textArea = document.createElement("textarea");
-    div.appendChild(textArea);
-  } */
-  //textArea.innerText = "init=s1 (s1,a)=s2 (s2,d)=s3 (s2,a)=s1 final={} ##states@s1;-298.50;-202.00;1;0@s2;-46.50;-186.00;0;0@s3;-160.50;80.00;0;0edges@s1;s2;a;-24.00;-46.00;0.000@s2;s3;d;114.00;20.00;0.000@s2;s1;a;-28.00;52.00;0.000@initAngle:3.140@t:1.000;450.000;350.000";
-  div.textArea = textArea;
+  var e;
 
   if (typeIsRegOrGram(type)) {
-    initSyntaxCheck(div.id);
+    e = new TextEditor(div.id, type, textArea);
+    e.initialise();
+    //initSyntaxCheck(div.id);
     if (jeProhlizeciStranka_new()) {
       $(textArea).prop('readonly', true);
     }
   }
   else {
-    initialiseEditor(div);
-    reconstructGraph(div, textArea.innerText);
+    e = new GraphEditor(div.id, type, textArea);
+    e.reconstructGraph();
     $(textArea).prop('readonly', true);
     
-    if (isEmpty(div)) {
-      setViewToMiddle(div);
+    if (e.isEmpty()) {
+      e.Graph.setViewToMiddle();
       if (!jeProhlizeciStranka_new()) {
-        initEmptyGraphState(div);
+        e.Graph.initEmptyState();
       }
     }
   }
@@ -219,213 +865,6 @@ function initialiseEditor(div) {
   div.graphDiv.lastWidth = div.graphDiv.offsetWidth;
 }
 
-/* function initTest_unused(type) {
-  for (let i = 0; i < document.scripts.length; i++) {
-    const s = document.scripts[i];
-    if (s.src.includes("edisdsfsd.js")) {
-      break;
-    }
-  }
-
-  document.write("\<script src=\"https://ajax.googleapis.com/ajax/libs/d3js/6.2.0/d3.min.js\">\<\/script>");
-  document.write("\<script src=\"//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/jquery-ui.js\">\<\/script>");
-  document.write("\<script src=\"//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editor2.js\">\<\/script>");
-  document.write("\<style type=\"text/css\">@import \"//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/jquery-ui.css\";\<\/style>");
-  document.write("\<style type=\"text/css\">@import \"//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editorStyle.css\";\<\/style>");
-} */
-
-function initGraph(div) {
-  div.graphDiv.graphState = {
-    selectedState: null,
-    selectedEdge: null,
-    initialState: null,
-    mouseOverState: null,
-    lastSourceState: null,
-    lastTargetState: null,
-    currentState: graphStateEnum.default
-  };
-
-  params = {
-/*     width: questionDiv.graphDiv.offsetWidth,
-    height: questionDiv.graphDiv.offsetHeight */
-    width: 900,
-    height: 700
-  };
-
-  div.zoom = d3.zoom()
-    .scaleExtent([0.4, 3])
-    .translateExtent([[-(params.width*2), -(params.height*2)], [params.width*2, params.height*2]])
-    .on("start", function(e) {svgZoomStart(div, e);})
-    .on("zoom", function(e) {svgZoomed(div, e);})
-    .on("end", function(e) {svgZoomEnd(div, e);});
-
-  dragEdge = d3
-    .drag()
-    .on("start", edgeDragstart)
-    .on("drag", edgeDragmove)
-    .on("end", edgeDragend);
-
-  dragState = d3
-    .drag()
-    .on("start", stateDragstart)
-    .on("drag", stateDragmove)
-    .on("end", stateDragend);
-
-  dragInitArrow = d3.drag().on("drag", function (event) {
-    var arrow = d3.select(this).node();
-    var s = arrow.questionDiv.graphDiv.graphState.initialState;
-    arrow.angle = calculateAngle(s.x, s.y, event.x, event.y);
-    d3.select(this).attr("d", "M " + s.x + " " + s.y
-      + " C " + cubicControlPoints(s.x, s.y, arrow.angle, 90, 2000)
-      + " " + s.x + " " + s.y);
-  });
-
-  var svg = d3
-    .select(div.graphDiv)
-    .append("svg")
-    .classed("main-svg", true)
-    .attr("width", "100%")
-    .attr("height", "100%");
-
-  div.graphDiv.svg = svg;
-
-  var rect = svg
-    .append("rect")
-    .attr("class", "svg-rect")
-    .attr("width", "100%")
-    .attr("height", "100%");
-
-  rect.node().parentGraphDiv = div.graphDiv;
-  rect.node().clickTimer = 0;
-  svg.rect = rect;
-
-  initStartText(div);
-
-  var defs = svg.append("svg:defs");
-
-  //arrow marker for edges that is VISIBLE
-  defs
-    .append("svg:marker")
-    .attr("id", "end-arrow" + div.getAttribute("id"))
-    .classed("end-arrow", true)
-    .attr("viewBox", "0 0 10 10")
-    .attr("refY", "5")
-    .attr("markerWidth", 6)
-    .attr("markerHeight", 6)
-    .attr("orient", "auto")
-    .attr('markerUnits', 'strokeWidth')
-    .append("svg:path")
-    .attr("d", "M 0 0 L 10 5 L 0 10 z")
-    .attr("fill", "black");
-
-  defs
-    .append("svg:marker")
-    .attr("id", "temporary-arrow-end" + div.getAttribute("id"))
-    .classed("defs-arrow-end", true)
-    .attr("viewBox", "0 -5 10 10")
-    .attr("refX", 7)
-    .attr("markerWidth", 3.5)
-    .attr("markerHeight", 3.5)
-    .attr("orient", "auto")
-    .append("svg:path")
-    .attr("d", "M0,-5L10,0L0,5");
-
-  //arrow marker for init arrow
-  defs
-    .append("svg:marker")
-    .attr("id", "init-arrow-end" + div.getAttribute("id"))
-    .attr("viewBox", "0 0 10 10")
-    .attr("refY", "5")
-    .attr("refX", 32)
-    .attr("markerWidth", 4)
-    .attr("markerHeight", 4)
-    .attr("orient", "auto")
-    .append("svg:path")
-    .attr("d", "M 0 0 L 10 5 L 0 10 z")
-    .attr("fill", "black");
-
-  var svgGroup = svg.append("svg:g").classed("graph-svg-group", true);
-
-  svg.call(div.zoom).on("dblclick.zoom", null);
-  svgGroup.attr("transform", "translate(0,0) scale(1)");
-
-  svg.svgGroup = svgGroup;
-
-  //"temporary" path when creating edges
-  var temporaryEdgeG = svgGroup.append("g").classed("temp-edge-group", true);
-  svgGroup.temporaryEdgeG = temporaryEdgeG;
-
-  temporaryEdgeG
-    .append("svg:path")
-    .attr("class", graphConsts.edgePath + " dragline hidden")
-    .attr("d", "M0,0L0,0")
-    .style("marker-end", "url(#temporary-arrow-end" + div.getAttribute("id") + ")");
-
-  temporaryEdgeG
-    .append("svg:path")
-    .classed(graphConsts.edgeMarker, true)
-    .attr("marker-end", "url(#end-arrow" + div.getAttribute("id") + ")");
-
-  //init-arrow
-  var initArrow = svgGroup
-    .append("svg:path")
-    .attr("class", graphConsts.edgePath + " init-arrow")
-    .style("marker-end", "url(#init-arrow-end" + div.getAttribute("id") + ")");
-
-  svgGroup.initArrow = initArrow;
-  initArrow.node().questionDiv = div;
-  initArrow.node().angle = 3.14;
-
-  svgGroup.append("svg:g").classed("edges", true);
-  svgGroup.append("svg:g").classed("states", true);
-
-  svgGroup.stateGroups = svgGroup
-    .select(".states")
-    .selectAll("g")
-    .data(div.statesData)
-    .enter()
-    .append("g")
-    .classed(graphConsts.stateGroup, true);
-
-  svgGroup.edgeGroups = svgGroup
-    .select(".edges")
-    .selectAll("g")
-    .data(div.edgesData)
-    .enter()
-    .append("g")
-    .classed(graphConsts.edgeGroup, true);
-
-  //on hover rect + full state text
-  svgGroup.stateFullnameRect = svgGroup
-    .append("rect")
-    .attr("rx", 3)
-    .attr("height", 25)
-    .classed("state-fullname-rect", true)
-    .style("visibility", "hidden");
-
-  svgGroup.stateFullnameRect.FullnameText = svgGroup
-    .append("text")
-    .classed("state-fullname-text", true)
-    .style("visibility", "hidden");
-
-  div.graphDiv.stateIdCounter = 0;
-  div.graphDiv.edgeIdCounter = 0;
-
-  if (!jeProhlizeciStranka_new()) {
-    div.zoom.scaleExtent([maxZoomout, 3])
-      .translateExtent([[-(params.width), -(params.height)], [params.width, params.height]]);
-
-    //add event listeners if page is not in browse mode
-    svg.on("mousemove", svgMousemove)
-      .on("click", svgRectClick)
-      .on("contextmenu", svgRectContextmenu);
-
-    rect.on("contextmenu", svgRectContextmenu)
-      .on("dblclick", svgRectDblclick);
-
-    initArrow.call(dragInitArrow);
-  }
-}
 
 /**
  * Creates hint elements.
@@ -691,16 +1130,7 @@ function svgRectDblclick(event) {
   }
 }
 
-/**
- * Defines graph's behavior on mouse move.
- * @param {event} event 
- */
-function svgMousemove(event) {
-  var graphDiv = d3.select(this).node().parentNode;
-  if (getGraphState(graphDiv) == graphStateEnum.creatingEdge) {
-    initCreatingTransition(event, graphDiv);
-  }
-}
+
 
 /**
  * Defines graph's behavior when creating transition.
@@ -2462,17 +2892,6 @@ function invalidStatePosition(states, state) {
 
 /* ------------------------------ General Graph related utils ------------------------------ */
 
-/**
- * Returns graph's current state.
- * @param {HTML elem} elem div element, either
- * @returns {graphStateEnum} number
- */
-function getGraphState(elem) {
-  if (elem.classList.contains(GRAPH_DIV)) {
-    return elem.graphState.currentState;
-  }
-  return elem.graphDiv.graphState.currentState;
-}
 
 function setGraphState(div, state) {
   div.graphDiv.graphState.currentState = state;
