@@ -3,6 +3,44 @@
 //setupLanguage();
 
 var editor_init, upload, idCount = 0;
+const MENU_BUTTON = "menu-button";
+const CONTEXT_MENU = "context-menu";
+const GRAPH_DIV = "graphDiv";
+const QUESTION_DIV = "editor-content";
+
+const graphConsts = {
+  selected: "selected",
+  mouseOver: "mouse-over-node",
+  stateGroup: "state-group",
+  stateMainCircle: "state-main-circle",
+  stateAccCircle: "accepting-circle",
+  stateElem: "stateEl",
+  edgeElem: "edgeEl",
+  edgeGroup: "edge-group",
+  edgePath: "edge-path",
+  edgeMarker: "edge-marker-path",
+  emptyGraph: "empty-graph",
+  nodeRadius: 30
+};
+
+const tableClasses = {
+  myTable: "myTable",
+  myCell: "myCell",
+  columnHeader: "column-header-cell",
+  rowHeader: "row-header-input",
+  innerCell: "inner-cell",
+  inputCellDiv: "cell-input",
+  inputColumnHeaderDiv: "column-header-input",
+  noselectCell: "noselect",
+  inactiveCell: "inactive-cell",
+  selectedHeaderInput: "selected-header-input",
+  incorrectCell: "incorrect-cell",
+  deleteButton: "delete-button-cell",
+  addButton: "add-button-cell",
+  controlButton: "control-button"
+}
+
+var SELECTED_ELEM_GROUP, maxZoomout = 0.5;
 
 /*
 najprv sa iba generuju ids a napla sa otazky{} - robi sa editor_init(type)
@@ -43,22 +81,46 @@ function appendChildren(parentElement, childrenArray) {
   });
 }
 
-class EditorManager {
-  editors = [];
-  constructor() {}
+var EditorManager =  {
+  editors   : new Map(),
 
-  addEditor(editor) {
-    editors.add(editor);
-  }
+  addEditor : function (editor) {
+    this.editors.set(editor.id, editor);
+  },
 
-  deselectAll(exceptId) {
-    for (let i = 0; i < editors.length; i++) {
-      const editor = editors[i];
-      
-      if (editor.id != exceptId) {
-        //deselect stuff
+  getEditor : function (id) {
+    return this.editors.get(id); 
+  },
+   
+  deselectAll : function(exceptionId = null) {
+    for (let [id, editor] of this.editors) {
+      if (id !== exceptionId && !typeIsRegOrGram(editor.type)) {
+        //TODO
+        if (SELECTED_ELEM_GROUP && SELECTED_ELEM_GROUP.node().parentGraphDiv == editor.Graph.graphDiv) {
+          SELECTED_ELEM_GROUP.select("input").node().blur();
+        }
+  
+        //if graph is in initial (empty) state we don't want to change it
+        if (editor.Graph.graphState.currentState != graphStateEnum.initial) {
+          editor.Graph.setCurrentState(graphStateEnum.default);
+          
+        }
+        console.log(editor.Graph.graphState);
+        editor.Graph.graphState.lastTargetState = null;
+  
+        editor.Graph.removeSelectionFromState();
+        editor.Graph.removeSelectionFromEdge();
+        editor.Graph.hideAllContextMenus();
+        hideElem(editor.Graph.renameError);
+        hideEdge(editor.Graph.temporaryEdgeG);
+  
+        editor.Graph.enableAllDragging();
       }
     }
+
+
+
+
   }
 }
 
@@ -68,20 +130,96 @@ class Editor {
     this.type = type;
     this.div = document.getElementById(id);
     this.TextArea = textArea;
+    EditorManager.addEditor(this);
   }
 
   initialise() {}
+
+  addSyntaxCheck() {
+    var errDiv = document.createElement("div");
+    errDiv.setAttribute("id", this.id + "-error");
+    errDiv.setAttribute("class", "alert alert-info");
+    errDiv.setAttribute("title", syntaxDivTitle);
+  
+    var errIcon = document.createElement("div");
+    errIcon.setAttribute("id", this.id + "-i");
+  
+    var errText = document.createElement("div");
+    errText.setAttribute("id", this.id + "-error-text");
+    errText.innerHTML = syntaxDefaultText;
+  
+    errDiv.appendChild(errIcon);
+    errDiv.appendChild(errText);
+  
+    this.div.appendChild(errDiv);
+    this.div.errDiv = errDiv;
+  
+    if (jeProhlizeciStranka_new() || !typeIsRegOrGram(this.type)) {
+      hideElem(errDiv);
+    }
+  
+    eval("registerElem(this.id, " + this.type + "Parser.parse" + ", this.TextArea)");
+  }
 }
 
-class Graph {
-  graphDiv;
-  graphState;
-  svg;
-  svgGroup;
+class EditorElement {
   constructor(editorId, statesData, edgesData) {
     this.editorId = editorId;
     this.statesData = statesData;
     this.edgesData = edgesData;
+  }
+
+  getEditor() {
+    return EditorManager.getEditor(this.editorId);
+  }
+
+  updateText() {
+    this.getEditor().generateTextFromData();
+  }
+
+  stateIdIsUnique(stateData, newId) {
+    for (var i = 0, j = this.statesData.length; i < j; i++) {
+      if (this.statesData[i].id == newId) {
+        if (stateData == null) {
+          return false;
+        }
+        else if (stateData && this.statesData[i] != stateData) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  checkStateNameValidity(stateData, newId) {
+    var err = "";
+    var valid = false;
+  
+    if (!newId) {
+      err = errors.emptyState;
+    }
+    else if (!this.stateIdIsUnique(stateData, newId)) {
+      err = stateNameAlreadyExists;
+    }
+    else if (incorrectStateSyntax(newId)) {
+      err = errors.incorrectStateSyntax;
+    }
+    else if (newId.length > 50) {
+      err = errors.stateNameTooLong;
+    }
+    else {
+      valid = true;
+    }
+    return {
+      result: valid,
+      errMessage: err
+    };
+  }
+}
+
+class Graph extends EditorElement{
+  constructor(editorId, statesData, edgesData) {
+    super(editorId, statesData, edgesData);
     this.stateGroups = [];
     this.edgeGroups = [];
     this.initialise();
@@ -112,22 +250,18 @@ class Graph {
         [this.params.width*2, this.params.height*2]])
       .on("start", (e) => this.svgZoomStart(e))
       .on("zoom", (e) => this.svgZoomed(e))
-      //.on("end", function(e) {svgZoomEnd(div, e);})
-      ;
+      .on("end", (e) => this.svgZoomEnd(e));
 
     this.dragEdge = d3
       .drag()
-/*       .on("start", (e) => this.edgeDragstart(e))
-      .on("drag", edgeDragmove)
-      .on("end", edgeDragend) */
-      ;
-  
-    this.dragState = d3
-      .drag()
-      .on("start", stateDragstart)
-      .on("drag", stateDragmove)
-      .on("end", stateDragend)
-      ;
+      .on("start", this.edgeDragstart)
+      .on("drag", this.edgeDragmove)
+      .on("end", this.edgeDragend);
+    
+    this.dragState = d3.drag()
+      .on("start", this.stateDragstart)
+      .on("drag", this.stateDragmove)
+      .on("end", this.stateDragend);
   
 /*     this.dragInitArrow = d3.drag().on("drag", function (event) {
       var arrow = d3.select(this).node();
@@ -211,6 +345,7 @@ class Graph {
     //"temporary" path when creating edges
     var temporaryEdgeG = svgGroup.append("g").classed("temp-edge-group", true);
     svgGroup.temporaryEdgeG = temporaryEdgeG;
+    this.temporaryEdgeG = temporaryEdgeG;
   
     temporaryEdgeG
       .append("svg:path")
@@ -230,7 +365,6 @@ class Graph {
       .style("marker-end", "url(#init-arrow-end" + this.editorId + ")");
   
     svgGroup.initArrow = initArrow;
-    //initArrow.node().questionDiv = div;
     initArrow.node().angle = 3.14;
   
     svgGroup.append("svg:g").classed("edges", true);
@@ -272,6 +406,12 @@ class Graph {
     this.stateIdCounter = 0;
     this.edgeIdCounter = 0;
   
+    this.createStateContextMenu();
+    this.createEdgeContextMenu();
+    this.createAddStateMenu();
+    this.initRenameError();
+
+
     if (!jeProhlizeciStranka_new()) {
       this.zoom.scaleExtent([maxZoomout, 3])
         .translateExtent([[-(this.params.width), -(this.params.height)], [this.params.width, this.params.height]]);
@@ -287,6 +427,74 @@ class Graph {
       //initArrow.call(dragInitArrow);
     }
   }
+
+  //TODO
+  reconstruct(answer) {
+    if (!answer || answer == "") return;
+    
+    //parse zoom/pan
+    var tr = answer.substring(answer.length - 21);
+    if (tr.length > 2 && tr.split(";").length == 3) {
+      let s = tr.split(";");
+      if (s && s.length == 3) {
+        let t = convertStringToTransform(s[0], s[1], s[2]);
+        this.setTransform(t.k, t.x, t.y);
+      }
+    }
+  
+    var splitted = answer.split("##states");
+    var data = splitted[1].split("edges");
+    var states = data[0];
+    var rest = data[1];
+  
+    if (states != null && states != "") {
+      states = states.split("@");
+      for (var d of states) {
+        var stateParts = d.split(';');
+        if (stateParts.length != 5) continue;
+        var id = stateParts[0];
+        var x = parseInt(stateParts[1]);
+        var y = parseInt(stateParts[2]);
+        var initial = stateParts[3] == "1";
+        var accepting = stateParts[4] == "1";
+        var data = newStateData(div, id, x, y, initial, accepting, true);
+        addState(div, data);
+  
+        if (initial) {
+          setNewStateAsInitial(div, data);
+        }
+        if (accepting) {
+          addAcceptingCircle(getStateGroupById(div, data.id));
+        }
+      }
+    }
+    if (rest != null && rest != "") {
+      rest = rest.split('@');
+      for (var d of rest) {
+        var edgeData = d.split(';');
+        if (edgeData.length != 6) continue;
+  
+        var sourceId = edgeData[0];
+        var targetId = edgeData[1];
+        var symbols = edgeData[2];
+        var dx = parseFloat(edgeData[3]);
+        var dy = parseFloat(edgeData[4]);
+        var angle = parseFloat(edgeData[5]);
+  
+        var data = newEdgeData(div, sourceId, targetId, symbols, dx, dy, angle);
+        data = checkEdgePathData(data);
+        if (checkEdgeSymbolsValidity(div, data.id, data.source, symbols).result) {
+          addEdge(div, data, elemOrigin.fromExisting);
+        }
+      }
+    }
+  
+    div.textArea.innerText = answer;
+    //TODO parse init arrow angle
+  }
+
+
+  /* ------------------------------ components ------------------------------ */
 
   initStartText() {
     let w = this.graphDiv.offsetWidth;
@@ -307,8 +515,101 @@ class Graph {
 
   }
   
-  svgRectClick(e) {
+  createStateContextMenu() {
+    var menu = document.createElement("div");
+    menu.setAttribute("class", CONTEXT_MENU);
+  
+    //TODO !!
+    var a = createContextMenuButton(renameStateText);
+    a.addEventListener("click", function () { renameStateHandler(); });
+    menu.appendChild(a);
+  
+    var b = createContextMenuButton(deleteStateText);
+    b.addEventListener("click", function () { deleteStateHandler() });
+    menu.appendChild(b);
+  
+    var d = createContextMenuButton(setStateAsAcceptingText);
+    d.addEventListener("click", function () { toggleAcceptingStateHandler(); });
+    menu.appendChild(d);
+    
+    var c = createContextMenuButton(setAsInitialText);
+    c.addEventListener("click", function () { setStateAsInitialHandler(); });
+    menu.appendChild(c);
 
+    this.acceptingButton = d;
+    this.initialButton = c;
+  
+    this.graphDiv.appendChild(menu);
+    this.stateContextMenuDiv = menu;
+  }
+
+  createEdgeContextMenu() {
+    var menu = document.createElement("div");
+    menu.setAttribute("class", "context-menu");
+  
+    var rename = createContextMenuButton(renameEdgeText);
+    rename.addEventListener("click", function () {
+      //renameEdgeHandler(questionDiv);
+    })
+    menu.appendChild(rename);
+  
+    var del = createContextMenuButton(deleteEdgeText);
+    del.addEventListener("click", function () {
+      //deleteEdgeHandler(questionDiv);
+    })
+  
+    menu.appendChild(del);
+  
+    this.graphDiv.appendChild(menu);
+    this.edgeContextMenuDiv = menu;
+  }
+
+  createAddStateMenu() {
+    var div = document.createElement("div");
+    div.setAttribute("class", CONTEXT_MENU);
+  
+    var button = createContextMenuButton(addStateText);
+    button.addEventListener("click", function (e) {
+/*       var y = e.clientY - questionDiv.graphDiv.svg.node().getBoundingClientRect().y;
+      var x = e.clientX - questionDiv.graphDiv.svg.node().getBoundingClientRect().x;
+      var coords = getPointWithoutTransform([x, y], questionDiv.graphDiv.svg.svgGroup);
+  
+      addState(questionDiv, newStateData(questionDiv, null, coords.x, coords.y, false, false));
+      hideElem(div); */
+    });
+    div.appendChild(button);
+    this.graphDiv.appendChild(div);
+    this.addStateContextMenu = div;
+
+  }
+
+  initRenameError() {
+    var p = document.createElement("p");
+    p.setAttribute("class", "rename-error-p");
+    hideElem(p);
+    this.graphDiv.appendChild(p);
+    this.renameError = p;
+  }
+
+  /* ------------------------------ event handlers ------------------------------ */
+
+  svgRectClick(e) {
+    e.preventDefault();
+    var cl = e.srcElement.classList;
+    var isState = cl.contains(graphConsts.stateElem);
+    var isEdge = cl.contains(graphConsts.edgeElem) || cl.contains("edge-path");
+    var state = this.getGraphState();
+  
+    if (state == graphStateEnum.initial) return;
+    if (isEdge && state == graphStateEnum.default) return; //so we can select edge
+    if (isState && (
+      state == graphStateEnum.creatingEdge || 
+      state == graphStateEnum.renamingState || //so we can click into input when renaming state
+      state == graphStateEnum.namingEdge || //when naming new edge and merging edges, we click on the second state, and we dont want to cancel the state's selection
+      state == graphStateEnum.mergingEdge)) {
+      return;
+    }
+    EditorManager.deselectAll();
   }
 
   svgRectDblclick(e) {
@@ -318,31 +619,92 @@ class Graph {
         this.createState(this.getNewStateData(null, p.x, p.y, false, false));
       }
       else {
-        //endEmptyGraphState(graphDiv.parentNode);
-        //initInitialState(graphDiv.parentNode, p.x, p.y);
+        this.endEmptyState();
+        this.initInitialState(p.x, p.y);
       }
     }
+  }
+
+  svgRectContextmenu(event) {
+    event.preventDefault();
+    var cl = event.srcElement.classList;
+    var isState = cl.contains(graphConsts.stateElem);
+    var isEdge = cl.contains(graphConsts.edgeElem);
+    var state = this.getGraphState();
+    var elem;
+  
+    if (state == graphStateEnum.initial) return;
+  
+    if (isState) {
+      elem = this.stateContextMenuDiv;
+      if (state == graphStateEnum.renamingState) return;
+    }
+    else if (isEdge) { //when edge editing is active its ok to right click into input
+      elem = this.edgeContextMenuDiv;
+      if (state == graphStateEnum.renamingEdge ||
+        state == graphStateEnum.namingEdge ||
+        state == graphStateEnum.mergingEdge) {
+        return;
+      }
+    }
+    else {
+      EditorManager.deselectAll();
+      elem = this.addStateContextMenu;
+    }
+    setElemPosition(elem, d3.pointer(event)[1], d3.pointer(event)[0]);
+    showElem(elem);
   }
 
   svgMousemove(e) {
     if (this.graphState.currentState == graphStateEnum.creatingEdge) {
       this.initCreatingTransition(e);
-      console.log("creating edge");
     }
   }
 
-  initCreatingTransition(e) {
-
+  initCreatingTransition(e, hide = false) {
+    var path = this.temporaryEdgeG.select("." + graphConsts.edgePath);
+    if (!hide) path.classed("hidden", false);
+  
+    var targetState = this.graphState.mouseOverState;
+    var sourceState = this.graphState.lastSourceState;
+    var mouseX = d3.pointer(e, this.svgGroup.node())[0];
+    var mouseY = d3.pointer(e, this.svgGroup.node())[1];
+  
+    //if mouse is hovering over some state
+    if (this.graphState.mouseOverState) {
+      if (targetState.id == sourceState.id) {
+        toggleFullnameVisibitity(this.svgGroup.stateFullnameRect);
+        path.attr("d", getNewSelfloopDefinition(sourceState.x, sourceState.y, mouseX, mouseY, path.node()));
+      }
+      else { // snap to state
+        path.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, targetState.x, targetState.y));
+      }
+      if (!hide) this.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", false);
+      this.repositionMarker(this.temporaryEdgeG);
+    }
+    //mouse is not hovering above any state
+    else {
+      this.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
+      path.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, mouseX, mouseY));
+    }
+    this.disableAllDragging();
   }
 
-
+  /* ------------------------------ pan & zoom ------------------------------ */
   
-  svgZoomStart(e) {
-    
+  svgZoomStart() {
+    EditorManager.deselectAll(this.editorId);
+    this.hideAllContextMenus();
   }
 
   svgZoomed(e) {
     this.svgGroup.attr("transform", e.transform);
+  }
+
+  svgZoomEnd() {
+    if (!jeProhlizeciStranka_new()) {
+      EditorManager.getEditor(this.editorId).generateTextFromData();
+    }
   }
 
   setViewToMiddle(){
@@ -356,11 +718,13 @@ class Graph {
     );
   }
 
+  /* ------------------------------ methods for manipulating whole graph ------------------------------ */
+
   initEmptyState() {
     this.svg.select(".initial-text").style("visibility", "visible");
     this.svg.rect.classed("empty", true);
-    this.graphState.currentState = graphStateEnum.initial;
-    //disableAllDragging(div.graphDiv.svg);
+    this.setCurrentState(graphStateEnum.initial);
+    this.disableAllDragging();
   }
 
   endEmptyState() {
@@ -370,26 +734,219 @@ class Graph {
     //enableAllDragging(div);
   }
 
+  hideInitArrow() {
+    d3.select(this.graphDiv)
+      .select(".init-arrow")
+      .classed("hidden", true);
+  }
+
+  getGraphState() {
+    return this.graphState.currentState;
+  }
+
+  setCurrentState(state) {
+    this.graphState.currentState = state;
+  }
+
+  hideAllContextMenus() {
+    hideElem(this.stateContextMenuDiv);
+    hideElem(this.edgeContextMenuDiv);
+    hideElem(this.addStateContextMenu);
+  }
+
+  hideAllExtras() {
+    this.hideAllContextMenus();
+    hideElem(this.renameError);
+    hideEdge(this.temporaryEdgeG);
+  }
+
+  enableAllDragging() {
+    if (!jeProhlizeciStranka_new()) {
+      this.svgGroup.selectAll("." + graphConsts.stateGroup).call(this.dragState);
+      this.svgGroup.selectAll("." + graphConsts.edgeGroup).call(this.dragEdge);
+      this.svg.call(this.zoom).on("dblclick.zoom", null);
+    }
+  }
+
+  disableAllDragging() {
+    var limitedDrag = d3.drag()
+      .on("start", this.stateDragstart)
+      .on("end", this.stateDragend);
+
+    this.svgGroup.selectAll("." + graphConsts.stateGroup).call(limitedDrag);
+    this.svgGroup.selectAll("." + graphConsts.edgeGroup).on(".drag", null);
+    this.svg.on(".zoom", null);
+  }
+
+  initRenaming(state, symbols) {
+
+  }
+
+  resetStateIds() {
+    this.stateIdCounter = 0;
+  }
+
+  /* ------------------------------ STATE ------------------------------ */
   createState(stateData) {
     if (stateData.isNew) {
       stateData = this.findStatePlacement(stateData);
     }
     this.statesData.push(stateData);
-  
-    if (!jeProhlizeciStranka_new()) {
-      //addStateEvents(newState, questionDiv.graphDiv);
-      //this.generateTextFromData();
-    }
 
     var newState = this.stateGroups
       .data(this.statesData).enter().append("g");
   
-    newState.node().parentGraphDiv = this.graphDiv;
+    newState.node().parentGraph= this;
     newState.node().clickTimer = 0;
     newState.node().clickedOnce = false;
+
+    if (!jeProhlizeciStranka_new()) {
+      this.addStateEvents(newState);
+      EditorManager.getEditor(this.editorId).generateTextFromData();
+    }
   
     this.addStateSvg(newState);
     this.updateStateGroups();
+  }
+
+  addStateSvg(state) {
+    state
+      .classed(graphConsts.stateGroup, true)
+      .classed(graphConsts.stateElem, true)
+      .attr("transform", function (d) {
+        return "translate(" + d.x + "," + d.y + ")";
+      });
+
+    state
+      .append("circle")
+      .classed(graphConsts.stateMainCircle, true)
+      .classed(graphConsts.stateElem, true)
+      .attr("r", graphConsts.nodeRadius);
+  
+    var g = this;
+    var input = state
+      .append("foreignObject")
+      .classed(graphConsts.stateElem, true)
+      .attr("x", -24)
+      .attr("y", -12)
+      .attr("height", 23)
+      .attr("width", 50)
+      .append("xhtml:input")
+      .classed("stateInput", true)
+      .classed(graphConsts.stateElem, true) //TODO into events
+      .on("dblclick", function(_, d) {
+        EditorManager.getEditor(g.editorId).deselectAll(g.editorId);
+        g.hideAllExtras();
+        g.selectState(g.getStateGroupById(d.id), d);
+  
+        g.initRenaming(
+          graphDiv.parentNode,
+          graphStateEnum.renamingState,
+          graphDiv.graphState.selectedState.id);
+        
+      })
+      .on("keyup", function (e, d) {
+        if (d3.select(this).node().getAttribute("readonly") == "readonly") {
+          return
+        };
+        var validSymbols = g.checkStateNameValidity(d, d3.select(this).node().value);
+        d3.select(this).node().correct = validSymbols.result;
+        if (e.keyCode == 13 && g.getGraphState() == graphStateEnum.renamingState) {
+          e.preventDefault();
+          g.tryToRenameState(g.graphState.selectedState, d3.select(this).node().value);
+        }
+      })
+      .on("keydown", function (e, d) {
+        if (d3.select(this).node().getAttribute("readonly") == "readonly") {
+          return;
+        }
+        if (e.keyCode == 13) { //prevent 'enter' from submitting form
+          e.preventDefault();
+        }
+      })
+      .on("blur", function (e, d) {
+        g.getStateGroupById(d.id).classed("activeRenaming", false);
+        var input = d3.select(this).node();
+        if (input.getAttribute("readonly") == "readonly") {
+          return;
+        }
+        if (input.correct == false) {
+          if (g.getGraphState() == graphStateEnum.renamingState) {
+            setStateInputValue(input, d.id);
+          }
+        }
+        else {
+          g.renameState(d, input.value);
+        }
+        makeReadonly(input);
+        hideElem(g.renameError);
+        g.setGraphState(graphStateEnum.default);
+        g.enableAllDragging();
+      });
+      
+  
+    makeReadonly(input.node());
+    input.node().correct = false;
+    if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
+      input.node().correct = true;
+    }
+    input.node().realValue = state.datum().id;
+    setStateInputValue(input.node(), state.datum().id);
+  }
+
+  addStateEvents(state) {
+    var g = this;
+    state
+      .call(g.dragState)
+      .on("mouseover", function (_, d) {
+        g.graphState.mouseOverState = d;
+        d3.select(this).classed(graphConsts.mouseOver, true);
+
+        if (d.id != d3.select(this).select("input").node().value) {
+          showFullname(g.svgGroup.stateFullnameRect, d);
+        }
+      })
+      .on("mouseout", function () {
+        toggleFullnameVisibitity(g.svgGroup.stateFullnameRect);
+        g.graphState.mouseOverState = null;
+        d3.select(this).classed(graphConsts.mouseOver, false);
+      })
+      .on("contextmenu", function (_, data) {
+        //renaming this => do nothing
+        if (g.getGraphState() == graphStateEnum.renamingState
+          && g.graphState.selectedState == data) {
+          return;
+        }
+        if (graphIsInRenamingState(g.getGraphState())) {
+          g.endRenaming();
+          return;
+        }
+
+        EditorManager.deselectAll(g.editorId);
+        g.hideAllExtras();
+        g.selectState(d3.select(this), data);
+
+        //TODO separate function
+        if (data.initial) {
+          hideElem(g.initialButton);
+        }
+        else {
+          showElem(g.initialButton, true);
+        }
+        if (data.accepting) {
+          g.acceptingButton.value = setStateAsNonAcceptingText;
+        }
+        else {
+          g.acceptingButton.value = setStateAsAcceptingText;
+        }
+      });
+  }
+
+  initInitialState(x, y) {
+    var initialData = this.getNewStateData(null, x, y, true, false);
+    this.createState(initialData);
+    this.repositionInitArrow(initialData, 3.14);
+    this.graphState.initialState = initialData;
   }
 
   updateStateGroups() {
@@ -418,115 +975,359 @@ class Graph {
     return id;
   }
 
-  addStateSvg(newState) {
-    newState
-      .classed(graphConsts.stateGroup, true)
-      .classed(graphConsts.stateElem, true)
-      .attr("transform", function (d) {
-        return "translate(" + d.x + "," + d.y + ")";
-      });
-
-    newState
-      .append("circle")
-      .classed(graphConsts.stateMainCircle, true)
-      .classed(graphConsts.stateElem, true)
-      .attr("r", graphConsts.nodeRadius);
-  
-    var input = newState
-      .append("foreignObject")
-      .classed(graphConsts.stateElem, true)
-      .attr("x", -24)
-      .attr("y", -12)
-      .attr("height", 23)
-      .attr("width", 50)
-      .append("xhtml:input")
-      .classed("stateInput", true)
-      .classed(graphConsts.stateElem, true) //TODO into events
-      .on("dblclick", function(_, d) {
-  
-/*         deselectAll(graphDiv.parentNode.getAttribute("id"));
-        hideAllExtras(graphDiv);
-        selectState(getStateGroupById(graphDiv.parentNode, d.id), graphDiv, d);
-  
-        initRenaming(
-          graphDiv.parentNode,
-          graphStateEnum.renamingState,
-          graphDiv.graphState.selectedState.id); */
-        
-      })
-      .on("keyup", function (e, d) {
-/*         if (d3.select(this).node().getAttribute("readonly") == "readonly") return;
-        var validSymbols = checkStateNameValidity(graphDiv.parentNode, d, d3.select(this).node().value);
-        d3.select(this).node().correct = validSymbols.result;
-        if (e.keyCode == 13 && getGraphState(graphDiv) == graphStateEnum.renamingState) {
-          e.preventDefault();
-          tryToRenameState(graphDiv.parentNode, graphDiv.graphState.selectedState, d3.select(this).node().value);
-        } */
-      })
-      .on("keydown", function (e, d) {
-/*         if (d3.select(this).node().getAttribute("readonly") == "readonly") return;
-        if (e.keyCode == 13) {
-          e.preventDefault();
-        } */
-      })
-      .on("blur", function (e, d) {
-/*         getStateGroupById(graphDiv.parentNode, d.id).classed("activeRenaming", false);
-        var input = d3.select(this).node();
-        if (input.getAttribute("readonly") == "readonly") return;
-        if (input.correct == false) {
-          if (getGraphState(graphDiv) == graphStateEnum.renamingState) {
-            setStateInputValue(input, d.id);
-          }
-        }
-        else {
-          renameState(graphDiv.parentNode, d, input.value);
-        }
-        makeReadonly(input);
-        hideElem(graphDiv.renameError);
-        setGraphState(graphDiv.parentNode, graphStateEnum.default);
-        enableAllDragging(graphDiv.parentNode); */
-      });
-  
-  
-    makeReadonly(input.node());
-    input.node().correct = false;
-    if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
-      input.node().correct = true;
-    }
-    input.node().realValue = newState.datum().id;
-    setStateInputValue(input.node(), newState.datum().id);
-  }
-
   deleteState(stateData) {
     if (stateData.initial == true) {
       this.hideInitArrow();
       this.graphState.initialState = null;
     }
-    this.deleteStateSvg(stateData);
+    this.deleteStateSvg(stateData.id);
     this.deleteStateEdges(stateData);
-    this.editor.deleteStateData(stateData);
+    this.deleteStateData(stateData);
     this.updateStateGroups();
+
+    if (!jeProhlizeciStranka_new()) {
+      this.updateText();
+      if (this.getEditor().isEmpty()) {
+        this.resetStateIds();
+        this.initEmptyState();
+      }
+    }
+  }
+
+  renameState(stateData, newId) {
+    this.statesData
+      .filter(function (d) { return d.id == stateData.id; })
+      .map(function (d) { d.id = newId; });
+
+    setStateInputValue(this.getStateGroupById(stateData.id).select(".stateInput").node(), newId);
+
+    if (!jeProhlizeciStranka_new()) {
+      this.updateText();
+    }
+  }
+
+  deleteStateSvg(stateId) {
+    this.svgGroup
+      .select(".states")
+      .selectAll("g")
+      .filter(function (d) {
+        return d.id == stateId;
+      })
+      .remove();
+  }
+
+  deleteStateData(stateData) {
+    this.statesData.splice(this.statesData.indexOf(stateData), 1);
+  }
+
+  deleteStateEdges(stateData) {
+    //TODO prepisat pomocou state id??
+    //delete edges' SVG
+    this.edgeGroups
+      .filter(function (ed) {
+        return ed.source == stateData || ed.target == stateData;
+      })
+      .remove();
+
+    //delete data
+    questionDiv.edgesData
+      .filter(function (ed) {
+        return ed.source == stateData || ed.target == stateData;
+      })
+      .map(function (ed) {
+        this.edgesData.splice(this.edgesData.indexOf(ed), 1);
+      });
+
+    this.updateEdgeGroups();
   }
 
 
+  selectState(stateGroup, d) {
+    this.removeSelectionFromEdge();
+
+    if (this.graphState.selectedState != d) { // another state was selected
+      this.removeSelectionFromState();
+      this.graphState.selectedState = d;
+      SELECTED_ELEM_GROUP = stateGroup;
+      stateGroup.classed(graphConsts.selected, true);
+    }
+  }
+
+  removeSelectionFromState() {
+    if (this.graphState.selectedState == null) {
+      return;
+    }
+    var s = this.graphState.selectedState;
+    this.stateGroups
+      .filter(function (d) {
+        return d.id === s.id; })
+      .classed(graphConsts.selected, false);
+    this.graphState.selectedState = null;
+  }
+
+  stateDragstart(e, d) {
+    var node = d3.select(this).node();
+    var graph = node.parentGraph;
+    EditorManager.deselectAll(graph.editorId);
+    graph.temporaryEdgeG.classed(graphConsts.selected, false);
+    
+  
+    node.clickTimer = e.sourceEvent.timeStamp;
+    node.startX = e.x;
+    node.startY = e.y;
+  
+    graph.hideAllContextMenus();
+  
+    if (graphIsInRenamingState(graph.getGraphState())) {
+      graph.endRenaming();
+      hideEdge(graph.temporaryEdgeG);
+    }
+  
+    graph.selectState(d3.select(this), d);
+  }
+
+  stateDragmove(event, d) {
+    var graph = d3.select(this).node().parentGraph;
+    //toggleFullnameVisibitity(graph.svgGroup.stateFullnameRect);
+  
+    var p = applyTransformationToPoint([event.x, event.y], graph.svgGroup);
+    if (p.x < (graph.params.width - graphConsts.nodeRadius) && p.x >= graphConsts.nodeRadius) {
+      d.x = event.x;
+    }
+    if (p.y < (graph.params.height - graphConsts.nodeRadius) && p.y >= graphConsts.nodeRadius) {
+      d.y = event.y;
+    }
+  
+    d3.select(this).attr("transform", "translate(" + d.x + "," + d.y + ")");
+  
+    if (d.initial) {
+      //repositionInitArrow(graphDiv, d, graphDiv.svg.svgGroup.initArrow.node().angle);
+    }
+  
+    //updateOutgoingEdges(graphDiv.svg.svgGroup.edgeGroups, d);
+    //updateIncommingEdges(graphDiv.svg.svgGroup.edgeGroups, d);
+  }
+
+  stateDragend(e, d) {
+    e.stopPropagation;
+
+    var groupNode = d3.select(this).node();
+    var g = groupNode.parentGraph;
+    var graphState = g.graphState;
+    var distance = distBetween(groupNode.startX, groupNode.startY, e.x, e.y);
+    var diff = e.sourceEvent.timeStamp - groupNode.clickTimer;
+  
+    if (graphState.currentState == graphStateEnum.creatingEdge && diff < 400 && distance < 2) {
+      if (graphState.lastSourceState && graphState.mouseOverState) {
+        var edge = g.getEdgeDataByStates(graphState.lastSourceState.id, graphState.mouseOverState.id);
+        graphState.lastTargetState = graphState.mouseOverState;
+  
+        hideEdge(g.temporaryEdgeG);
+        if (edge != null) { //edge already exists between the two states
+          g.selectEdge(g.getEdgeGroupById(edge.id));
+          g.initRenaming(graphStateEnum.mergingEdge, edge.symbols);
+        }
+        else { //adding new edge
+          g.removeSelectionFromState();
+          var data = g.getNewEdgeData(graphState.lastSourceState.id, graphState.lastTargetState.id, "");
+          var edgeG = g.createEdge(data);
+          g.selectEdge(edgeG);
+          g.initRenaming(graphStateEnum.namingEdge, "");
+        }
+      }
+    }
+    //starting to create an edge
+    else if (graphState.currentState != graphStateEnum.creatingEdge && diff > 1 && distance < 3) { 
+      graphState.lastSourceState = d;
+      graphState.currentState = graphStateEnum.creatingEdge;
+      g.initCreatingTransition(e, true);
+    }
+  
+    if (!jeProhlizeciStranka_new()) {
+      EditorManager.getEditor(g.editorId).generateTextFromData();
+    }
+  }
+
+  /* ------------------------------ EDGE ------------------------------ */
+
+  edgeDragstart(e, d) {
+
+  }
+
+  edgeDragmove(e, d) {
+
+  }
+
+  edgeDragend(e, d) {
+
+  }
+
+  createEdge(data, origin = elemOrigin.default) {
+    var temporaryEdgePath = this.temporaryEdgeG.select("." + graphConsts.edgePath);
+
+    if (data.source == data.target && origin == elemOrigin.default) {
+      if (temporaryEdgePath.node().angle) {
+        data.angle = temporaryEdgePath.node().angle;
+      }
+      else {
+        data.angle = 1.55;
+      }
+    }
+    this.edgesData.push(data);
+  
+    var newEdge = this.edgeGroups
+      .data(this.edgesData).enter().append("g").classed(graphConsts.edgeGroup, true);
+  
+    //TODO?
+    newEdge.node().parentGraphDiv = this.graphDiv;
+  
+    //this.addEdgeSvg(questionDiv, newEdge, origin, temporaryEdgePath.attr("d"));
+  
+    this.repositionMarker(newEdge);
+    //this.updateEdgeInputPosition(newEdge);
+    this.updateEdgeGroups();
+  
+  
+    if (!jeProhlizeciStranka_new()) {
+      //addEdgeEvents(questionDiv, newEdge);
+      EditorManager.getEditor(this.editorId).generateTextFromData();
+    }
+    return newEdge;
+  }
+
+  selectEdge(edgeGroup) {
+    this.removeSelectionFromState();
+  
+    //edgeGroup.datum() == data binded with element
+    if (this.graphState.selectedEdge != edgeGroup.datum()) {
+      this.removeSelectionFromEdge();
+      this.graphState.selectedEdge = edgeGroup.datum();
+      SELECTED_ELEM_GROUP = edgeGroup;
+      edgeGroup.classed(graphConsts.selected, true);
+    }
+  }
+
+  removeSelectionFromEdge() {
+    if (this.graphState.selectedEdge == null) {
+      return;
+    }
+    this.edgeGroups
+      .filter(function (d) {
+        return d.id === this.graphState.selectedEdge.id;
+      })
+      .classed(graphConsts.selected, false);
+    this.graphState.selectedEdge = null;
+  }
+
+  getNewEdgeData(sourceId, targetId, symbols, dx = 0, dy = 0, angle = 0) {
+    return {
+      id: this.generateEdgeId(),
+      source: this.getStateDataById(sourceId),
+      target: this.getStateDataById(targetId),
+      symbols: symbols,
+      dx: dx,
+      dy: dy,
+      angle: angle
+    }
+  }
+
+  generateEdgeId() {
+    return ++this.edgeIdCounter;
+  }
+
+  updateEdgeGroups() {
+    this.edgeGroups = this.svgGroup.select(".edges").selectAll("g");
+  }
+
+  /* ------------------------------ repostion utils ------------------------------ */
+
+  repositionMarker(edgeGroup) {
+    this.repositionMarkerTo(
+      edgeGroup.select("." + graphConsts.edgePath),
+      edgeGroup.select("." + graphConsts.edgeMarker),
+      graphConsts.nodeRadius + 11); // distance
+  }
+
+  repositionMarkerTo(path, markerPath, distance) {
+    var pathLength = path.node().getTotalLength();
+    var pathPoint = path.node().getPointAtLength(pathLength - distance);
+    var pathPoint2 = path.node().getPointAtLength(pathLength - distance - 0.01);
+    markerPath.attr("d", `M ${pathPoint2.x} ${pathPoint2.y} L ${pathPoint.x} ${pathPoint.y}`);
+  }
+
+  repositionInitArrow(stateData, angle) {
+    var arrow = this.svgGroup.initArrow;
+
+    arrow
+      .classed("hidden", false) //if it was hidden after deleting previous initial state, show it
+      .attr("d",
+        "M " + stateData.x + " " + stateData.y
+        + " C " + cubicControlPoints(stateData.x, stateData.y, angle, 90, 2000)
+        + " " + stateData.x + " " + stateData.y
+      );
+  
+    arrow.node().angle = angle;
+  }
+
   hideInitArrow() {
-    d3.select(this.graphDiv)
-      .select(".init-arrow")
-      .classed("hidden", true);
+    this.svgGroup.initArrow.classed("hidden", true);
+  }
+
+
+  /* ------------------------------ GETTERS ------------------------------ */
+  getEdgeGroupById(id) {
+    return this.edgeGroups.filter(function (d) {
+        return d.id == id;
+    });
+  }
+
+  getStateDataById(id) {
+    return this.getElemById(this.statesData, id);
+  }
+
+  getEdgeDataById(id) {
+    return this.getElemById(this.edgesData, id);
+  }
+
+  getElemById(array, id) {
+    for (let i = 0; i < array.length; i++) {
+      const data = array[i];
+      if (data.id == id) return data;
+    }
+    return null;
+  }
+
+  getStateGroupById(id) {
+    var res = null;
+    this.stateGroups
+      .each(function (d) { if (d.id == id) res = d3.select(this); });
+    return res;
+  }
+  
+  getEdgeDataByStates(sourceTitle, targetTitle) {
+    for (let i = 0; i < this.edgesData.length; i++) {
+      const d = this.edgesData[i];
+      if (d.source.id == sourceTitle && d.target.id == targetTitle) {
+        return d;
+      }
+    }
+    return null;
   }
 }
 
-class Table {
+class Table extends EditorElement {
   constructor(editorId, statesData, edgesData) {
-    this.editorId = editorId;
-    this.statesData = statesData;
-    this.edgesData = edgesData;
+    super(editorId, statesData, edgesData);
     this.initialise();
   }
 
   initialise() {
     this.tableDiv = document.createElement("div");
     this.tableDiv.setAttribute("class", "tableDiv");
+  }
+
+  createTableFromData() {
+
   }
 }
 
@@ -537,40 +1338,10 @@ class TextEditor extends Editor {
 
   initialise() {
     this.addSyntaxCheck();
-  }
-
-  addSyntaxCheck() {
-    var errDiv = document.createElement("div");
-    errDiv.setAttribute("id", this.id + "-error");
-    errDiv.setAttribute("class", "alert alert-info");
-    errDiv.setAttribute("title", syntaxDivTitle);
-  
-    var errIcon = document.createElement("div");
-    errIcon.setAttribute("id", this.id + "-i");
-  
-    var errText = document.createElement("div");
-    errText.setAttribute("id", this.id + "-error-text");
-    errText.innerHTML = syntaxDefaultText;
-  
-    errDiv.appendChild(errIcon);
-    errDiv.appendChild(errText);
-  
-    this.div.appendChild(errDiv);
-    this.div.errDiv = errDiv;
-  
-    if (jeProhlizeciStranka_new() || !typeIsRegOrGram(this.type)) {
-      hideElem(errDiv);
-    }
-  
-    eval("registerElem(this.id, " + this.type + "Parser.parse" + ", this.TextArea)");
-  }
+  } 
 }
 
 class GraphEditor extends Editor {
-  graphState = {};
-/*   statesData = [];
-  edgesData = []; */
-
   constructor(id, type, textArea) {
     super(id, type, textArea);
     this.initialise();
@@ -615,13 +1386,7 @@ class GraphEditor extends Editor {
   
     appendChildren(this.div, [hintDiv, this.Graph.graphDiv, this.Table.tableDiv]);
 
-    this.div.hintDiv = hintDiv;
-  
-    //graph context menus
-/*     createStateContextMenu(div);
-    createEdgeContextMenu(div);
-    createAddStateMenu(div);
-    initRenameError(div); */
+    this.hintDiv = hintDiv;
   
     hideElem(this.TextArea);
     this.div.appendChild(this.TextArea); //moves the existing textarea into div
@@ -639,7 +1404,7 @@ class GraphEditor extends Editor {
   
     var hintButton = createButton(hintLabel, "hintButton");
     hintButton.style.marginBottom = "7px";
-    hintButton.addEventListener("click", function () { clickHintButton(this.div); });
+    hintButton.addEventListener("click", () => this.clickHintButton());
   
     var hintContentDiv = document.createElement("div");
     hintContentDiv.setAttribute("class", "hint-content-div");
@@ -662,12 +1427,97 @@ class GraphEditor extends Editor {
   }
 
   clickTable() {
-    console.log(this.statesData);
-    
+    if (!jeProhlizeciStranka_new()) {
+      EditorManager.deselectAll();
+    }
+    if (this.lastEdited == "table") {
+      return;
+    }
+    if (this.lastEdited == "graph") {
+      //updateSvgDimensions(this.div);
+    }
+    hideElem(this.Graph.graphDiv);
+    hideElem(this.hintDiv);
+    hideElem(this.TextArea);
+  
+    this.Table.createTableFromData();
+    showElem(this.Table.tableDiv);
+    this.lastEdited = "table";
   }
 
-  reconstructGraph() {
+  clickHintButton() {
+    var hintContentDiv = this.hintDiv.contentDiv;
+    if (!jeProhlizeciStranka_new()) EditorManager.deselectAll();
+    if (hintContentDiv.style.display == "none") {
+      showElem(hintContentDiv, true);
+    }
+    else {
+      hideElem(hintContentDiv);
+    }
+  }
 
+  reconstructGraph(answer) {
+    if (!answer || answer == "") return;
+    
+    //parse zoom/pan
+    var tr = answer.substring(answer.length - 21);
+    if (tr.length > 2 && tr.split(";").length == 3) {
+      let s = tr.split(";");
+      if (s && s.length == 3) {
+        let t = convertStringToTransform(s[0], s[1], s[2]);
+        setTransform(div, t.k, t.x, t.y);
+      }
+    }
+  
+    var splitted = answer.split("##states");
+    var data = splitted[1].split("edges");
+    var states = data[0];
+    var rest = data[1];
+  
+    if (states != null && states != "") {
+      states = states.split("@");
+      for (var d of states) {
+        var stateParts = d.split(';');
+        if (stateParts.length != 5) continue;
+        var id = stateParts[0];
+        var x = parseInt(stateParts[1]);
+        var y = parseInt(stateParts[2]);
+        var initial = stateParts[3] == "1";
+        var accepting = stateParts[4] == "1";
+        var data = newStateData(div, id, x, y, initial, accepting, true);
+        addState(div, data);
+  
+        if (initial) {
+          setNewStateAsInitial(div, data);
+        }
+        if (accepting) {
+          addAcceptingCircle(getStateGroupById(div, data.id));
+        }
+      }
+    }
+    if (rest != null && rest != "") {
+      rest = rest.split('@');
+      for (var d of rest) {
+        var edgeData = d.split(';');
+        if (edgeData.length != 6) continue;
+  
+        var sourceId = edgeData[0];
+        var targetId = edgeData[1];
+        var symbols = edgeData[2];
+        var dx = parseFloat(edgeData[3]);
+        var dy = parseFloat(edgeData[4]);
+        var angle = parseFloat(edgeData[5]);
+  
+        var data = newEdgeData(div, sourceId, targetId, symbols, dx, dy, angle);
+        data = checkEdgePathData(data);
+        if (checkEdgeSymbolsValidity(div, data.id, data.source, symbols).result) {
+          addEdge(div, data, elemOrigin.fromExisting);
+        }
+      }
+    }
+  
+    div.textArea.innerText = answer;
+    //TODO parse init arrow angle
   }
 
   addState(stateData) {
@@ -675,8 +1525,111 @@ class GraphEditor extends Editor {
   }
 
   generateTextFromData() {
-    this.TextArea.innerText = "";
+    var result;
+    if (this.isEmpty()) {
+      result = "";
+    }
+    else {
+      result = this.generateQuestionResult();
+    }
+
+    this.TextArea.innerText = result;
     $(this.TextArea).trigger("change");
+  }
+
+  generateQuestionResult() {
+    var result = "";
+    var initState;
+    var acceptingStates = [];
+  
+    this.statesData.forEach(function (state) {
+      if (state.initial) {
+        initState = state;
+        result += "init=" + state.id + " ";
+      }
+      if (state.accepting) {
+        acceptingStates.push(state);
+      }
+    });
+  
+    if (this.type == "DFA") {
+      for (let i = 0; i < this.edgesData.length; i++) {
+        const edge = this.edgesData[i];
+        if (!(checkEdgeSymbolsValidity(this.div, edge.id, edge.source, edge.symbols).result)) continue;
+  
+        edge.symbols.split(",").forEach((symbol) => {
+          if (symbol == epsSymbol) {
+            symbol = "\\e";
+          }
+          result += "(" + edge.source.id + "," + symbol + ")=" + edge.target.id + " ";
+        });
+      }
+    }
+    else if (typeIsNondeterministic(this.type)) {
+      var transitions = new Map();
+  
+      for (let i = 0; i < this.edgesData.length; i++) {
+        const edge = this.edgesData[i];
+        if (!(checkEdgeSymbolsValidity(this.div, edge.id, edge.source, edge.symbols).result)) continue;
+  
+        edge.symbols.split(",").forEach((symbol) => {
+          var s = symbol;
+          if (s == epsSymbol) {
+            s = "\\e";
+          }
+          if (!transitions.has("(" + edge.source.id + "," + s + ")")) {
+            transitions.set("(" + edge.source.id + "," + s + ")", []);
+          }
+          var val = transitions.get("(" + edge.source.id + "," + s + ")");
+          val.push(edge.target.id);
+          transitions.set("(" + edge.source.id + "," + s + ")", val);
+        });
+      }
+  
+      for (let [key, value] of transitions.entries()) {
+        result += key + "={" + value + "} ";
+      }
+    }
+  
+    result += "final={";
+    if (acceptingStates.length > 0) {
+      for (var i = 0; i < acceptingStates.length; i++) {
+        result += acceptingStates[i].id;
+        if (i < acceptingStates.length - 1) {
+          result += ",";
+        }
+      }
+    }
+    result += "}";
+  
+    //position data
+    result += " ##";
+    result += "states";
+    this.statesData.forEach(function (d) {
+      result += "@" + d.id
+        + ";" + d.x.toFixed(2)
+        + ";" + d.y.toFixed(2)
+        + ";" + (d.initial ? 1 : 0)
+        + ";" + (d.accepting ? 1 : 0);
+  
+    });
+    result += "edges";
+    this.edgesData.forEach(function (d) {
+      result += "@" //+ d.id
+        + d.source.id
+        + ";" + d.target.id
+        + ";" + d.symbols
+        + ";" + d.dx.toFixed(2)
+        + ";" + d.dy.toFixed(2)
+        + ";" + d.angle.toFixed(3);
+    });
+    if (initState) {
+      result += "@initAngle:" + this.Graph.svgGroup.initArrow.node().angle.toFixed(3);
+    }
+    var t = d3.zoomTransform(this.Graph.svgGroup.node());
+    //t = Object { k: 1.148698354997035, x: 500.950304961033, y: 446.2509705696626 }
+    result+= `@t:${t.k.toFixed(3)};${t.x.toFixed(3)};${t.y.toFixed(3)}`;
+    return result;
   }
 
   findStatePlacement() {
@@ -688,44 +1641,7 @@ class GraphEditor extends Editor {
   }
 }
 
-const MENU_BUTTON = "menu-button";
-const CONTEXT_MENU = "context-menu";
-const GRAPH_DIV = "graphDiv";
-const QUESTION_DIV = "editor-content";
 
-const graphConsts = {
-  selected: "selected",
-  mouseOver: "mouse-over-node",
-  stateGroup: "state-group",
-  stateMainCircle: "state-main-circle",
-  stateAccCircle: "accepting-circle",
-  stateElem: "stateEl",
-  edgeElem: "edgeEl",
-  edgeGroup: "edge-group",
-  edgePath: "edge-path",
-  edgeMarker: "edge-marker-path",
-  emptyGraph: "empty-graph",
-  nodeRadius: 30
-};
-
-const tableClasses = {
-  myTable: "myTable",
-  myCell: "myCell",
-  columnHeader: "column-header-cell",
-  rowHeader: "row-header-input",
-  innerCell: "inner-cell",
-  inputCellDiv: "cell-input",
-  inputColumnHeaderDiv: "column-header-input",
-  noselectCell: "noselect",
-  inactiveCell: "inactive-cell",
-  selectedHeaderInput: "selected-header-input",
-  incorrectCell: "incorrect-cell",
-  deleteButton: "delete-button-cell",
-  addButton: "add-button-cell",
-  controlButton: "control-button"
-}
-
-var SELECTED_ELEM_GROUP, dragEdge, dragState, dragInitArrow, maxZoomout = 0.5;
 
 /**
  * States of editor in graph mode.
@@ -769,149 +1685,29 @@ function setupLanguage() {
 function initialise(div, textArea) {
   div.setAttribute("class", QUESTION_DIV);
   var type = div.getAttribute("id").substring(0, 3);
-  var e;
+  var editor;
 
   if (typeIsRegOrGram(type)) {
-    e = new TextEditor(div.id, type, textArea);
-    e.initialise();
-    //initSyntaxCheck(div.id);
+    editor = new TextEditor(div.id, type, textArea);
+    editor.initialise();
     if (jeProhlizeciStranka_new()) {
       $(textArea).prop('readonly', true);
     }
   }
   else {
-    e = new GraphEditor(div.id, type, textArea);
-    e.reconstructGraph();
+    editor = new GraphEditor(div.id, type, textArea);
+    editor.Graph.reconstruct(textArea.innerText);
     $(textArea).prop('readonly', true);
     
-    if (e.isEmpty()) {
-      e.Graph.setViewToMiddle();
+    if (editor.isEmpty()) {
+      editor.Graph.setViewToMiddle();
       if (!jeProhlizeciStranka_new()) {
-        e.Graph.initEmptyState();
+        editor.Graph.initEmptyState();
       }
     }
   }
 }
 
-/**
- * Initialises editor - graph, table and textArea elements.
- * @param {div elem} div div element inside which the editor will be created
- */
-function initialiseEditor(div) {
-  div.lastEdited = "graph";
-  div.statesData = [];
-  div.edgesData = [];
-
-  //create rulers - elements used to calculate svg and table text length
-  var ruler = document.getElementById("ruler");
-  if (!ruler) {
-    ruler = document.createElement("span");
-    ruler.setAttribute("id", "ruler");
-  }
-  var tableRuler = document.getElementById("table-ruler");
-  if (!tableRuler) {
-    tableRuler = document.createElement("span");
-    tableRuler.innerHTML = "x";
-    tableRuler.setAttribute("id", "table-ruler");
-  }
-  div.parentNode.insertBefore(ruler, div.nextSibling);
-  div.parentNode.insertBefore(tableRuler, div.nextSibling);
-
-  //create menu buttons
-  var graphButton = createButton(graphMenuButton, MENU_BUTTON);
-  graphButton.addEventListener("click", function () { clickGraph(div) });
-
-  var textButton = createButton(textMenuButton, MENU_BUTTON);
-  textButton.addEventListener("click", function () { clickText(div) });
-
-  var tableButton = createButton(tableMenuButton, MENU_BUTTON);
-  tableButton.addEventListener("click", function () { clickTable(div) });
-
-  div.appendChild(graphButton);
-  div.appendChild(tableButton);
-  div.appendChild(textButton);
-
-  //create hint
-  var hintDiv = initHint(div);
-
-  var graphDiv = document.createElement("div");
-  graphDiv.setAttribute("class", GRAPH_DIV);
-  graphDiv.k = 1;
-
-  var tableDiv = document.createElement("div");
-  tableDiv.setAttribute("class", "tableDiv");
-
-  div.appendChild(hintDiv);
-  div.appendChild(graphDiv);
-  div.appendChild(tableDiv);
-
-  div.graphDiv = graphDiv;
-  div.hintDiv = hintDiv;
-  div.tableDiv = tableDiv;
-
-  //graph context menus
-  createStateContextMenu(div);
-  createEdgeContextMenu(div);
-  createAddStateMenu(div);
-  initRenameError(div);
-
-  initGraph(div);
-  initTableDiv(div);
-
-  hideElem(div.textArea);
-  div.appendChild(div.textArea); //moves the existing textarea into div
-
-  div.graphDiv.lastHeight = div.graphDiv.offsetHeight;
-  div.graphDiv.lastWidth = div.graphDiv.offsetWidth;
-}
-
-
-/**
- * Creates hint elements.
- * @param {div elem} div div element inside which hint will be created
- */
-function initHint(div) {
-  var hintDiv = document.createElement("div");
-  hintDiv.setAttribute("class", "hintDiv");
-  $(hintDiv).prop("title", hintTitle);
-
-  var hintButton = createButton(hintLabel, "hintButton");
-  hintButton.style.marginBottom = "7px";
-  hintButton.addEventListener("click", function () { clickHintButton(div); });
-
-  var hintContentDiv = document.createElement("div");
-  hintContentDiv.setAttribute("class", "hint-content-div");
-  hideElem(hintContentDiv);
-  hintDiv.appendChild(hintButton);
-  hintDiv.appendChild(hintContentDiv);
-  hintDiv.contentDiv = hintContentDiv;
-  hintDiv.hintButton = hintButton;
-
-  setupHints(hintContentDiv);
-  return hintDiv;
-}
-
-/**
- * Create text shown when there are no states = graph is empty.
- * @param {div elem} div div element inside which initial text will be created
- */
-function initStartText(div) {
-  let w = div.graphDiv.offsetWidth;
-  let h = div.graphDiv.offsetHeight;
-
-  div.initText = div.graphDiv.svg
-    .append("text")
-    .classed("initial-text", true)
-    .text(emptyGraphText)
-    .attr("x", (w - visualLength(emptyGraphText)) / 2)
-    .attr("y", (h - visualHeight(emptyGraphText)) / 2)
-    .style("visibility", "hidden")
-    .on("dblclick", function (event) {
-      endEmptyGraphState(div);
-      var p = getPointWithoutTransform(d3.pointer(event), div.graphDiv.svg.svgGroup);
-      initInitialState(div, p.x, p.y);
-    });
-}
 
 /**
  * Creates table div where editor's table will be.
@@ -926,31 +1722,6 @@ function initTableDiv(div) {
   hideElem(alertP);
   div.tableDiv.alertText = alertP;
   div.tableDiv.appendChild(alertP);
-}
-
-/**
- * Creates state set as initial.
- * @param {div elem}  div parent div element
- * @param {number}    x   x coordinate
- * @param {number}    y   y coordinate
- */
-function initInitialState(div, x, y) {
-  var initialData = newStateData(div, null, x, y, true, false);
-  addState(div, initialData);
-  repositionInitArrow(div.graphDiv, initialData, 3.14);
-  div.graphDiv.graphState.initialState = initialData;
-}
-
-/**
- * Creates div where graph's errors will be shown.
- * @param {div elem} div parent div element
- */
-function initRenameError(div) {
-  var p = document.createElement("p");
-  p.setAttribute("class", "rename-error-p");
-  hideElem(p);
-  div.graphDiv.appendChild(p);
-  div.graphDiv.renameError = p;
 }
 
 /**
@@ -985,28 +1756,6 @@ function initSyntaxCheck(id) {
   eval("registerElem(id, " + div.type + "Parser.parse" + ", div.textArea)");
 }
 
-/**
- * Sets editor into "initial state" (when there are no states).
- * @param {div elem} div div to which editor belongs
- */
-function initEmptyGraphState(div) {
-  div.graphDiv.svg.select(".initial-text").style("visibility", "visible");
-  div.graphDiv.svg.rect.classed("empty", true);
-  setGraphState(div, graphStateEnum.initial);
-  disableAllDragging(div.graphDiv.svg);
-}
-
-/**
- * Ends editor's "initial state" (when there are no states).
- * @param {div elem} div div to which editor belongs
- */
-function endEmptyGraphState(div) {
-  div.graphDiv.svg.select(".initial-text").style("visibility", "hidden");
-  div.graphDiv.svg.rect.classed("empty", false);
-  setGraphState(div, graphStateEnum.default);
-  enableAllDragging(div);
-}
-
 document.addEventListener('keyup', windowKeyUp);
 
 /**
@@ -1026,7 +1775,7 @@ function windowKeyUp(event) {
   if (event.key.toLowerCase() == "escape") {
     if (getGraphState(div) == graphStateEnum.creatingEdge 
       || SELECTED_ELEM_GROUP.classed("activeRenaming")) {
-      deselectAll();
+        EditorManager.deselectAll();
     }
   }
   if (event.key.toLowerCase() == "delete") {
@@ -1052,141 +1801,10 @@ function windowKeyUp(event) {
   }
 }
 
-/**
- * Handles clicks on graph's canvas.
- * @param {event} event
- */
-function svgRectClick(event) {
-  event.preventDefault();
-  var cl = event.srcElement.classList;
-  var graphDiv = findParentWithClass(event.srcElement, GRAPH_DIV);
-  var isState = cl.contains(graphConsts.stateElem);
-  var isEdge = cl.contains(graphConsts.edgeElem) || cl.contains("edge-path");
-  var state = getGraphState(graphDiv.parentNode);
-
-  if (state == graphStateEnum.initial) return;
-  if (isEdge && state == graphStateEnum.default) return; //so we can select edge
-  if (isState && (
-    state == graphStateEnum.creatingEdge || 
-    state == graphStateEnum.renamingState || //so we can click into input when renaming state
-    state == graphStateEnum.namingEdge || //when naming new edge and merging edges, we click on the second state, and we dont want to cancel the state's selection
-    state == graphStateEnum.mergingEdge)) {
-    return;
-  }
-  deselectAll();
-}
-
-/**
- * Handler for right clicks on graph's canvas.
- * @param {event} event 
- */
-function svgRectContextmenu(event) {
-  event.preventDefault();
-  var cl = event.srcElement.classList;
-  var graphDiv = findParentWithClass(event.srcElement, GRAPH_DIV);
-  var isState = cl.contains(graphConsts.stateElem);
-  var isEdge = cl.contains(graphConsts.edgeElem);
-  var state = getGraphState(graphDiv);
-  var elem;
-
-  if (state == graphStateEnum.initial) return;
-
-  if (isState) {
-    elem = graphDiv.stateContextMenuDiv;
-    if (state == graphStateEnum.renamingState) return;
-  }
-  else if (isEdge) { //when edge editing is active its ok to right click into input
-    elem = graphDiv.edgeContextMenuDiv;
-    if (state == graphStateEnum.renamingEdge ||
-      state == graphStateEnum.namingEdge ||
-      state == graphStateEnum.mergingEdge) {
-      return;
-    }
-  }
-  else {
-    deselectAll();
-    elem = graphDiv.addStateContextMenu;
-  }
-  setElemPosition(elem, d3.pointer(event)[1], d3.pointer(event)[0]);
-  showElem(elem);
-}
-
-/**
- * Handler for double clicks on graph's canvas.
- * @param {event} event 
- */
-function svgRectDblclick(event) {
-  //if we clicked on other svg elements do nothing
-  if (event.srcElement.tagName == "rect") {
-    var graphDiv = d3.select(this).node().parentGraphDiv;
-    var p = getPointWithoutTransform(d3.pointer(event), graphDiv.svg.svgGroup);
-    if (getGraphState(graphDiv) != graphStateEnum.initial) {
-      addState(graphDiv.parentNode, newStateData(graphDiv.parentNode, null, p.x, p.y, false, false));
-    }
-    else {
-      endEmptyGraphState(graphDiv.parentNode);
-      initInitialState(graphDiv.parentNode, p.x, p.y);
-    }
-  }
-}
-
-
-
-/**
- * Defines graph's behavior when creating transition.
- * @param {event}     event
- * @param {div elem}  graphDiv div containing graph's svg elements
- */
-function initCreatingTransition(event, graphDiv, hide = false) {
-  var temporaryEdgePath = graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePath);
-  if (!hide) temporaryEdgePath.classed("hidden", false);
-
-  var targetState = graphDiv.graphState.mouseOverState;
-  var sourceState = graphDiv.graphState.lastSourceState;
-  var mouseX = d3.pointer(event, graphDiv.svg.svgGroup.node())[0];
-  var mouseY = d3.pointer(event, graphDiv.svg.svgGroup.node())[1];
-
-  //if mouse is hovering over some state
-  if (graphDiv.graphState.mouseOverState) {
-    if (targetState.id == sourceState.id) {
-      toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
-      temporaryEdgePath.attr("d", getNewSelfloopDefinition(sourceState.x, sourceState.y, mouseX, mouseY, temporaryEdgePath.node()));
-    }
-    else { // snap to state
-      temporaryEdgePath.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, targetState.x, targetState.y));
-    }
-    if (!hide) graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", false);
-    repositionMarker(graphDiv.svg.svgGroup.temporaryEdgeG);
-  }
-  //mouse is not hovering above any state
-  else {
-    graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
-    temporaryEdgePath.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, mouseX, mouseY));
-  }
-  disableAllDragging(graphDiv.svg)
-}
-
 
 /* ------------------------------ zoom & dragging ------------------------------ */
 
-function svgZoomStart(div, e) {
-  deselectAll(div.getAttribute("id"));
-  hideAllContextMenus(div);
-}
 
-function svgZoomed(questionDiv, e) {
-  var graphDiv = questionDiv.graphDiv;
-  if (graphDiv && graphDiv.svg) {
-    graphDiv.svg.svgGroup.attr("transform", e.transform); //transform = {k:1, x:0, y:0}
-    graphDiv.k = e.transform.k;
-  }
-}
-
-function svgZoomEnd(div, e) {
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(div);
-  }
-}
 
 function setViewToState(div, x, y) {
   div.graphDiv.svg.transition().duration(1).call(
@@ -1206,101 +1824,6 @@ function convertStringToTransform(k, x, y) {
   y = parseFloat(y);
   if (!y) y = params.height / 2;
   return { k: k, x: x, y: y };
-}
-
-function setTransform(div, k, x, y) {
-  div.graphDiv.svg.call(
-    div.zoom.transform, 
-    d3.zoomIdentity.translate(x, y).scale(k)
-  );
-}
-
-function setViewToMiddle(div, scale = 1) {
-  setTransform(div, scale, params.width / 2, params.height / 2);
-}
-
-function stateDragstart(event, d) {
-  var graphDiv = d3.select(this).node().parentGraphDiv;
-  deselectAll(graphDiv.parentNode.getAttribute("id"));
-  graphDiv.svg.svgGroup.temporaryEdgeG.classed(graphConsts.selected, false);
-  var node = d3.select(this).node();
-
-  node.clickTimer = event.sourceEvent.timeStamp;
-  node.startX = event.x;
-  node.startY = event.y;
-
-  hideAllContextMenus(graphDiv.parentNode);
-
-  if (graphIsInRenamingState(getGraphState(graphDiv))) {
-    endRenaming(graphDiv.parentNode);
-    hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
-  }
-
-  selectState(d3.select(this), graphDiv, d);
-}
-
-function stateDragmove(event, d) {
-  var graphDiv = d3.select(this).node().parentGraphDiv;
-  toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
-
-  //var scale = d3.zoomTransform(graphDiv.svg.svgGroup.node()).k;
-
-  var p = applyTransformationToPoint([event.x, event.y], graphDiv.svg.svgGroup);
-  if (p.x < (params.width - graphConsts.nodeRadius) && p.x >= graphConsts.nodeRadius) {
-    d.x = event.x;
-  }
-  if (p.y < (params.height - graphConsts.nodeRadius) && p.y >= graphConsts.nodeRadius) {
-    d.y = event.y;
-  }
-
-  d3.select(this).attr("transform", "translate(" + d.x + "," + d.y + ")");
-
-  if (d.initial) {
-    repositionInitArrow(graphDiv, d, graphDiv.svg.svgGroup.initArrow.node().angle);
-  }
-
-  updateOutgoingEdges(graphDiv.svg.svgGroup.edgeGroups, d);
-  updateIncommingEdges(graphDiv.svg.svgGroup.edgeGroups, d);
-}
-
-function stateDragend(event, d) {
-  event.stopPropagation;
-
-  var groupNode = d3.select(this).node();
-  var graphDiv = groupNode.parentGraphDiv;
-  var div = graphDiv.parentNode;
-  var graphState = graphDiv.graphState;
-  var distance = distBetween(groupNode.startX, groupNode.startY, event.x, event.y);
-  var diff = event.sourceEvent.timeStamp - groupNode.clickTimer;
-
-  if (graphState.currentState == graphStateEnum.creatingEdge && diff < 400 && distance < 2) {
-    if (graphState.lastSourceState && graphState.mouseOverState) {
-      var edge = getEdgeDataByStates(div, graphState.lastSourceState.id, graphState.mouseOverState.id);
-      graphState.lastTargetState = graphState.mouseOverState;
-
-      hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
-      if (edge != null) { //edge already exists between the two states
-        selectEdge(getEdgeGroupById(div, edge.id), graphDiv);
-        initRenaming(div, graphStateEnum.mergingEdge, edge.symbols);
-      }
-      else { //adding new edge
-        removeSelectionFromState(graphDiv);
-        var data = newEdgeData(div, graphState.lastSourceState.id, graphState.lastTargetState.id, "");
-        var edgeG = addEdge(div, data);
-        selectEdge(edgeG, graphDiv);
-        initRenaming(div, graphStateEnum.namingEdge, "");
-      }
-    }
-  }
-  else if (graphState.currentState != graphStateEnum.creatingEdge && diff > 1 && distance < 3) { //starting to create an edge
-    graphState.lastSourceState = d;
-    graphState.currentState = graphStateEnum.creatingEdge;
-    initCreatingTransition(event, graphDiv, true);
-  }
-
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(graphDiv.parentNode);
-  }
 }
 
 function updateOutgoingEdges(edgeGroups, stateData) {
@@ -1502,164 +2025,7 @@ function repositionEdgeInput(foreignObject, x, y) {
 
 /* ------------------------------ state functions ------------------------------ */
 
-function addState(questionDiv, stateData) {
-  if (stateData.isNew) {
-    stateData = findStatePlacement(questionDiv, stateData);
-  }
-  questionDiv.statesData.push(stateData);
 
-  var newState = questionDiv.graphDiv.svg.svgGroup.stateGroups
-    .data(questionDiv.statesData).enter().append("g");
-
-  newState.node().parentGraphDiv = questionDiv.graphDiv;
-  newState.node().clickTimer = 0;
-  newState.node().clickedOnce = false;
-
-  addStateSvg(newState, questionDiv.graphDiv);
-  updateStateGroups(questionDiv.graphDiv.svg.svgGroup);
-
-  if (!jeProhlizeciStranka_new()) {
-    addStateEvents(newState, questionDiv.graphDiv);
-    generateTextFromData(questionDiv);
-  }
-}
-
-function addStateEvents(state, graphDiv) {
-  state
-    .call(dragState)
-    .on("mouseover", function (_, d) {
-      graphDiv.graphState.mouseOverState = d;
-      d3.select(this).classed(graphConsts.mouseOver, true);
-
-      if (d.id != d3.select(this).select("input").node().value) {
-        showFullname(graphDiv.svg.svgGroup.stateFullnameRect, d);
-      }
-    })
-    .on("mouseout", function () {
-      toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
-      graphDiv.graphState.mouseOverState = null;
-      d3.select(this).classed(graphConsts.mouseOver, false);
-    })
-    .on("contextmenu", function (_, data) {
-      //renaming this => do nothing
-      if (getGraphState(graphDiv) == graphStateEnum.renamingState
-        && graphDiv.graphState.selectedState == data) {
-        return;
-      }
-      if (graphIsInRenamingState(getGraphState(graphDiv))) {
-        endRenaming(graphDiv.parentNode);
-        return;
-      }
-
-      deselectAll(graphDiv.parentNode.getAttribute("id"));
-      hideAllExtras(graphDiv);
-      selectState(d3.select(this), graphDiv, data);
-
-      //TODO separate function
-      if (data.initial) {
-        hideElem(graphDiv.initialButton);
-      }
-      else {
-        showElem(graphDiv.initialButton, true);
-      }
-      if (data.accepting) {
-        graphDiv.acceptingButton.value = setStateAsNonAcceptingText;
-      }
-      else {
-        graphDiv.acceptingButton.value = setStateAsAcceptingText;
-      }
-    });
-}
-
-function addStateSvg(newState, graphDiv) {
-  newState
-    .classed(graphConsts.stateGroup, true)
-    .classed(graphConsts.stateElem, true)
-    .attr("transform", function (d) {
-      return "translate(" + d.x + "," + d.y + ")";
-    });
-
-  newState
-    .append("circle")
-    .classed(graphConsts.stateMainCircle, true)
-    .classed(graphConsts.stateElem, true)
-    .attr("r", graphConsts.nodeRadius);
-
-  var input = newState
-    .append("foreignObject")
-    .classed(graphConsts.stateElem, true)
-    .attr("x", -24)
-    .attr("y", -12)
-    .attr("height", 23)
-    .attr("width", 50)
-    .append("xhtml:input")
-    .classed("stateInput", true)
-    .classed(graphConsts.stateElem, true) //TODO into events
-    .on("dblclick", function(_, d) {
-
-      deselectAll(graphDiv.parentNode.getAttribute("id"));
-      hideAllExtras(graphDiv);
-      selectState(getStateGroupById(graphDiv.parentNode, d.id), graphDiv, d);
-
-      initRenaming(
-        graphDiv.parentNode,
-        graphStateEnum.renamingState,
-        graphDiv.graphState.selectedState.id);
-      
-    })
-    .on("keyup", function (e, d) {
-      if (d3.select(this).node().getAttribute("readonly") == "readonly") return;
-      var validSymbols = checkStateNameValidity(graphDiv.parentNode, d, d3.select(this).node().value);
-      d3.select(this).node().correct = validSymbols.result;
-      if (e.keyCode == 13 && getGraphState(graphDiv) == graphStateEnum.renamingState) {
-        e.preventDefault();
-        tryToRenameState(graphDiv.parentNode, graphDiv.graphState.selectedState, d3.select(this).node().value);
-      }
-    })
-    .on("keydown", function (e, d) {
-      if (d3.select(this).node().getAttribute("readonly") == "readonly") return;
-      if (e.keyCode == 13) {
-        e.preventDefault();
-      }
-    })
-    .on("blur", function (e, d) {
-      getStateGroupById(graphDiv.parentNode, d.id).classed("activeRenaming", false);
-      var input = d3.select(this).node();
-      if (input.getAttribute("readonly") == "readonly") return;
-      if (input.correct == false) {
-        if (getGraphState(graphDiv) == graphStateEnum.renamingState) {
-          setStateInputValue(input, d.id);
-        }
-      }
-      else {
-        renameState(graphDiv.parentNode, d, input.value);
-      }
-      makeReadonly(input);
-      hideElem(graphDiv.renameError);
-      setGraphState(graphDiv.parentNode, graphStateEnum.default);
-      enableAllDragging(graphDiv.parentNode);
-    });
-
-
-  makeReadonly(input.node());
-  input.node().correct = false;
-  if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
-    input.node().correct = true;
-  }
-  input.node().realValue = newState.datum().id;
-  setStateInputValue(input.node(), newState.datum().id);
-}
-
-function selectState(stateGroup, graphDiv, d) {
-  removeSelectionFromEdge(graphDiv);
-
-  if (graphDiv.graphState.selectedState != d) { // another state was selected
-    removeSelectionFromState(graphDiv);
-    graphDiv.graphState.selectedState = d;
-    SELECTED_ELEM_GROUP = stateGroup;
-    stateGroup.classed(graphConsts.selected, true);
-  }
-}
 
 function toggleAcceptingState(questionDiv, stateData, stateG) {
   if (stateData.accepting) {
@@ -1706,70 +2072,7 @@ function setInitStateAsNotInitial(questionDiv) {
   hideInitArrow(questionDiv.graphDiv);
 }
 
-function renameState(questionDiv, stateData, newTitle) {
-  questionDiv.statesData
-    .filter(function (d) { return d.id == stateData.id; })
-    .map(function (d) { d.id = newTitle; });
 
-  setStateInputValue(getStateGroupById(questionDiv, stateData.id).select(".stateInput").node(), newTitle);
-
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(questionDiv);
-  }
-}
-
-function deleteState(div, stateData) {
-  if (stateData.initial == true) {
-    hideInitArrow(div.graphDiv);
-    div.graphDiv.graphState.initialState = null;
-  }
-  deleteStateSvg(div.graphDiv.svg.svgGroup, stateData);
-  deleteStateEdges(div, stateData);
-  deleteStateData(div, stateData);
-  updateStateGroups(div.graphDiv.svg.svgGroup);
-
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(div);
-    if (isEmpty(div)) {
-      resetStateIds(div);
-      initEmptyGraphState(div);
-    }
-  }
-}
-
-function deleteStateData(questionDiv, stateData) {
-  questionDiv.statesData.splice(questionDiv.statesData.indexOf(stateData), 1);
-}
-
-function deleteStateSvg(svgGroup, stateData) {
-  svgGroup
-    .select(".states")
-    .selectAll("g")
-    .filter(function (d) {
-      return d.id == stateData.id;
-    })
-    .remove();
-}
-
-function deleteStateEdges(questionDiv, stateData) {
-  //delete edges' SVG
-  questionDiv.graphDiv.svg.svgGroup.edgeGroups
-    .filter(function (ed) {
-      return ed.source == stateData || ed.target == stateData;
-    })
-    .remove();
-
-  //delete data
-  questionDiv.edgesData
-    .filter(function (ed) {
-      return ed.source == stateData || ed.target == stateData;
-    })
-    .map(function (ed) {
-      questionDiv.edgesData.splice(questionDiv.edgesData.indexOf(ed), 1);
-    });
-
-  updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
-}
 
 function tryToRenameState(questionDiv, stateData, newId, prompt = null) {
   if (prompt != null) {
@@ -1974,18 +2277,6 @@ function edgeInputOnKeyDown(div, e, d, input) {
   }
 }
 
-function selectEdge(edgeGroup, graphDiv) {
-  removeSelectionFromState(graphDiv);
-
-  //edgeGroup.datum() == data binded with element
-  if (graphDiv.graphState.selectedEdge != edgeGroup.datum()) {
-    removeSelectionFromEdge(graphDiv);
-    graphDiv.graphState.selectedEdge = edgeGroup.datum();
-    SELECTED_ELEM_GROUP = edgeGroup;
-    edgeGroup.classed(graphConsts.selected, true);
-  }
-}
-
 function renameEdge(questionDiv, edgeData, symbols) {
   questionDiv.edgesData
     .filter(function (ed) { return ed.id == edgeData.id; })
@@ -2075,33 +2366,6 @@ function createAddStateMenu(questionDiv) {
 
 /* ------------------------------ State CONTEXT MENU + handlers ------------------------------ */
 
-function createStateContextMenu(div) {
-  var stateContextMenuDiv = document.createElement("div");
-  stateContextMenuDiv.setAttribute("class", CONTEXT_MENU);
-
-  //TODO rename variables
-  var a = createContextMenuButton(renameStateText);
-  a.addEventListener("click", function () { renameStateHandler(div); });
-  stateContextMenuDiv.appendChild(a);
-
-  var b = createContextMenuButton(deleteStateText);
-  b.addEventListener("click", function () { deleteStateHandler(div) });
-  stateContextMenuDiv.appendChild(b);
-
-  var d = createContextMenuButton(setStateAsAcceptingText);
-  d.addEventListener("click", function () { toggleAcceptingStateHandler(div); });
-  stateContextMenuDiv.appendChild(d);
-  div.graphDiv.acceptingButton = d;
-
-  var c = createContextMenuButton(setAsInitialText);
-  c.addEventListener("click", function () { setStateAsInitialHandler(div); });
-  stateContextMenuDiv.appendChild(c);
-  div.graphDiv.initialButton = c;
-
-  div.graphDiv.appendChild(stateContextMenuDiv);
-  div.graphDiv.stateContextMenuDiv = stateContextMenuDiv;
-}
-
 function deleteStateHandler(questionDiv) {
   deleteState(questionDiv, questionDiv.graphDiv.graphState.selectedState);
   hideElem(questionDiv.graphDiv.stateContextMenuDiv);
@@ -2189,26 +2453,7 @@ function toggleAcceptingStateHandler(questionDiv) {
 
 /* ------------------------------ Edge CONTEXT MENU + handlers ------------------------------ */
 
-function createEdgeContextMenu(questionDiv) {
-  var edgeContextMenuDiv = document.createElement("div");
-  edgeContextMenuDiv.setAttribute("class", "context-menu");
 
-  var rename = createContextMenuButton(renameEdgeText);
-  rename.addEventListener("click", function () {
-    renameEdgeHandler(questionDiv);
-  })
-  edgeContextMenuDiv.appendChild(rename);
-
-  var del = createContextMenuButton(deleteEdgeText);
-  del.addEventListener("click", function () {
-    deleteEdgeHandler(questionDiv);
-  })
-
-  edgeContextMenuDiv.appendChild(del);
-
-  questionDiv.graphDiv.appendChild(edgeContextMenuDiv);
-  questionDiv.graphDiv.edgeContextMenuDiv = edgeContextMenuDiv;
-}
 
 function deleteEdgeHandler(questionDiv) {
   deleteEdge(questionDiv, questionDiv.graphDiv.graphState.selectedEdge);
@@ -2221,250 +2466,8 @@ function renameEdgeHandler(questionDiv) {
 }
 
 
-function repositionMarker(edgeGroup) {
-  repositionMarkerTo(
-    edgeGroup.select("." + graphConsts.edgePath),
-    edgeGroup.select("." + graphConsts.edgeMarker),
-    graphConsts.nodeRadius + 11); // distance
-}
-
-function repositionMarkerTo(path, markerPath, distance) {
-  var pathLength = path.node().getTotalLength();
-  var pathPoint = path.node().getPointAtLength(pathLength - distance);
-  var pathPoint2 = path.node().getPointAtLength(pathLength - distance - 0.01);
-  markerPath.attr("d", "M" + pathPoint2.x + " " + pathPoint2.y + " L " + pathPoint.x + " " + pathPoint.y);
-}
-
-function repositionInitArrow(graphDiv, stateData, angle) {
-  var arrow = graphDiv.svg.svgGroup.initArrow;
-
-  arrow
-    .classed("hidden", false) //if it was hidden after deleting previous initial state, show it
-    .attr("d",
-      "M " + stateData.x + " " + stateData.y
-      + " C " + cubicControlPoints(stateData.x, stateData.y, angle, 90, 2000)
-      + " " + stateData.x + " " + stateData.y
-    );
-
-  arrow.node().angle = angle;
-}
-
-function hideInitArrow(graphDiv) {
-  d3.select(graphDiv)
-    .select(".init-arrow")
-    .classed("hidden", true);
-}
-
-function removeSelectionFromState(graphDiv) {
-  if (graphDiv.graphState.selectedState == null) {
-    return;
-  }
-  graphDiv.svg.svgGroup.stateGroups
-    .filter(function (stateData) {
-      return stateData.id === graphDiv.graphState.selectedState.id;
-    })
-    .classed(graphConsts.selected, false);
-  graphDiv.graphState.selectedState = null;
-}
-
-function removeSelectionFromEdge(graphDiv) {
-  if (graphDiv.graphState.selectedEdge == null) {
-    return;
-  }
-  graphDiv.svg.svgGroup.edgeGroups
-    .filter(function (edgeData) {
-      return edgeData.id === graphDiv.graphState.selectedEdge.id;
-    })
-    .classed(graphConsts.selected, false);
-  graphDiv.graphState.selectedEdge = null;
-}
-
-
 /* ------------------------------ Updating functions ------------------------------ */
 
-function generateTextFromData(questionDiv) {
-  var result;
-  if (questionDiv.statesData.length === 0 && questionDiv.edgesData.length === 0) {
-    result = "";
-  }
-  else {
-    result = generateQuestionResult(questionDiv);
-  }
-
-  //questionDiv.textArea.value = result;
-  questionDiv.textArea.innerText = result;
-  $(questionDiv.textArea).trigger("change");
-}
-
-function generateQuestionResult(questionDiv) {
-  var result = "";
-  var initState;
-  var acceptingStates = [];
-
-  questionDiv.statesData.forEach(function (state) {
-    if (state.initial) {
-      initState = state;
-      result += "init=" + state.id + " ";
-    }
-    if (state.accepting) {
-      acceptingStates.push(state);
-    }
-  });
-
-  if (questionDiv.type == "DFA") {
-    for (let i = 0; i < questionDiv.edgesData.length; i++) {
-      const edge = questionDiv.edgesData[i];
-      if (!(checkEdgeSymbolsValidity(questionDiv, edge.id, edge.source, edge.symbols).result)) continue;
-
-      edge.symbols.split(",").forEach((symbol) => {
-        if (symbol == epsSymbol) {
-          symbol = "\\e";
-        }
-        result += "(" + edge.source.id + "," + symbol + ")=" + edge.target.id + " ";
-      });
-    }
-  }
-  else if (typeIsNondeterministic(questionDiv.type)) {
-    var transitions = new Map();
-
-    for (let i = 0; i < questionDiv.edgesData.length; i++) {
-      const edge = questionDiv.edgesData[i];
-      if (!(checkEdgeSymbolsValidity(questionDiv, edge.id, edge.source, edge.symbols).result)) continue;
-
-      edge.symbols.split(",").forEach((symbol) => {
-        var s = symbol;
-        if (s == epsSymbol) {
-          s = "\\e";
-        }
-        if (!transitions.has("(" + edge.source.id + "," + s + ")")) {
-          transitions.set("(" + edge.source.id + "," + s + ")", []);
-        }
-        var val = transitions.get("(" + edge.source.id + "," + s + ")");
-        val.push(edge.target.id);
-        transitions.set("(" + edge.source.id + "," + s + ")", val);
-      });
-    }
-
-    for (let [key, value] of transitions.entries()) {
-      result += key + "={" + value + "} ";
-    }
-  }
-
-  result += "final={";
-  if (acceptingStates.length > 0) {
-    for (var i = 0; i < acceptingStates.length; i++) {
-      result += acceptingStates[i].id;
-      if (i < acceptingStates.length - 1) {
-        result += ",";
-      }
-    }
-  }
-  result += "}";
-
-  //position data
-  result += " ##";
-  result += "states";
-  questionDiv.statesData.forEach(function (d) {
-    result += "@" + d.id
-      + ";" + d.x.toFixed(2)
-      + ";" + d.y.toFixed(2)
-      + ";" + (d.initial ? 1 : 0)
-      + ";" + (d.accepting ? 1 : 0);
-
-  });
-  result += "edges";
-  questionDiv.edgesData.forEach(function (d) {
-    result += "@" //+ d.id
-      + d.source.id
-      + ";" + d.target.id
-      + ";" + d.symbols
-      + ";" + d.dx.toFixed(2)
-      + ";" + d.dy.toFixed(2)
-      + ";" + d.angle.toFixed(3);
-  });
-  if (initState) {
-    result += "@initAngle:" + questionDiv.graphDiv.svg.svgGroup.initArrow.node().angle.toFixed(3);
-  }
-  var t = d3.zoomTransform(questionDiv.graphDiv.svg.svgGroup.node());
-  //t = Object { k: 1.148698354997035, x: 500.950304961033, y: 446.2509705696626 }
-  result+= `@t:${t.k.toFixed(3)};${t.x.toFixed(3)};${t.y.toFixed(3)}`;
-  return result;
-}
-
-//TODO better validity checks
-/* 
-  state regex
-  @{stateIdRegex};{x};{y};{initial 1/0};{accepting 1/0}
-  @([a-zA-Z0-9]+);-?\d+;-?\d+;(1|0);(1|0)  
-
-  edge regex
-  @{stateIdRegex};{stateIdRegex};{edgeSymbolsRegex};{dx};{dy};{angle}
-
-  @{stateIdRegex};{stateIdRegex};{edgeSymbolsRegex};-?\d+;-?\d+;-?\d+(\.\d+)?
-  */
-function reconstructGraph(div, answer) {
-  if (!answer || answer == "") return;
-  
-  //parse zoom/pan
-  var tr = answer.substring(answer.length - 21);
-  if (tr.length > 2 && tr.split(";").length == 3) {
-    let s = tr.split(";");
-    if (s && s.length == 3) {
-      let t = convertStringToTransform(s[0], s[1], s[2]);
-      setTransform(div, t.k, t.x, t.y);
-    }
-  }
-
-  var splitted = answer.split("##states");
-  var data = splitted[1].split("edges");
-  var states = data[0];
-  var rest = data[1];
-
-  if (states != null && states != "") {
-    states = states.split("@");
-    for (var d of states) {
-      var stateParts = d.split(';');
-      if (stateParts.length != 5) continue;
-      var id = stateParts[0];
-      var x = parseInt(stateParts[1]);
-      var y = parseInt(stateParts[2]);
-      var initial = stateParts[3] == "1";
-      var accepting = stateParts[4] == "1";
-      var data = newStateData(div, id, x, y, initial, accepting, true);
-      addState(div, data);
-
-      if (initial) {
-        setNewStateAsInitial(div, data);
-      }
-      if (accepting) {
-        addAcceptingCircle(getStateGroupById(div, data.id));
-      }
-    }
-  }
-  if (rest != null && rest != "") {
-    rest = rest.split('@');
-    for (var d of rest) {
-      var edgeData = d.split(';');
-      if (edgeData.length != 6) continue;
-
-      var sourceId = edgeData[0];
-      var targetId = edgeData[1];
-      var symbols = edgeData[2];
-      var dx = parseFloat(edgeData[3]);
-      var dy = parseFloat(edgeData[4]);
-      var angle = parseFloat(edgeData[5]);
-
-      var data = newEdgeData(div, sourceId, targetId, symbols, dx, dy, angle);
-      data = checkEdgePathData(data);
-      if (checkEdgeSymbolsValidity(div, data.id, data.source, symbols).result) {
-        addEdge(div, data, elemOrigin.fromExisting);
-      }
-    }
-  }
-
-  div.textArea.innerText = answer;
-  //TODO parse init arrow angle
-}
 
 /* ------------------------------ HTML elements utils ------------------------------ */
 
@@ -2480,67 +2483,6 @@ function showElem(element, inline = false) {
   }
   else {
     element.style.display = "block";
-  }
-}
-
-function hideAllContextMenus(questionDiv) {
-  hideElem(questionDiv.graphDiv.stateContextMenuDiv);
-  hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
-  hideElem(questionDiv.graphDiv.addStateContextMenu);
-}
-
-function clickGraph(questionDiv) {
-  hideElem(questionDiv.textArea);
-  hideElem(questionDiv.tableDiv);
-
-  showElem(questionDiv.graphDiv);
-  showElem(questionDiv.hintDiv);
-
-  if (!jeProhlizeciStranka_new()) {
-    deselectAll();
-  }
-  questionDiv.lastEdited = "graph"
-}
-
-function clickTable(questionDiv) {
-  if (!jeProhlizeciStranka_new()) {
-    deselectAll();
-  }
-  if (questionDiv.lastEdited == "table") {
-    return;
-  }
-  if (questionDiv.lastEdited == "graph") {
-    updateSvgDimensions(questionDiv);
-  }
-  hideElem(questionDiv.graphDiv);
-  hideElem(questionDiv.hintDiv);
-  hideElem(questionDiv.textArea);
-
-  createTableFromData(questionDiv);
-  showElem(questionDiv.tableDiv);
-  questionDiv.lastEdited = "table";
-}
-
-function clickText(questionDiv) {
-  if (!jeProhlizeciStranka_new()) {
-    deselectAll();
-  }
-  hideElem(questionDiv.graphDiv);
-  hideElem(questionDiv.hintDiv);
-  hideElem(questionDiv.tableDiv);
-
-  showElem(questionDiv.textArea);
-  questionDiv.lastEdited = "text";
-}
-
-function clickHintButton(questionDiv) {
-  var hintContentDiv = questionDiv.hintDiv.contentDiv;
-  if (!jeProhlizeciStranka_new()) deselectAll();
-  if (hintContentDiv.style.display == "none") {
-    showElem(hintContentDiv, true);
-  }
-  else {
-    hideElem(hintContentDiv);
   }
 }
 
@@ -2764,23 +2706,14 @@ function getCroppedTitle(input) {
   return title;
 }
 
-function stateIdIsUnique(statesData, stateData, newId) {
-  for (var i = 0; i < statesData.length; i++) {
-    if (statesData[i].id == newId) {
-      if (stateData == null) {
-        return false;
-      }
-      else if (stateData && statesData[i] != stateData) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 function toggleFullnameVisibitity(rect, visible = false) {
-  rect.style("visibility", function () { return visible == true ? "visible" : "hidden"; });
-  rect.FullnameText.style("visibility", function () { return visible == true ? "visible" : "hidden"; });
+  rect.style("visibility", function () { 
+      return visible == true ? "visible" : "hidden"; 
+    }
+  );
+  rect.FullnameText.style("visibility", function () { 
+    return visible == true ? "visible" : "hidden"; 
+  });
 }
 
 function showFullname(invisibleRect, d) {
@@ -2794,31 +2727,6 @@ function showFullname(invisibleRect, d) {
   invisibleRect
     .attr("x", d.x - w / 2)
     .attr("y", d.y + (graphConsts.nodeRadius + 2));
-}
-
-function checkStateNameValidity(questionDiv, stateData, newId) {
-  var err = "";
-  var valid = false;
-
-  if (!newId) {
-    err = errors.emptyState;
-  }
-  else if (!stateIdIsUnique(questionDiv.statesData, stateData, newId)) {
-    err = stateNameAlreadyExists;
-  }
-  else if (incorrectStateSyntax(newId)) {
-    err = errors.incorrectStateSyntax;
-  }
-  else if (newId.length > 50) {
-    err = errors.stateNameTooLong;
-  }
-  else {
-    valid = true;
-  }
-  return {
-    result: valid,
-    errMessage: err
-  };
 }
 
 /* ------------------------------ Graph - State placement functions ------------------------------ */
@@ -2893,13 +2801,6 @@ function invalidStatePosition(states, state) {
 /* ------------------------------ General Graph related utils ------------------------------ */
 
 
-function setGraphState(div, state) {
-  div.graphDiv.graphState.currentState = state;
-}
-
-function isEmpty(div) {
-  return div.statesData.length === 0 && div.edgesData.length === 0;
-}
 
 function typeIsNondeterministic(type) {
   return type == "NFA" || type == "EFA";
@@ -2916,54 +2817,9 @@ function graphIsInRenamingState(state) {
     state == graphStateEnum.mergingEdge;
 }
 
-function generateStateId(questionDiv) {
-  questionDiv.graphDiv.stateIdCounter++;
-  var id = "s" + questionDiv.graphDiv.stateIdCounter;
-
-  while (!stateIdIsUnique(questionDiv.statesData, null, id)) {
-    questionDiv.graphDiv.stateIdCounter++;
-    id = "s" + questionDiv.graphDiv.stateIdCounter;
-  }
-  return id;
-}
-
-function generateEdgeId(questionDiv) {
-  return ++questionDiv.graphDiv.edgeIdCounter;
-}
 
 function resetStateIds(questionDiv) {
   questionDiv.graphDiv.stateIdCounter = 0;
-}
-
-function newStateData(questionDiv, id, x, y, initial, accepting, isNew = false) {
-  return {
-    id: id != null ? id : generateStateId(questionDiv),
-    x: x,
-    y: y,
-    initial: initial,
-    accepting: accepting,
-    isNew: isNew
-  }
-}
-
-function newEdgeData(questionDiv, sourceId, targetId, symbols, dx = 0, dy = 0, angle = 0) {
-  return {
-    id: generateEdgeId(questionDiv),
-    source: getStateDataById(questionDiv, sourceId),
-    target: getStateDataById(questionDiv, targetId),
-    symbols: symbols,
-    dx: dx,
-    dy: dy,
-    angle: angle
-  }
-}
-
-function updateEdgeGroups(svgGroup) {
-  svgGroup.edgeGroups = svgGroup.select(".edges").selectAll("g");
-}
-
-function updateStateGroups(svgGroup) {
-  svgGroup.stateGroups = svgGroup.select(".states").selectAll("g");
 }
 
 function updateSvgDimensions(questionDiv) {
@@ -2971,101 +2827,7 @@ function updateSvgDimensions(questionDiv) {
   questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
 }
 
-function disableAllDragging(svg) {
-  var dragState2 = d3.drag()
-    .on("start", stateDragstart)
-    .on("end", stateDragend);
-  svg.svgGroup.selectAll("." + graphConsts.stateGroup).call(dragState2);
-  svg.svgGroup.selectAll("." + graphConsts.edgeGroup).on(".drag", null);
-  svg.on(".zoom", null);
-}
 
-function enableAllDragging(div) {
-  if (!jeProhlizeciStranka_new()) {
-    div.graphDiv.svg.svgGroup.selectAll("." + graphConsts.stateGroup).call(dragState);
-    div.graphDiv.svg.svgGroup.selectAll("." + graphConsts.edgeGroup).call(dragEdge);
-    div.graphDiv.svg.call(div.zoom).on("dblclick.zoom", null);
-  }
-}
-
-function deselectAll(exceptionId = null) {
-  var questions = document.querySelectorAll("." + QUESTION_DIV);
-  d3.selectAll(questions)
-    .selectAll("." + GRAPH_DIV)
-    .each(function () {
-      var graphDiv = d3.select(this).node();
-      if (graphDiv.parentNode.getAttribute("id") != exceptionId) {
-
-        //if current selected element is not in this graphDiv
-        if (SELECTED_ELEM_GROUP && SELECTED_ELEM_GROUP.node().parentGraphDiv == graphDiv) {
-          SELECTED_ELEM_GROUP.select("input").node().blur();
-        }
-
-        //if graph is in initial (empty) state we don't want to change it
-        if (getGraphState(graphDiv) != graphStateEnum.initial) {
-          setGraphState(graphDiv.parentNode, graphStateEnum.default);
-        }
-        graphDiv.graphState.lastTargetState = null;
-
-        removeSelectionFromState(graphDiv);
-        removeSelectionFromEdge(graphDiv);
-        hideAllContextMenus(graphDiv.parentNode);
-        hideElem(graphDiv.renameError);
-        hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
-
-        enableAllDragging(graphDiv.parentNode);
-      }
-    });
-}
-
-function hideAllExtras(graphDiv) {
-  hideAllContextMenus(graphDiv.parentNode);
-  hideElem(graphDiv.renameError);
-  hideEdge(graphDiv.svg.svgGroup.temporaryEdgeG);
-}
-
-
-/* ------------------------------ Graph - getters ------------------------------ */
-
-function getStateDataById(questionDiv, id) {
-  return getElemById(questionDiv.statesData, id);
-}
-
-function getEdgeDataById(questionDiv, id) {
-  return getElemById(questionDiv.edgesData, id);
-}
-
-function getElemById(array, id) {
-  for (let i = 0; i < array.length; i++) {
-    const data = array[i];
-    if (data.id == id) return data;
-  }
-  return null;
-}
-
-function getStateGroupById(questionDiv, id) {
-  var res = null;
-  questionDiv.graphDiv.svg.svgGroup.stateGroups
-    .each(function (d) { if (d.id == id) res = d3.select(this); });
-  return res;
-}
-
-function getEdgeDataByStates(questionDiv, sourceTitle, targetTitle) {
-  for (let i = 0; i < questionDiv.edgesData.length; i++) {
-    const d = questionDiv.edgesData[i];
-    if (d.source.id == sourceTitle && d.target.id == targetTitle) {
-      return d;
-    }
-  }
-  return null;
-}
-
-function getEdgeGroupById(questionDiv, id) {
-  return questionDiv.graphDiv.svg.svgGroup.edgeGroups
-    .filter(function (d) {
-      return d.id == id;
-    });
-}
 
 
 /* ------------------------------ Math utils ------------------------------ */
