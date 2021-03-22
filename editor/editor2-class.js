@@ -1,8 +1,4 @@
-/* ------------------------------ Initialization ------------------------------ */
-
-//setupLanguage();
-
-var editor_init, upload, idCount = 0;
+var editor_init, upload, editorIdCount = 0;
 const MENU_BUTTON = "menu-button";
 const CONTEXT_MENU = "context-menu";
 const GRAPH_DIV = "graphDiv";
@@ -40,7 +36,45 @@ const tableClasses = {
   controlButton: "control-button"
 }
 
+const STATE_INDEX = 2;
+var MIN_TABLE_CELL_WIDTH = "50px";
+var MIN_STATE_WIDTH = "50px";
+
+/**
+ * Width and height of editor canvas.
+ */
+const params = {
+  width: 900,
+  height: 700
+};
+
+/**
+ * States of editor in graph mode.
+ */
+ const graphStateEnum = Object.freeze({
+  "default": 0,
+  "creatingEdge": 1,
+  "namingEdge": 2,
+  "renamingEdge": 3,
+  "renamingState": 4,
+  "mergingEdge": 5,
+  "initial": 6 //when editor contains no states
+});
+
+/**
+ * Enum to specify state and edge data origin.
+ */
+const elemOrigin = Object.freeze({
+  "default": 0, //from graph
+  "fromTable": 1,
+  "fromExisting": 2 //when reverse creating editor from existing data (IS in browse mode)
+});
+
 var SELECTED_ELEM_GROUP, maxZoomout = 0.5;
+
+/* ------------------------------ Initialization ------------------------------ */
+
+//setupLanguage();
 
 /*
 najprv sa iba generuju ids a napla sa otazky{} - robi sa editor_init(type)
@@ -65,100 +99,54 @@ if (typeof editor_init !== 'function') {
     window.scrollTo(0, 0);
   }
   editor_init = function (type) {
-    var id = generateId(type);
+    var id = generateEditorId(type);
     //if element with id already exists, generate a new id
+    console.log(id);
     while (document.getElementById(id) != null) {
-      id = generateId(type);
+      id = generateEditorId(type);
     }
     otazky[document.getElementsByTagName('textarea').length] = id;
   };
   upload = function () { editor_init(null); };
 }
 
-function appendChildren(parentElement, childrenArray) {
-  childrenArray.forEach(e => {
-    parentElement.appendChild(e);
-  });
-}
 
-var EditorManager =  {
-  editors   : new Map(),
 
-  addEditor : function (editor) {
+var EditorManager = {
+  editors: new Map(),
+
+  addEditor: function (editor) {
     this.editors.set(editor.id, editor);
   },
 
-  getEditor : function (id) {
-    return this.editors.get(id); 
+  getEditor: function (id) {
+    return this.editors.get(id);
   },
-   
-  deselectAll : function(exceptionId = null) {
+
+  deselectAll: function (exceptionId = null) {
     for (let [id, editor] of this.editors) {
       if (id !== exceptionId && !typeIsRegOrGram(editor.type)) {
         //TODO
         if (SELECTED_ELEM_GROUP && SELECTED_ELEM_GROUP.node().parentGraphDiv == editor.Graph.graphDiv) {
           SELECTED_ELEM_GROUP.select("input").node().blur();
         }
-  
+
         //if graph is in initial (empty) state we don't want to change it
         if (editor.Graph.graphState.currentState != graphStateEnum.initial) {
           editor.Graph.setCurrentState(graphStateEnum.default);
-          
+
         }
-        console.log(editor.Graph.graphState);
         editor.Graph.graphState.lastTargetState = null;
-  
+
         editor.Graph.removeSelectionFromState();
         editor.Graph.removeSelectionFromEdge();
         editor.Graph.hideAllContextMenus();
         hideElem(editor.Graph.renameError);
         hideEdge(editor.Graph.temporaryEdgeG);
-  
+
         editor.Graph.enableAllDragging();
       }
     }
-
-
-
-
-  }
-}
-
-class Editor {
-  constructor(id, type, textArea) {
-    this.id = id;
-    this.type = type;
-    this.div = document.getElementById(id);
-    this.TextArea = textArea;
-    EditorManager.addEditor(this);
-  }
-
-  initialise() {}
-
-  addSyntaxCheck() {
-    var errDiv = document.createElement("div");
-    errDiv.setAttribute("id", this.id + "-error");
-    errDiv.setAttribute("class", "alert alert-info");
-    errDiv.setAttribute("title", syntaxDivTitle);
-  
-    var errIcon = document.createElement("div");
-    errIcon.setAttribute("id", this.id + "-i");
-  
-    var errText = document.createElement("div");
-    errText.setAttribute("id", this.id + "-error-text");
-    errText.innerHTML = syntaxDefaultText;
-  
-    errDiv.appendChild(errIcon);
-    errDiv.appendChild(errText);
-  
-    this.div.appendChild(errDiv);
-    this.div.errDiv = errDiv;
-  
-    if (jeProhlizeciStranka_new() || !typeIsRegOrGram(this.type)) {
-      hideElem(errDiv);
-    }
-  
-    eval("registerElem(this.id, " + this.type + "Parser.parse" + ", this.TextArea)");
   }
 }
 
@@ -177,47 +165,57 @@ class EditorElement {
     this.getEditor().generateTextFromData();
   }
 
-  stateIdIsUnique(stateData, newId) {
-    for (var i = 0, j = this.statesData.length; i < j; i++) {
-      if (this.statesData[i].id == newId) {
-        if (stateData == null) {
-          return false;
-        }
-        else if (stateData && this.statesData[i] != stateData) {
-          return false;
-        }
-      }
-    }
-    return true;
+  getStateDataById(id) {
+    return this.getElemById(this.statesData, id);
   }
 
-  checkStateNameValidity(stateData, newId) {
-    var err = "";
-    var valid = false;
-  
-    if (!newId) {
-      err = errors.emptyState;
+  getEdgeDataById(id) {
+    return this.getElemById(this.edgesData, id);
+  }
+
+  getEdgeDataByStates(sourceTitle, targetTitle) {
+    for (let i = 0, j = this.edgesData.length; i < j; i++) {
+      const d = this.edgesData[i];
+      if (d.source.id == sourceTitle && d.target.id == targetTitle) {
+        return d;
+      }
     }
-    else if (!this.stateIdIsUnique(stateData, newId)) {
-      err = stateNameAlreadyExists;
+    return null;
+  }
+
+  getElemById(array, id) {
+    for (let i = 0; i < array.length; i++) {
+      const data = array[i];
+      if (data.id == id) return data;
     }
-    else if (incorrectStateSyntax(newId)) {
-      err = errors.incorrectStateSyntax;
-    }
-    else if (newId.length > 50) {
-      err = errors.stateNameTooLong;
-    }
-    else {
-      valid = true;
-    }
+    return null;
+  }
+
+  getNewStateData(id, x, y, initial, accepting, isNew = false) {
     return {
-      result: valid,
-      errMessage: err
-    };
+      id: id != null ? id : this.getEditor().generateStateId(),
+      x: x,
+      y: y,
+      initial: initial,
+      accepting: accepting,
+      isNew: isNew
+    }
+  }
+
+  getNewEdgeData(sourceId, targetId, symbols, dx = 0, dy = 0, angle = 0) {
+    return {
+      id: this.getEditor().generateEdgeId(),
+      source: this.getStateDataById(sourceId),
+      target: this.getStateDataById(targetId),
+      symbols: symbols,
+      dx: dx,
+      dy: dy,
+      angle: angle
+    }
   }
 }
 
-class Graph extends EditorElement{
+class Graph extends EditorElement {
   constructor(editorId, statesData, edgesData) {
     super(editorId, statesData, edgesData);
     this.stateGroups = [];
@@ -239,15 +237,10 @@ class Graph extends EditorElement{
       currentState: graphStateEnum.default
     };
 
-    this.params = {
-      width: 900,
-      height: 700
-    };
-
     this.zoom = d3.zoom()
       .scaleExtent([0.4, 3])
-      .translateExtent([[-(this.params.width*2), -(this.params.height*2)], 
-        [this.params.width*2, this.params.height*2]])
+      .translateExtent([[-(params.width * 2), -(params.height * 2)],
+      [params.width * 2, params.height * 2]])
       .on("start", (e) => this.svgZoomStart(e))
       .on("zoom", (e) => this.svgZoomed(e))
       .on("end", (e) => this.svgZoomEnd(e));
@@ -257,42 +250,42 @@ class Graph extends EditorElement{
       .on("start", this.edgeDragstart)
       .on("drag", this.edgeDragmove)
       .on("end", this.edgeDragend);
-    
+
     this.dragState = d3.drag()
       .on("start", this.stateDragstart)
       .on("drag", this.stateDragmove)
       .on("end", this.stateDragend);
-  
-/*     this.dragInitArrow = d3.drag().on("drag", function (event) {
-      var arrow = d3.select(this).node();
-      var s = arrow.questionDiv.graphDiv.graphState.initialState;
-      arrow.angle = calculateAngle(s.x, s.y, event.x, event.y);
-      d3.select(this).attr("d", "M " + s.x + " " + s.y
-        + " C " + cubicControlPoints(s.x, s.y, arrow.angle, 90, 2000)
-        + " " + s.x + " " + s.y);
-    }); */
-  
+
+    /*     this.dragInitArrow = d3.drag().on("drag", function (event) {
+          var arrow = d3.select(this).node();
+          var s = arrow.questionDiv.graphDiv.graphState.initialState;
+          arrow.angle = calculateAngle(s.x, s.y, event.x, event.y);
+          d3.select(this).attr("d", "M " + s.x + " " + s.y
+            + " C " + cubicControlPoints(s.x, s.y, arrow.angle, 90, 2000)
+            + " " + s.x + " " + s.y);
+        }); */
+
     var svg = d3
       .select(this.graphDiv)
       .append("svg")
       .classed("main-svg", true)
       .attr("width", "100%")
       .attr("height", "100%");
-  
+
     this.svg = svg;
-  
+
     var rect = svg
       .append("rect")
       .attr("class", "svg-rect")
       .attr("width", "100%")
       .attr("height", "100%");
-  
+
     //rect.node().parentGraphDiv = div.graphDiv;
     rect.node().clickTimer = 0;
     this.svg.rect = rect;
-  
+
     var defs = svg.append("svg:defs");
-  
+
     //arrow marker for edges that is VISIBLE
     defs
       .append("svg:marker")
@@ -307,7 +300,7 @@ class Graph extends EditorElement{
       .append("svg:path")
       .attr("d", "M 0 0 L 10 5 L 0 10 z")
       .attr("fill", "black");
-  
+
     defs
       .append("svg:marker")
       .attr("id", "temporary-arrow-end" + this.editorId)
@@ -319,7 +312,7 @@ class Graph extends EditorElement{
       .attr("orient", "auto")
       .append("svg:path")
       .attr("d", "M0,-5L10,0L0,5");
-  
+
     //arrow marker for init arrow
     defs
       .append("svg:marker")
@@ -333,43 +326,43 @@ class Graph extends EditorElement{
       .append("svg:path")
       .attr("d", "M 0 0 L 10 5 L 0 10 z")
       .attr("fill", "black");
-  
+
     var svgGroup = svg.append("svg:g").classed("graph-svg-group", true);
-  
+
     svg.call(this.zoom).on("dblclick.zoom", null);
     svgGroup.attr("transform", "translate(0,0) scale(1)");
-  
+
     this.svgGroup = svgGroup;
     svg.svgGroup = svgGroup;
-  
+
     //"temporary" path when creating edges
     var temporaryEdgeG = svgGroup.append("g").classed("temp-edge-group", true);
     svgGroup.temporaryEdgeG = temporaryEdgeG;
     this.temporaryEdgeG = temporaryEdgeG;
-  
+
     temporaryEdgeG
       .append("svg:path")
       .attr("class", graphConsts.edgePath + " dragline hidden")
       .attr("d", "M0,0L0,0")
       .style("marker-end", "url(#temporary-arrow-end" + this.editorId + ")");
-  
+
     temporaryEdgeG
       .append("svg:path")
       .classed(graphConsts.edgeMarker, true)
       .attr("marker-end", "url(#end-arrow" + this.editorId + ")");
-  
+
     //init-arrow
     var initArrow = svgGroup
       .append("svg:path")
       .attr("class", graphConsts.edgePath + " init-arrow")
       .style("marker-end", "url(#init-arrow-end" + this.editorId + ")");
-  
+
     svgGroup.initArrow = initArrow;
     initArrow.node().angle = 3.14;
-  
+
     svgGroup.append("svg:g").classed("edges", true);
     svgGroup.append("svg:g").classed("states", true);
-  
+
     svgGroup.stateGroups = svgGroup
       .select(".states")
       .selectAll("g")
@@ -377,7 +370,7 @@ class Graph extends EditorElement{
       .enter()
       .append("g")
       .classed(graphConsts.stateGroup, true);
-  
+
     this.stateGroups = svgGroup.stateGroups;
 
     svgGroup.edgeGroups = svgGroup
@@ -389,7 +382,7 @@ class Graph extends EditorElement{
       .classed(graphConsts.edgeGroup, true);
 
     this.edgeGroups = svgGroup.edgeGroups;
-  
+
     //on hover rect + full state text
     svgGroup.stateFullnameRect = svgGroup
       .append("rect")
@@ -397,15 +390,12 @@ class Graph extends EditorElement{
       .attr("height", 25)
       .classed("state-fullname-rect", true)
       .style("visibility", "hidden");
-  
+
     svgGroup.stateFullnameRect.FullnameText = svgGroup
       .append("text")
       .classed("state-fullname-text", true)
       .style("visibility", "hidden");
-  
-    this.stateIdCounter = 0;
-    this.edgeIdCounter = 0;
-  
+
     this.createStateContextMenu();
     this.createEdgeContextMenu();
     this.createAddStateMenu();
@@ -414,16 +404,16 @@ class Graph extends EditorElement{
 
     if (!jeProhlizeciStranka_new()) {
       this.zoom.scaleExtent([maxZoomout, 3])
-        .translateExtent([[-(this.params.width), -(this.params.height)], [this.params.width, this.params.height]]);
-  
+        .translateExtent([[-(params.width), -(params.height)], [params.width, params.height]]);
+
       //add event listeners if page is not in browse mode
       svg.on("mousemove", (e) => this.svgMousemove(e))
         .on("click", (e) => this.svgRectClick(e))
         .on("contextmenu", (e) => this.svgRectContextmenu(e));
-  
+
       rect.on("contextmenu", (e) => this.svgRectContextmenu(e))
         .on("dblclick", (e) => this.svgRectDblclick(e));
-  
+
       //initArrow.call(dragInitArrow);
     }
   }
@@ -431,7 +421,7 @@ class Graph extends EditorElement{
   //TODO
   reconstruct(answer) {
     if (!answer || answer == "") return;
-    
+
     //parse zoom/pan
     var tr = answer.substring(answer.length - 21);
     if (tr.length > 2 && tr.split(";").length == 3) {
@@ -441,12 +431,12 @@ class Graph extends EditorElement{
         this.setTransform(t.k, t.x, t.y);
       }
     }
-  
+
     var splitted = answer.split("##states");
     var data = splitted[1].split("edges");
     var states = data[0];
     var rest = data[1];
-  
+
     if (states != null && states != "") {
       states = states.split("@");
       for (var d of states) {
@@ -459,7 +449,7 @@ class Graph extends EditorElement{
         var accepting = stateParts[4] == "1";
         var data = newStateData(div, id, x, y, initial, accepting, true);
         addState(div, data);
-  
+
         if (initial) {
           setNewStateAsInitial(div, data);
         }
@@ -473,22 +463,22 @@ class Graph extends EditorElement{
       for (var d of rest) {
         var edgeData = d.split(';');
         if (edgeData.length != 6) continue;
-  
+
         var sourceId = edgeData[0];
         var targetId = edgeData[1];
         var symbols = edgeData[2];
         var dx = parseFloat(edgeData[3]);
         var dy = parseFloat(edgeData[4]);
         var angle = parseFloat(edgeData[5]);
-  
+
         var data = newEdgeData(div, sourceId, targetId, symbols, dx, dy, angle);
         data = checkEdgePathData(data);
-        if (checkEdgeSymbolsValidity(div, data.id, data.source, symbols).result) {
-          addEdge(div, data, elemOrigin.fromExisting);
+        if (this.getEditor().checkEdgeSymbolsValidity(data.id, data.source, symbols).result) {
+          this.createEdge(data, elemOrigin.fromExisting);
         }
       }
     }
-  
+
     div.textArea.innerText = answer;
     //TODO parse init arrow angle
   }
@@ -499,7 +489,7 @@ class Graph extends EditorElement{
   initStartText() {
     let w = this.graphDiv.offsetWidth;
     let h = this.graphDiv.offsetHeight;
-  
+
     this.initText = this.svg
       .append("text")
       .classed("initial-text", true)
@@ -507,80 +497,103 @@ class Graph extends EditorElement{
       .attr("x", (w - visualLength(emptyGraphText)) / 2)
       .attr("y", (h - visualHeight(emptyGraphText)) / 2)
       .style("visibility", "hidden")
-      .on("dblclick",  (e) => {
+      .on("dblclick", (e) => {
         this.endEmptyState();
         var p = getPointWithoutTransform(d3.pointer(e), this.svgGroup);
-        //initInitialState(div, p.x, p.y);
+        this.initInitialState(p.x, p.y);
       });
 
   }
-  
+
   createStateContextMenu() {
     var menu = document.createElement("div");
     menu.setAttribute("class", CONTEXT_MENU);
-  
-    //TODO !!
-    var a = createContextMenuButton(renameStateText);
-    a.addEventListener("click", function () { renameStateHandler(); });
-    menu.appendChild(a);
-  
-    var b = createContextMenuButton(deleteStateText);
-    b.addEventListener("click", function () { deleteStateHandler() });
-    menu.appendChild(b);
-  
-    var d = createContextMenuButton(setStateAsAcceptingText);
-    d.addEventListener("click", function () { toggleAcceptingStateHandler(); });
-    menu.appendChild(d);
-    
-    var c = createContextMenuButton(setAsInitialText);
-    c.addEventListener("click", function () { setStateAsInitialHandler(); });
-    menu.appendChild(c);
 
-    this.acceptingButton = d;
-    this.initialButton = c;
-  
+    var a = createContextMenuButton(renameStateText);
+    a.addEventListener("click", () => this.renameStateHandler());
+
+    var b = createContextMenuButton(deleteStateText);
+    b.addEventListener("click", () => this.deleteStateHandler());
+
+    var c = createContextMenuButton(setStateAsAcceptingText);
+    c.addEventListener("click", () => this.toggleAcceptingStateHandler());
+
+    var d = createContextMenuButton(setAsInitialText);
+    d.addEventListener("click", () => this.setStateAsInitialHandler());
+
+    appendChildren(menu, [a, b, c, d]);
+
+    this.acceptingButton = c;
+    this.initialButton = d;
+
     this.graphDiv.appendChild(menu);
     this.stateContextMenuDiv = menu;
   }
 
   createEdgeContextMenu() {
-    var menu = document.createElement("div");
+    let menu = document.createElement("div");
     menu.setAttribute("class", "context-menu");
-  
-    var rename = createContextMenuButton(renameEdgeText);
-    rename.addEventListener("click", function () {
-      //renameEdgeHandler(questionDiv);
-    })
-    menu.appendChild(rename);
-  
-    var del = createContextMenuButton(deleteEdgeText);
-    del.addEventListener("click", function () {
-      //deleteEdgeHandler(questionDiv);
-    })
-  
-    menu.appendChild(del);
-  
+
+    let renameButton = createContextMenuButton(renameEdgeText);
+    renameButton.addEventListener("click", () => this.renameEdgeHandler());
+
+    let deleteButton = createContextMenuButton(deleteEdgeText);
+    deleteButton.addEventListener("click", () => this.deleteEdgeHandler());
+
+    appendChildren(menu, [renameButton, deleteButton]);
+
     this.graphDiv.appendChild(menu);
     this.edgeContextMenuDiv = menu;
   }
 
-  createAddStateMenu() {
-    var div = document.createElement("div");
-    div.setAttribute("class", CONTEXT_MENU);
-  
-    var button = createContextMenuButton(addStateText);
-    button.addEventListener("click", function (e) {
-/*       var y = e.clientY - questionDiv.graphDiv.svg.node().getBoundingClientRect().y;
-      var x = e.clientX - questionDiv.graphDiv.svg.node().getBoundingClientRect().x;
-      var coords = getPointWithoutTransform([x, y], questionDiv.graphDiv.svg.svgGroup);
-  
-      addState(questionDiv, newStateData(questionDiv, null, coords.x, coords.y, false, false));
-      hideElem(div); */
-    });
-    div.appendChild(button);
-    this.graphDiv.appendChild(div);
-    this.addStateContextMenu = div;
+  deleteEdgeHandler() {
+    this.deleteEdge(this.graphState.selectedEdge);
+    hideElem(this.edgeContextMenuDiv);
+  }
 
+  renameEdgeHandler() {
+    hideElem(this.edgeContextMenuDiv);
+    this.initRenaming(graphStateEnum.renamingEdge, this.graphState.selectedEdge.symbols);
+  }
+
+  createAddStateMenu() {
+    var menu = document.createElement("div");
+    menu.setAttribute("class", CONTEXT_MENU);
+
+    var button = createContextMenuButton(addStateText);
+    button.addEventListener("click", (e) => {
+      var y = e.clientY - this.svg.node().getBoundingClientRect().y;
+      var x = e.clientX - this.svg.node().getBoundingClientRect().x;
+      var coords = getPointWithoutTransform([x, y], this.svgGroup);
+
+      this.createState(this.getNewStateData(null, coords.x, coords.y, false, false));
+      hideElem(menu);
+    });
+    menu.appendChild(button);
+    this.graphDiv.appendChild(menu);
+    this.addStateContextMenu = menu;
+
+  }
+
+  renameStateHandler() {
+    hideElem(this.stateContextMenuDiv);
+    this.initRenaming(graphStateEnum.renamingState, this.graphState.selectedState.id);
+  }
+
+  deleteStateHandler() {
+    this.deleteState(this.graphState.selectedState);
+    hideElem(this.stateContextMenuDiv);
+  }
+
+  setStateAsInitialHandler() {
+    this.setNewStateAsInitial(this.graphState.selectedState);
+    hideElem(this.stateContextMenuDiv);
+  }
+
+  toggleAcceptingStateHandler() {
+    var d = this.graphState.selectedState;
+    this.toggleAcceptingState(d, this.getStateGroupById(d.id));
+    hideElem(this.stateContextMenuDiv);
   }
 
   initRenameError() {
@@ -598,12 +611,12 @@ class Graph extends EditorElement{
     var cl = e.srcElement.classList;
     var isState = cl.contains(graphConsts.stateElem);
     var isEdge = cl.contains(graphConsts.edgeElem) || cl.contains("edge-path");
-    var state = this.getGraphState();
-  
+    var state = this.getCurrentState();
+
     if (state == graphStateEnum.initial) return;
     if (isEdge && state == graphStateEnum.default) return; //so we can select edge
     if (isState && (
-      state == graphStateEnum.creatingEdge || 
+      state == graphStateEnum.creatingEdge ||
       state == graphStateEnum.renamingState || //so we can click into input when renaming state
       state == graphStateEnum.namingEdge || //when naming new edge and merging edges, we click on the second state, and we dont want to cancel the state's selection
       state == graphStateEnum.mergingEdge)) {
@@ -630,11 +643,11 @@ class Graph extends EditorElement{
     var cl = event.srcElement.classList;
     var isState = cl.contains(graphConsts.stateElem);
     var isEdge = cl.contains(graphConsts.edgeElem);
-    var state = this.getGraphState();
+    var state = this.getCurrentState();
     var elem;
-  
+
     if (state == graphStateEnum.initial) return;
-  
+
     if (isState) {
       elem = this.stateContextMenuDiv;
       if (state == graphStateEnum.renamingState) return;
@@ -664,12 +677,12 @@ class Graph extends EditorElement{
   initCreatingTransition(e, hide = false) {
     var path = this.temporaryEdgeG.select("." + graphConsts.edgePath);
     if (!hide) path.classed("hidden", false);
-  
+
     var targetState = this.graphState.mouseOverState;
     var sourceState = this.graphState.lastSourceState;
     var mouseX = d3.pointer(e, this.svgGroup.node())[0];
     var mouseY = d3.pointer(e, this.svgGroup.node())[1];
-  
+
     //if mouse is hovering over some state
     if (this.graphState.mouseOverState) {
       if (targetState.id == sourceState.id) {
@@ -691,7 +704,7 @@ class Graph extends EditorElement{
   }
 
   /* ------------------------------ pan & zoom ------------------------------ */
-  
+
   svgZoomStart() {
     EditorManager.deselectAll(this.editorId);
     this.hideAllContextMenus();
@@ -707,13 +720,13 @@ class Graph extends EditorElement{
     }
   }
 
-  setViewToMiddle(){
-    this.setTransform(1, this.params.width / 2, this.params.height / 2);
+  setViewToMiddle() {
+    this.setTransform(1, params.width / 2, params.height / 2);
   }
 
   setTransform(k, x, y) {
     this.svg.call(
-      this.zoom.transform, 
+      this.zoom.transform,
       d3.zoomIdentity.translate(x, y).scale(k)
     );
   }
@@ -740,7 +753,7 @@ class Graph extends EditorElement{
       .classed("hidden", true);
   }
 
-  getGraphState() {
+  getCurrentState() {
     return this.graphState.currentState;
   }
 
@@ -778,9 +791,73 @@ class Graph extends EditorElement{
     this.svg.on(".zoom", null);
   }
 
-  initRenaming(state, symbols) {
+  //TODO
+  initRenaming(state, stateId, errMsg = null) {
+    var input, elemG, isState;
+    if (state == graphStateEnum.renamingState) {
+      elemG = this.getStateGroupById(stateId);
+      elemG.select("input").node().value = elemG.datum().id;
+      isState = true;
+    }
+    else {
+      elemG = this.getEdgeGroupById(this.graphState.selectedEdge.id);
+    }
 
+    elemG.node().classList.add("activeRenaming");
+    input = elemG.select("input").node();
+    removeReadonly(input);
+
+    input.focus();
+
+    input.selectionStart = input.selectionEnd = 10000; //set caret position to end
+    this.disableAllDragging();
+    this.svgGroup.selectAll("." + graphConsts.stateGroup).on(".drag", null);
+
+    this.setCurrentState(state);
+    if (isState) this.selectState(elemG);
+
+    this.setRenameErrorPosition(state, elemG);
+    errMsg != null ? this.showRenameError(errMsg) : hideElem(this.renameError);
   }
+
+  setRenameErrorPosition(state, activeElemG) {
+    var x, y;
+    if (state == graphStateEnum.renamingState) {
+      var p = applyTransformationToPoint([activeElemG.datum().x, activeElemG.datum().y + 13], activeElemG);
+      x = p.x;
+      y = p.y;
+    }
+    else {
+      var input = activeElemG.select("input");
+      var inputWidth = parseInt((input.node().style.width).substring(0, input.node().style.width.length - 2));
+
+      var t = getEdgeInputPosition(
+        activeElemG.select("." + graphConsts.edgePath).attr("d"),
+        activeElemG.datum().source == activeElemG.datum().target);
+
+      var p = applyTransformationToPoint([t.tx - inputWidth / 2, t.ty + 16], activeElemG);
+      x = p.x;
+      y = p.y;
+    }
+    setElemPosition(this.renameError, y, x);
+  }
+
+  showRenameError(msg) {
+    var p = this.renameError;
+    p.innerHTML = msg;
+    showElem(p);
+  }
+
+  //TODO
+  endRenaming() {
+    if (SELECTED_ELEM_GROUP) {
+      SELECTED_ELEM_GROUP.select("input").node().blur();
+    }
+    this.setCurrentState(graphStateEnum.default);
+    hideElem(this.renameError);
+    this.enableAllDragging();
+  }
+
 
   resetStateIds() {
     this.stateIdCounter = 0;
@@ -795,8 +872,8 @@ class Graph extends EditorElement{
 
     var newState = this.stateGroups
       .data(this.statesData).enter().append("g");
-  
-    newState.node().parentGraph= this;
+
+    newState.node().parentGraph = this;
     newState.node().clickTimer = 0;
     newState.node().clickedOnce = false;
 
@@ -804,7 +881,7 @@ class Graph extends EditorElement{
       this.addStateEvents(newState);
       EditorManager.getEditor(this.editorId).generateTextFromData();
     }
-  
+
     this.addStateSvg(newState);
     this.updateStateGroups();
   }
@@ -822,7 +899,7 @@ class Graph extends EditorElement{
       .classed(graphConsts.stateMainCircle, true)
       .classed(graphConsts.stateElem, true)
       .attr("r", graphConsts.nodeRadius);
-  
+
     var g = this;
     var input = state
       .append("foreignObject")
@@ -834,24 +911,21 @@ class Graph extends EditorElement{
       .append("xhtml:input")
       .classed("stateInput", true)
       .classed(graphConsts.stateElem, true) //TODO into events
-      .on("dblclick", function(_, d) {
-        EditorManager.getEditor(g.editorId).deselectAll(g.editorId);
+      .on("dblclick", function (_, d) {
+        EditorManager.deselectAll(g.editorId);
         g.hideAllExtras();
-        g.selectState(g.getStateGroupById(d.id), d);
-  
-        g.initRenaming(
-          graphDiv.parentNode,
-          graphStateEnum.renamingState,
-          graphDiv.graphState.selectedState.id);
-        
+        g.selectState(g.getStateGroupById(d.id));
+
+        g.initRenaming(graphStateEnum.renamingState, d.id);
+
       })
       .on("keyup", function (e, d) {
         if (d3.select(this).node().getAttribute("readonly") == "readonly") {
           return
         };
-        var validSymbols = g.checkStateNameValidity(d, d3.select(this).node().value);
+        var validSymbols = g.getEditor().checkStateNameValidity(d, d3.select(this).node().value);
         d3.select(this).node().correct = validSymbols.result;
-        if (e.keyCode == 13 && g.getGraphState() == graphStateEnum.renamingState) {
+        if (e.keyCode == 13 && g.getCurrentState() == graphStateEnum.renamingState) {
           e.preventDefault();
           g.tryToRenameState(g.graphState.selectedState, d3.select(this).node().value);
         }
@@ -871,7 +945,7 @@ class Graph extends EditorElement{
           return;
         }
         if (input.correct == false) {
-          if (g.getGraphState() == graphStateEnum.renamingState) {
+          if (g.getCurrentState() == graphStateEnum.renamingState) {
             setStateInputValue(input, d.id);
           }
         }
@@ -880,11 +954,11 @@ class Graph extends EditorElement{
         }
         makeReadonly(input);
         hideElem(g.renameError);
-        g.setGraphState(graphStateEnum.default);
+        g.setCurrentState(graphStateEnum.default);
         g.enableAllDragging();
       });
-      
-  
+
+
     makeReadonly(input.node());
     input.node().correct = false;
     if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
@@ -913,18 +987,19 @@ class Graph extends EditorElement{
       })
       .on("contextmenu", function (_, data) {
         //renaming this => do nothing
-        if (g.getGraphState() == graphStateEnum.renamingState
+        if (g.getCurrentState() == graphStateEnum.renamingState
           && g.graphState.selectedState == data) {
           return;
         }
-        if (graphIsInRenamingState(g.getGraphState())) {
+        if (graphIsInRenamingState(g.getCurrentState())) {
           g.endRenaming();
           return;
         }
 
         EditorManager.deselectAll(g.editorId);
+        g.setCurrentState(graphStateEnum.default);
         g.hideAllExtras();
-        g.selectState(d3.select(this), data);
+        g.selectState(d3.select(this));
 
         //TODO separate function
         if (data.initial) {
@@ -953,28 +1028,6 @@ class Graph extends EditorElement{
     this.stateGroups = this.svgGroup.select(".states").selectAll("g");
   }
 
-  getNewStateData(id, x, y, initial, accepting, isNew = false) {
-    return {
-      id: id != null ? id : this.generateStateId(),
-      x: x,
-      y: y,
-      initial: initial,
-      accepting: accepting,
-      isNew: isNew
-    }
-  }
-
-  generateStateId() {
-    this.stateIdCounter++;
-    var id = "s" + this.stateIdCounter;
-  
-    while (!stateIdIsUnique(this.statesData, null, id)) {
-      this.stateIdCounter++;
-      id = "s" + this.stateIdCounter;
-    }
-    return id;
-  }
-
   deleteState(stateData) {
     if (stateData.initial == true) {
       this.hideInitArrow();
@@ -991,6 +1044,23 @@ class Graph extends EditorElement{
         this.resetStateIds();
         this.initEmptyState();
       }
+    }
+  }
+
+  tryToRenameState(stateData, newId, prompt = null) {
+    if (prompt != null) {
+      this.showRenameError(prompt);
+    }
+    var input = this.getStateGroupById(stateData.id).select(".stateInput").node();
+
+    var validityCheck = this.getEditor().checkStateNameValidity(stateData, newId);
+    if (!validityCheck.result) {
+      this.showRenameError(validityCheck.errMessage);
+      input.correct = false;
+    }
+    else {
+      input.correct = true;
+      input.blur();
     }
   }
 
@@ -1030,24 +1100,71 @@ class Graph extends EditorElement{
       .remove();
 
     //delete data
-    questionDiv.edgesData
+    var g = this;
+    this.edgesData
       .filter(function (ed) {
         return ed.source == stateData || ed.target == stateData;
       })
       .map(function (ed) {
-        this.edgesData.splice(this.edgesData.indexOf(ed), 1);
+        g.deleteEdgeData(ed);
       });
 
     this.updateEdgeGroups();
   }
 
+  setNewStateAsInitial(stateData) {
+    this.setInitStateAsNotInitial();
 
-  selectState(stateGroup, d) {
+    this.statesData
+      .filter(function (d) { return d.id == stateData.id; })
+      .map(function (d) { d.initial = true; });
+
+    this.graphState.initialState = stateData;
+    this.repositionInitArrow(stateData, 3.14);
+
+    if (!jeProhlizeciStranka_new()) {
+      this.updateText();
+    }
+  }
+
+  setInitStateAsNotInitial() {
+    //TODO this.graphState.initial.initial = false ???
+    this.statesData
+      .filter(function (d) { return d.initial == true; })
+      .map(function (d) { d.initial = false; });
+
+    this.hideInitArrow();
+  }
+
+  toggleAcceptingState(stateData, stateG) {
+    if (stateData.accepting) {
+      stateG.select("." + graphConsts.stateAccCircle).remove();
+    } else {
+      this.addAcceptingCircle(stateG);
+    }
+    stateData.accepting = !stateData.accepting;
+
+    if (!jeProhlizeciStranka_new()) {
+      this.updateText();
+    }
+  }
+
+  addAcceptingCircle(stateG) {
+    stateG
+      .append("circle")
+      .classed(graphConsts.stateAccCircle, true)
+      .classed(graphConsts.stateElem, true)
+      .attr("r", graphConsts.nodeRadius - 3.5);
+    stateG.select("foreignObject").raise();
+  }
+
+
+  selectState(stateGroup) {
     this.removeSelectionFromEdge();
 
-    if (this.graphState.selectedState != d) { // another state was selected
+    if (this.graphState.selectedState != stateGroup.datum()) { // another state was selected
       this.removeSelectionFromState();
-      this.graphState.selectedState = d;
+      this.graphState.selectedState = stateGroup.datum();
       SELECTED_ELEM_GROUP = stateGroup;
       stateGroup.classed(graphConsts.selected, true);
     }
@@ -1060,52 +1177,53 @@ class Graph extends EditorElement{
     var s = this.graphState.selectedState;
     this.stateGroups
       .filter(function (d) {
-        return d.id === s.id; })
+        return d.id === s.id;
+      })
       .classed(graphConsts.selected, false);
     this.graphState.selectedState = null;
   }
 
-  stateDragstart(e, d) {
+  stateDragstart(e) {
     var node = d3.select(this).node();
-    var graph = node.parentGraph;
-    EditorManager.deselectAll(graph.editorId);
-    graph.temporaryEdgeG.classed(graphConsts.selected, false);
-    
-  
+    var g = node.parentGraph;
+    EditorManager.deselectAll(g.editorId);
+    g.temporaryEdgeG.classed(graphConsts.selected, false);
+
+
     node.clickTimer = e.sourceEvent.timeStamp;
     node.startX = e.x;
     node.startY = e.y;
-  
-    graph.hideAllContextMenus();
-  
-    if (graphIsInRenamingState(graph.getGraphState())) {
-      graph.endRenaming();
-      hideEdge(graph.temporaryEdgeG);
+
+    g.hideAllContextMenus();
+
+    if (graphIsInRenamingState(g.getCurrentState())) {
+      g.endRenaming();
+      hideEdge(g.temporaryEdgeG);
     }
-  
-    graph.selectState(d3.select(this), d);
+
+    g.selectState(d3.select(this));
   }
 
   stateDragmove(event, d) {
-    var graph = d3.select(this).node().parentGraph;
-    //toggleFullnameVisibitity(graph.svgGroup.stateFullnameRect);
-  
-    var p = applyTransformationToPoint([event.x, event.y], graph.svgGroup);
-    if (p.x < (graph.params.width - graphConsts.nodeRadius) && p.x >= graphConsts.nodeRadius) {
+    var g = d3.select(this).node().parentGraph;
+    toggleFullnameVisibitity(g.svgGroup.stateFullnameRect);
+
+    var p = applyTransformationToPoint([event.x, event.y], g.svgGroup);
+    if (p.x < (params.width - graphConsts.nodeRadius) && p.x >= graphConsts.nodeRadius) {
       d.x = event.x;
     }
-    if (p.y < (graph.params.height - graphConsts.nodeRadius) && p.y >= graphConsts.nodeRadius) {
+    if (p.y < (params.height - graphConsts.nodeRadius) && p.y >= graphConsts.nodeRadius) {
       d.y = event.y;
     }
-  
+
     d3.select(this).attr("transform", "translate(" + d.x + "," + d.y + ")");
-  
+
     if (d.initial) {
-      //repositionInitArrow(graphDiv, d, graphDiv.svg.svgGroup.initArrow.node().angle);
+      g.repositionInitArrow(d, g.svgGroup.initArrow.node().angle);
     }
-  
-    //updateOutgoingEdges(graphDiv.svg.svgGroup.edgeGroups, d);
-    //updateIncommingEdges(graphDiv.svg.svgGroup.edgeGroups, d);
+
+    g.updateOutgoingEdges(d);
+    g.updateIncommingEdges(d);
   }
 
   stateDragend(e, d) {
@@ -1116,12 +1234,12 @@ class Graph extends EditorElement{
     var graphState = g.graphState;
     var distance = distBetween(groupNode.startX, groupNode.startY, e.x, e.y);
     var diff = e.sourceEvent.timeStamp - groupNode.clickTimer;
-  
+
     if (graphState.currentState == graphStateEnum.creatingEdge && diff < 400 && distance < 2) {
       if (graphState.lastSourceState && graphState.mouseOverState) {
         var edge = g.getEdgeDataByStates(graphState.lastSourceState.id, graphState.mouseOverState.id);
         graphState.lastTargetState = graphState.mouseOverState;
-  
+
         hideEdge(g.temporaryEdgeG);
         if (edge != null) { //edge already exists between the two states
           g.selectEdge(g.getEdgeGroupById(edge.id));
@@ -1137,29 +1255,115 @@ class Graph extends EditorElement{
       }
     }
     //starting to create an edge
-    else if (graphState.currentState != graphStateEnum.creatingEdge && diff > 1 && distance < 3) { 
+    else if (graphState.currentState != graphStateEnum.creatingEdge && diff > 1 && distance < 3) {
       graphState.lastSourceState = d;
       graphState.currentState = graphStateEnum.creatingEdge;
       g.initCreatingTransition(e, true);
     }
-  
+
     if (!jeProhlizeciStranka_new()) {
       EditorManager.getEditor(g.editorId).generateTextFromData();
     }
   }
 
+  updateOutgoingEdges(stateData) {
+    var g = this;
+    this.edgeGroups
+      .filter(function (ed) {
+        return ed.source.id === stateData.id;
+      })
+      .each(function (ed) {
+        var tx, ty, newDef;
+        if (ed.source == ed.target) {
+          var def = "M " + stateData.x + " " + stateData.y + " C "
+            + cubicControlPoints(stateData.x, stateData.y, ed.angle)
+            + " " + stateData.x + " " + stateData.y;
+          var s = def.split(" ");
+          var tx = (+s[4] + +s[6] + +s[1]) / 3;
+          var ty = (+s[5] + +s[7] + +s[2]) / 3;
+          newDef = def;
+        }
+        else {
+          var str = d3.select(this).select("." + graphConsts.edgePath).attr("d").split(" ");
+          str[1] = stateData.x;
+          str[2] = stateData.y;
+
+          str[4] = ((+str[1] + (+str[6])) / 2) + ed.dx;
+          str[5] = ((+str[2] + (+str[7])) / 2) + ed.dy;
+
+          tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
+          ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
+
+          newDef = str.join(" ");
+        }
+        d3.select(this).select("." + graphConsts.edgePath).attr("d", newDef);
+        repositionEdgeInput(d3.select(this).select("foreignObject"), tx, ty);
+        g.repositionMarker(d3.select(this));
+      });
+  }
+
+  updateIncommingEdges(stateData) {
+    var g = this;
+    this.edgeGroups
+      .filter(function (ed) {
+        return ed.target.id === stateData.id && ed.source != ed.target;
+      })
+      .each(function (ed) {
+        var str = d3.select(this).select("." + graphConsts.edgePath).attr("d").split(" ");
+
+        str[6] = stateData.x;
+        str[7] = stateData.y;
+
+        str[4] = ((+str[1] + (+str[6])) / 2) + ed.dx;
+        str[5] = ((+str[2] + (+str[7])) / 2) + ed.dy;
+
+        var tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
+        var ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
+
+        d3.select(this).select("." + graphConsts.edgePath).attr("d", str.join(" "));
+
+        repositionEdgeInput(d3.select(this).select("foreignObject"), tx, ty);
+        g.repositionMarker(d3.select(this));
+      });
+
+  }
+
+
   /* ------------------------------ EDGE ------------------------------ */
 
-  edgeDragstart(e, d) {
+  edgeDragstart() {
+    var g = d3.select(this).node().parentGraph;
+    EditorManager.deselectAll(g.editorId);
 
+    if (graphIsInRenamingState(g.getCurrentState()) && !d3.select(this).classed("activeRenaming")) {
+      g.endRenaming();
+    }
+
+    g.selectEdge(d3.select(this));
+    toggleFullnameVisibitity(g.svgGroup.stateFullnameRect);
+
+    g.hideAllContextMenus();
+    hideElem(g.renameError);
   }
 
   edgeDragmove(e, d) {
+    var edgeG = d3.select(this);
+    var g = edgeG.node().parentGraph;
+    var oldPathDefinition = edgeG.select("." + graphConsts.edgePath).attr("d");
 
+    edgeG
+      .select("." + graphConsts.edgePath)
+      .attr("d", repositionPathCurve(d, e.x, e.y, oldPathDefinition));
+
+    var coords = getEdgeInputPosition(edgeG.select("." + graphConsts.edgePath).attr("d"), d.source == d.target);
+    repositionEdgeInput(edgeG.select("foreignObject"), coords.tx, coords.ty);
+    g.repositionMarker(edgeG);
   }
 
-  edgeDragend(e, d) {
-
+  edgeDragend() {
+    if (!jeProhlizeciStranka_new()) {
+      d3.select(this).node().parentGraph.updateText();
+    }
   }
 
   createEdge(data, origin = elemOrigin.default) {
@@ -1174,30 +1378,235 @@ class Graph extends EditorElement{
       }
     }
     this.edgesData.push(data);
-  
+
     var newEdge = this.edgeGroups
       .data(this.edgesData).enter().append("g").classed(graphConsts.edgeGroup, true);
-  
-    //TODO?
-    newEdge.node().parentGraphDiv = this.graphDiv;
-  
-    //this.addEdgeSvg(questionDiv, newEdge, origin, temporaryEdgePath.attr("d"));
-  
+
+    newEdge.node().parentGraph = this;
+
+    this.addEdgeSvg(newEdge, origin, temporaryEdgePath.attr("d"));
+
     this.repositionMarker(newEdge);
-    //this.updateEdgeInputPosition(newEdge);
+    //TODO
+    updateEdgeInputPosition(newEdge);
     this.updateEdgeGroups();
-  
-  
+
+
     if (!jeProhlizeciStranka_new()) {
-      //addEdgeEvents(questionDiv, newEdge);
-      EditorManager.getEditor(this.editorId).generateTextFromData();
+      this.addEdgeEvents(newEdge);
+      if (origin != elemOrigin.default) this.updateText();
     }
     return newEdge;
   }
 
+  addEdgeSvg(edge, origin, tempEdgeDef) {
+    edge
+      .append("svg:path")
+      .classed(graphConsts.edgePath, true)
+      .classed(graphConsts.edgeElem, true)
+      .attr("d", function (d) {
+        if (origin == elemOrigin.fromExisting) {
+          return d.source != d.target ? reverseCalculateEdge(d.source, d.target, d.dx, d.dy) : calculateSelfloop(d.source.x, d.source.y, d.angle);
+        }
+        if (d.source == d.target) {
+          if (origin == elemOrigin.fromTable) {
+            d.angle = 1.55;
+            return calculateSelfloop(d.source.x, d.source.y, d.angle);
+          }
+          return tempEdgeDef;
+        }
+        return getStraightPathDefinition(d.source.x, d.source.y, d.target.x, d.target.y);
+      });
+
+    edge
+      .append("svg:path")
+      .classed(graphConsts.edgeMarker, true)
+      .classed(graphConsts.edgeElem, true)
+      .attr("marker-end", "url(#end-arrow" + this.editorId + ")");
+
+    var fo = edge
+      .append("foreignObject")
+      .classed(graphConsts.edgeElem, true)
+      .attr("height", 29)
+      .attr("width", 50);
+
+    var input = fo
+      .append("xhtml:input")
+      .classed("edgeInput", true)
+      .classed(graphConsts.edgeElem, true);
+
+    input.node().correct = false;
+    input.node().parentGraph = this;
+
+    setEdgeInput(input.node(), edge.datum().symbols);
+    if (origin == elemOrigin.default && this.getEditor().type == "EFA") {
+      setEdgeInput(input.node(), epsSymbol);
+      input.node().correct = true;
+    }
+    setEdgeInputWidth(input.node(), 50);
+    if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
+      setEdgeInputWidth(input.node());
+      makeReadonly(input.node());
+      input.node().correct = true;
+    }
+  }
+
+  addEdgeEvents(edge) {
+    var g = this;
+    edge
+      .call(g.dragEdge)
+      .on("mouseover", function () {
+        d3.select(this).classed(graphConsts.mouseOver, true);
+      })
+      .on("mouseout", function () {
+        d3.select(this).classed(graphConsts.mouseOver, false);
+      })
+      .on("dblclick", function (_, d) {
+        if (g.graphState.selectedEdge == d) {
+          g.initRenaming(graphStateEnum.renamingEdge, g.graphState.selectedEdge.symbols);
+        }
+      })
+      .on("contextmenu", function (e) {
+        e.preventDefault();
+
+        if (g.getCurrentState() == graphStateEnum.renamingEdge) {
+          return;
+        }
+        EditorManager.deselectAll(g.editorId);
+        g.hideAllExtras();
+        g.selectEdge(d3.select(this));
+      });
+
+    edge.select("input")
+      .on("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      })
+      .on("keydown", function (e, d) {
+        g.edgeInputOnKeyDown(e, d, d3.select(this).node());
+      })
+      .on("keyup", function (_, d) {
+        var input = d3.select(this).node();
+        if (input.getAttribute("readonly") != "readonly") {
+          input.correct = g.getEditor().checkEdgeSymbolsValidity(d.id, d.source, input.value).result;
+        }
+      })
+      .on("blur", function (_, d) {
+        g.edgeOnBlur(d, d3.select(this).node());
+      });
+  }
+
+  edgeOnBlur(d, input) {
+    var g = input.parentGraph;
+    g.getEdgeGroupById(d.id).classed("activeRenaming", false);
+    input.correct = g.getEditor().checkEdgeSymbolsValidity(d.id, d.source, input.value).result;
+    makeReadonly(input);
+
+    if (input.correct == false) {
+      if (g.getCurrentState() == graphStateEnum.mergingEdge
+        || g.getCurrentState() == graphStateEnum.renamingEdge) {
+        setEdgeInput(input, d.symbols);
+        setEdgeInputWidth(input);
+        updateEdgeInputPosition(g.getEdgeGroupById(d.id));
+      }
+      else {
+        g.deleteEdge(d);
+        EditorManager.deselectAll(g.editorId);
+      }
+    }
+    else {
+      g.renameEdge(d, input.value);
+    }
+    g.setCurrentState(graphStateEnum.default);
+    hideElem(g.renameError);
+    g.enableAllDragging();
+  }
+
+  edgeInputOnKeyDown(e, d, input) {
+    if (input.getAttribute("readonly") == "readonly") return;
+    var g = input.parentGraph;
+
+    var len = visualLength(input.value);
+    var w = parseInt((input.style.width).substring(0, input.style.width.length - 2));
+    if (w && (w - len) < 20) {
+      setEdgeInputWidth(input, len + 50);
+      updateEdgeInputPosition(g.getEdgeGroupById(d.id));
+    }
+
+    if (e.key.toLowerCase() == "enter") {
+      g.tryToRenameEdge(d, input.value);
+    }
+  }
+
+  tryToRenameEdge(edgeData, newSymbols, prompt = null) {
+    var edgeG = this.getEdgeGroupById(edgeData.id);
+    this.setRenameErrorPosition(this.getCurrentState(), edgeG);
+
+    if (prompt != null) {
+      this.showRenameError(prompt);
+    }
+
+    newSymbols = replaceEpsilon(removeDuplicates(newSymbols.split(",")));
+    if (this.getEditor().type == "EFA" && newSymbols == "") {
+      newSymbols = epsSymbol;
+    }
+
+    var input = edgeG.select("input").node();
+    var validityCheck = this.getEditor().checkEdgeSymbolsValidity(edgeData.id, edgeData.source, newSymbols);
+    if (!validityCheck.result) {
+      this.showRenameError(validityCheck.errMessage);
+      input.correct = false;
+    }
+    else {
+      input.correct = true;
+      this.renameEdge(edgeData, newSymbols);
+      input.blur();
+      EditorManager.deselectAll();
+    }
+  }
+
+  renameEdge(edgeData, symbols) {
+    this.edgesData
+      .filter(function (ed) { return ed.id == edgeData.id; })
+      .map(function (ed) { ed.symbols = symbols; });
+
+    var edgeGroup = this.getEdgeGroupById(edgeData.id);
+    var input = edgeGroup.select("input").node();
+    setEdgeInput(input, symbols);
+    setEdgeInputWidth(input);
+    updateEdgeInputPosition(edgeGroup);
+    if (!jeProhlizeciStranka_new()) {
+      this.updateText();
+    }
+  }
+
+
+  deleteEdge(edgeData) {
+    this.deleteEdgeSvg(edgeData);
+    this.updateEdgeGroups();
+    this.deleteEdgeData(edgeData);
+    if (!jeProhlizeciStranka_new()) {
+      this.updateText();
+    }
+  }
+
+  deleteEdgeSvg(edgeData) {
+    this.svgGroup
+      .select(".edges")
+      .selectAll("g")
+      .filter(function (ed) {
+        return ed.id == edgeData.id;
+      })
+      .remove();
+  }
+
+  deleteEdgeData(edgeData) {
+    this.edgesData.splice(this.edgesData.indexOf(edgeData), 1);
+  }
+
   selectEdge(edgeGroup) {
     this.removeSelectionFromState();
-  
+
     //edgeGroup.datum() == data binded with element
     if (this.graphState.selectedEdge != edgeGroup.datum()) {
       this.removeSelectionFromEdge();
@@ -1211,28 +1620,13 @@ class Graph extends EditorElement{
     if (this.graphState.selectedEdge == null) {
       return;
     }
+    var g = this;
     this.edgeGroups
       .filter(function (d) {
-        return d.id === this.graphState.selectedEdge.id;
+        return d.id === g.graphState.selectedEdge.id;
       })
       .classed(graphConsts.selected, false);
     this.graphState.selectedEdge = null;
-  }
-
-  getNewEdgeData(sourceId, targetId, symbols, dx = 0, dy = 0, angle = 0) {
-    return {
-      id: this.generateEdgeId(),
-      source: this.getStateDataById(sourceId),
-      target: this.getStateDataById(targetId),
-      symbols: symbols,
-      dx: dx,
-      dy: dy,
-      angle: angle
-    }
-  }
-
-  generateEdgeId() {
-    return ++this.edgeIdCounter;
   }
 
   updateEdgeGroups() {
@@ -1265,7 +1659,7 @@ class Graph extends EditorElement{
         + " C " + cubicControlPoints(stateData.x, stateData.y, angle, 90, 2000)
         + " " + stateData.x + " " + stateData.y
       );
-  
+
     arrow.node().angle = angle;
   }
 
@@ -1277,24 +1671,8 @@ class Graph extends EditorElement{
   /* ------------------------------ GETTERS ------------------------------ */
   getEdgeGroupById(id) {
     return this.edgeGroups.filter(function (d) {
-        return d.id == id;
+      return d.id == id;
     });
-  }
-
-  getStateDataById(id) {
-    return this.getElemById(this.statesData, id);
-  }
-
-  getEdgeDataById(id) {
-    return this.getElemById(this.edgesData, id);
-  }
-
-  getElemById(array, id) {
-    for (let i = 0; i < array.length; i++) {
-      const data = array[i];
-      if (data.id == id) return data;
-    }
-    return null;
   }
 
   getStateGroupById(id) {
@@ -1303,15 +1681,75 @@ class Graph extends EditorElement{
       .each(function (d) { if (d.id == id) res = d3.select(this); });
     return res;
   }
-  
-  getEdgeDataByStates(sourceTitle, targetTitle) {
-    for (let i = 0; i < this.edgesData.length; i++) {
-      const d = this.edgesData[i];
-      if (d.source.id == sourceTitle && d.target.id == targetTitle) {
-        return d;
+
+
+
+
+  /* ------------------------------ Graph - State placement functions ------------------------------ */
+
+  findStatePlacement(newStateData) {
+    var baseX, baseY;
+    if (this.getEditor().isEmpty()) {
+      baseX = -(this.graphDiv.lastWidth / 2) + 100;
+      baseY = -(this.graphDiv.lastHeight / 2) + 100;
+    }
+    else if (this.graphState.initialState != null) {
+      baseX = this.graphState.initialState.x;
+      baseY = this.graphState.initialState.y;
+    }
+    else {
+      //find topmost
+      let top = this.statesData[0];
+      this.statesData.forEach(d => {
+        if (d.y < top.y) {
+          top = d;
+        }
+      });
+      baseX = top.x;
+      baseY = top.y;
+    }
+
+    //var app = applyTransformationToPoint([baseX, baseY], div.graphDiv.svg.svgGroup);
+    //var x = graphConsts.nodeRadius + 10 - transform.x;
+    //var y = graphConsts.nodeRadius + 10 - transform.y;
+    var x = baseX;
+    var y = baseY;
+    newStateData.x = x;
+    newStateData.y = y;
+    var mult = 5;
+
+    var transform = d3.zoomTransform(this.svgGroup.node());
+
+    while (this.invalidStatePosition(newStateData)) {
+      x += graphConsts.nodeRadius * mult;
+      if (x > this.graphDiv.lastWidth - transform.x) {
+        x = baseX; // posunutie x na zaciatok riadku
+        y += graphConsts.nodeRadius * mult; //posunutie dolu
+      }
+      if (y + graphConsts.nodeRadius + 100 > this.graphDiv.lastHeight) {
+        this.graphDiv.style.height = y + graphConsts.nodeRadius + 100;
+
+      }
+
+      newStateData.x = x;
+      newStateData.y = y;
+    }
+    newStateData.isNew = false;
+    return newStateData;
+  }
+
+  invalidStatePosition(state) {
+    for (var i = 0, j = this.statesData.length; i < j; i++) {
+      const d = this.statesData[i];
+      if (state.id == d.id) {
+        continue;
+      }
+      if ((Math.abs(d.x - state.x) < graphConsts.nodeRadius * 2)
+        && (Math.abs(d.y - state.y) < graphConsts.nodeRadius * 2)) {
+        return true;
       }
     }
-    return null;
+    return false;
   }
 }
 
@@ -1322,12 +1760,1029 @@ class Table extends EditorElement {
   }
 
   initialise() {
+    this.createTableDiv();
+    this.createEmptyTable();
+    this.createErrorAlert();
+  }
+
+  createTableDiv() {
     this.tableDiv = document.createElement("div");
     this.tableDiv.setAttribute("class", "tableDiv");
   }
 
-  createTableFromData() {
+  createErrorAlert() {
+    var alertP = document.createElement("p");
+    alertP.setAttribute("class", "alert alert-danger");
 
+    this.tableDiv.appendChild(alertP);
+    hideElem(alertP);
+    this.alertText = alertP;
+  }
+
+  createTableFromData() {
+    var oldTable = this.table;
+    var table = this.createEmptyTable();
+
+    table.states = [], table.exitStates = [], table.symbols = [];
+    table.initState = null;
+
+    this.statesData.forEach(d => {
+      table.states.push(d.id);
+      if (d.initial) {
+        table.initState = d.id;
+      }
+      if (d.accepting) {
+        table.exitStates.push(d.id);
+      }
+    });
+
+    this.edgesData.forEach(d => {
+      d.symbols.split(',').forEach(symb => {
+        if (!table.symbols.includes(symb)) table.symbols.push(symb);
+      });
+    });
+
+    //table.states.sort();
+    table.symbols.sort();
+
+    MIN_STATE_WIDTH = findLongestElem(table.states) + "px";
+    //create first row = consisting of 3 inactive cells
+    var row1 = table.insertRow(table.rows.length); // -1 ?
+    this.insertInactiveCell(row1, 0);
+    this.insertInactiveCell(row1, 1);
+    this.insertInactiveCell(row1, 2);
+
+    //create second row - "symbols" row
+    var row2 = table.insertRow(table.rows.length);
+    this.insertInactiveCell(row2, 0);
+    this.insertInactiveCell(row2, 1);
+    var cell = this.insertInactiveCell(row2, 2);
+
+    cell.style.width = MIN_STATE_WIDTH;
+    this.addResizable(cell);
+
+    var maxColWidth = findLongestElem(table.symbols) - 10;
+
+    // filling out columns' headers from symbols and delete buttons above them
+    table.symbols.forEach(symb => {
+      this.insertColumnDeleteButton(row1);
+      this.insertColumnHeader(row2, symb, maxColWidth);
+    });
+    this.insertColumnAddButton(row1);
+
+    // filling out rows' headers (states' titles)
+    table.states.forEach(stateTitle => {
+      var row = table.insertRow(table.rows.length);
+      this.insertRowDeleteButton(row);
+
+      var arrCell = this.insertArrows(row, row.cells.length);
+
+      this.insertRowHeader(row, stateTitle, MIN_STATE_WIDTH);
+
+      if (table.initState == stateTitle) {
+        $(arrCell.initArrow).addClass("selected-arrow");
+        this.selectedInitDiv = arrCell.initArrow;
+      }
+      if (table.exitStates.includes(stateTitle)) {
+        $(arrCell.accArrow).addClass("selected-arrow");
+      }
+
+      for (var j = 0, len = table.symbols.length; j < len; j++) {
+        this.insertInnerCell(row);
+      }
+    });
+    this.insertRowAddButton();
+
+    // filling transitions
+    this.edgesData.forEach(ed => {
+      var row = table.rows[table.states.indexOf(ed.source.id) + 2];
+
+      ed.symbols.split(",").forEach(symb => {
+        var cell = row.cells[table.symbols.indexOf(symb) + 3];
+
+        if (this.getEditor().type == "DFA") {
+          cell.myDiv.value = ed.target.id;
+        }
+        else if (typeIsNondeterministic(this.getEditor().type)) {
+          var result = cell.myDiv.value.replace(/{|}/g, "");
+          if (result == "") {
+            result = ed.target.id
+          }
+          else {
+            result = result.split(",").sort().join(",");
+            result += "," + ed.target.id;
+          }
+          cell.myDiv.value = "{" + result + "}";
+        }
+        cell.myDiv.prevValue = cell.myDiv.value;
+
+        maxColWidth = Math.max(maxColWidth, tableVisualLength(cell.myDiv.value));
+      });
+    });
+
+    this.setInnerCellSizes(maxColWidth + 10 + "px");
+
+    this.tableDiv.removeChild(oldTable);
+    //re-append error
+    this.tableDiv.removeChild(this.alertText);
+    this.tableDiv.appendChild(this.alertText);
+
+    if (jeProhlizeciStranka_new()) {
+      $(table).find("input").prop("disabled", true).addClass("mydisabled");
+    }
+  }
+
+  createEmptyTable() {
+    var table = document.createElement("table");
+    table.setAttribute("class", tableClasses.myTable);
+    table.style.width = "0";
+
+    this.selectedCellInput = null;
+    this.selectedInitDiv = null;
+    //this.alertText = this.alertText;
+    this.table = table;
+    this.tableDiv.appendChild(table);
+    this.locked = false;
+
+    return table;
+  }
+
+  insertArrows(row, index) {
+    var cell = this.insertCell(row, index, ["arrow-td"], "40px");
+    cell.style.minWidth = "40px";
+
+    var initArrDiv = document.createElement("div");
+    $(initArrDiv).prop("class", "top-arrow base-arrow");
+    $(initArrDiv).prop("title", tableInitialButtonName);
+    initArrDiv.innerHTML = initSymbol;
+
+    var accArrDiv = document.createElement("div");
+    $(accArrDiv).prop("class", "bottom-arrow base-arrow");
+    $(accArrDiv).prop("title", tableAcceptingButtonName);
+    accArrDiv.innerHTML = accSymbol;
+
+    if (!jeProhlizeciStranka_new()) {
+      $(initArrDiv).click(() => this.setInitDiv(initArrDiv));
+      $(accArrDiv).click(() => this.toggleAccArrow(accArrDiv));
+    }
+
+    cell.initArrow = initArrDiv;
+    cell.accArrow = accArrDiv;
+
+    cell.appendChild(initArrDiv);
+    cell.appendChild(accArrDiv);
+
+    return cell;
+  }
+
+  insertColumnAddButton(row) {
+    var cell = this.insertCellWithDiv(row, null, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
+    if (!jeProhlizeciStranka_new()) {
+      $(cell).prop("title", tableAddSymbolHover);
+      cell.addEventListener("click", () => this.insertColumn());
+    }
+  }
+
+  insertColumnDeleteButton(row) {
+    var cell = this.insertCellWithDiv(row, null,
+      [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
+
+
+    if (!jeProhlizeciStranka_new()) {
+      $(cell).prop("title", tableDelSymbolHover);
+      cell.addEventListener("click", () => this.deleteColumn(cell.cellIndex));
+    }
+  }
+
+  insertRowAddButton() {
+    var newRow = this.table.insertRow(this.table.rows.length);
+    var cell = this.insertCellWithDiv(newRow, 0, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
+
+    if (!jeProhlizeciStranka_new()) {
+      $(cell).prop("title", tableAddRowHover);
+      cell.addEventListener("click", () => this.insertRow());
+    }
+  }
+
+  insertRowDeleteButton(row) {
+    var cell = this.insertCellWithDiv(row, 0,
+      [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
+
+    if (!jeProhlizeciStranka_new()) {
+      $(cell).prop("title", tableDelRowHover);
+      cell.addEventListener("click", () => this.deleteRow(cell.parentNode.rowIndex));
+    }
+  }
+
+  insertInnerCell(row) {
+    var cell = this.insertCell(row, row.cells.length, [tableClasses.myCell]);
+
+    var value = typeIsNondeterministic(this.getEditor().type) ? "{}" : "";
+    var input = this.createInput([tableClasses.inputCellDiv], value, value,
+      this.table.rows[1].cells[cell.cellIndex].style.minWidth);
+
+    $(input).click(() => this.inputClickHandler());
+    $(input).on("input", () => this.tableCellChanged(input));
+    $(input).focusout(() => this.tableCellChangedFinal(input));
+
+    var regex = typeIsNondeterministic(this.getEditor().type) ? /[a-zA-Z0-9{},]/ : /[a-zA-Z0-9\-]/;
+
+    $(input).keypress((e) => this.cellKeypressHandler(e, regex));
+
+    cell.myDiv = input;
+    cell.appendChild(input);
+  }
+
+  insertRowHeader(row, name, width) {
+    var cell = this.insertCell(row, row.cells.length, ["row-header-cell"], width);
+    var input = this.createInput([tableClasses.inputCellDiv, tableClasses.rowHeader], name, name, width);
+    input.defaultClass = tableClasses.rowHeader;
+
+    $(input).click(() => this.tableHeaderCellClick(input));
+    $(input).on("input", (e) => this.tableRhChanged(e));
+    $(input).focusout(() => this.tableRhChangedFinal(input));
+    $(input).keypress((e) => this.cellKeypressHandler(e, stateSyntax()));
+
+    cell.myDiv = input;
+    cell.appendChild(input);
+    return cell;
+  }
+
+  insertColumnHeader(row, symbol, width) {
+    var cell = this.insertCell(row, row.cells.length, [tableClasses.columnHeader], width);
+    var input = this.createInput([tableClasses.inputColumnHeaderDiv, tableClasses.inputCellDiv], symbol, symbol, width);
+
+    cell.myDiv = input;
+
+    this.addResizable(cell);
+    cell.appendChild(input);
+
+    $(input).click(() => this.inputClickHandler());
+    $(input).on("input", () => this.tableChChanged(input));
+    $(input).focusout(() => this.tableChChangedFinal(input));
+
+    var regex = this.getEditor().type == "EFA" ? graphEFATransitionSyntax() : graphTransitionsSyntax();
+
+    //$(input).keypress((e) => this.cellKeypressHandler(e, regex));
+    $(input).keyup((e) => this.cellKeyupHandler(e, regex));
+  }
+
+  insertRow(title) {
+    if (this.locked) {
+      return;
+    }
+    //if this is a first state to be created in editor
+    var editor = this.getEditor();
+    if (editor.isEmpty() && editor.Graph.getCurrentState() == graphStateEnum.initial) {
+      editor.Graph.endEmptyState();
+    }
+    if (title == null) {
+      title = editor.generateStateId();
+    }
+    this.deselectCell();
+    this.table.rows[this.table.rows.length - 1].deleteCell(0);
+    this.insertRowDeleteButton(this.table.rows[this.table.rows.length - 1]);
+    this.insertArrows(this.table.rows[this.table.rows.length - 1], 1);
+    this.insertRowHeader(this.table.rows[this.table.rows.length - 1], title, this.table.rows[1].cells[STATE_INDEX].style.width);
+
+    for (let i = STATE_INDEX + 1, j = this.table.rows[0].cells.length - 1; i < j; i++) {
+      this.insertInnerCell(this.table.rows[this.table.rows.length - 1]);
+    }
+    this.insertRowAddButton();
+
+    // create state in graph
+    var data = editor.Graph.getNewStateData(
+      title,
+      -(params.width / 2) + 100,
+      -(params.height / 2) + 100,
+      false, false, true);
+    editor.Graph.createState(data);
+  }
+
+  insertColumn(symb = null) {
+    if (this.locked) {
+      return;
+    }
+    this.deselectCell();
+    this.table.rows[0].deleteCell(this.table.rows[0].cells.length - 1);
+    this.insertColumnDeleteButton(this.table.rows[0]);
+    this.insertColumnAddButton(this.table.rows[0]);
+
+    if (!symb) {
+      symb = findNextAlphabetSymbol(this.table);
+    }
+    this.table.symbols.push(symb);
+    this.insertColumnHeader(this.table.rows[1], symb);
+
+    for (let i = 2, j = this.table.rows.length - 1; i < j; i++) {
+      this.insertInnerCell(this.table.rows[i]);
+    }
+  }
+
+  deleteRow(rowIndex) {
+    if (this.locked) return;
+
+    var stateId = this.table.rows[rowIndex].cells[STATE_INDEX].myDiv.value;
+    this.table.states.splice(this.table.states.indexOf(stateId), 1);
+
+    var editor = this.getEditor();
+    //delete state in graph (& from data)
+    var data = this.getStateDataById(stateId);
+    editor.Graph.deleteState(data);
+
+    for (let i = STATE_INDEX, rows = this.table.rows.length - 1; i < rows; i++) {
+      for (let j = 3, cols = this.table.rows[i].cells.length; j < cols; j++) {
+        var value = this.table.rows[i].cells[j].myDiv.value;
+        if (typeIsNondeterministic(editor.type)) {
+          value = value.replace(/{|}/g, "");
+          var stateIds = value.split(",");
+          var index = stateIds.indexOf(stateId);
+          if (index != -1) {
+            stateIds.splice(index, 1);
+            value = "{" + stateIds.toString() + "}";
+            this.table.rows[i].cells[j].myDiv.value = value;
+            this.table.rows[i].cells[j].myDiv.prevValue = value;
+          }
+        }
+        else { //DFA
+          if (stateId == value) {
+            this.table.rows[i].cells[j].myDiv.value = "";
+            this.table.rows[i].cells[j].myDiv.prevValue = "";
+          }
+        }
+      }
+    }
+    this.table.deleteRow(rowIndex);
+  }
+
+  deleteColumn(index) {
+    if (this.locked) return;
+    var symbol = this.table.rows[1].cells[index].myDiv.value;
+    this.table.symbols.splice(this.table.symbols.indexOf(symbol), 1);
+    this.deleteSymbolFromAllEdges(symbol);
+
+    // Delete table column
+    for (let i = 0, j = this.table.rows.length - 1; i < j; i++) {
+      this.table.rows[i].deleteCell(index); //deleteCell() automaticky posunie vsetky cells dolava
+    }
+  }
+
+  setInitDiv(initDiv) {
+    if (!this.locked) {
+      this.deselectCell();
+    }
+    if (this.selectedInitDiv === initDiv) {
+      this.unselectInitDiv();
+      this.getEditor().Graph.setInitStateAsNotInitial();
+      return;
+    }
+    if (this.selectedInitDiv != null) {
+      this.unselectInitDiv();
+    }
+    $(initDiv).addClass("selected-arrow");
+    this.selectedInitDiv = initDiv;
+
+    //edit state in graph
+    var stateId = this.table.rows[initDiv.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
+    var data = this.getStateDataById(stateId);
+    this.getEditor().Graph.setNewStateAsInitial(data);
+  }
+
+  unselectInitDiv() {
+    $(this.selectedInitDiv).removeClass("selected-arrow");
+    this.selectedInitDiv = null;
+  }
+
+  toggleAccArrow(acceptDiv) {
+    if (!this.locked) {
+      this.deselectCell();
+    }
+    $(acceptDiv).toggleClass("selected-arrow");
+
+    var stateId = this.table.rows[acceptDiv.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
+
+    //edit state in graph
+    var stateG = this.getEditor().Graph.getStateGroupById(stateId);
+    this.getEditor().Graph.toggleAcceptingState(stateG.datum(), stateG);
+  }
+
+  /**
+   * Adds jQuery resizable handles for resizing a table cell.
+   * @param {td}  cell  Table cell.
+   */
+  addResizable(cell) {
+    var table = this.table;
+
+    $(cell).resizable({
+      handles: 'e',
+      resize: function () {
+        var minSize = MIN_TABLE_CELL_WIDTH.substring(0, 2);
+        if (parseInt(this.style.width) >= parseInt(minSize)) {
+          this.style.minWidth = this.style.width;
+          var ci = this.cellIndex;
+
+          //change width of all cells in column
+          for (var i = 1; i < table.rows.length - 1; i++) {
+            table.rows[i].cells[ci].style.width = this.style.width;
+            table.rows[i].cells[ci].myDiv.style.width = this.style.width;
+          }
+        }
+      },
+    });
+    cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
+  }
+
+  setInnerCellSizes(maxCellWidth) {
+    for (var i = 1, rows = this.table.rows.length - 1; i < rows; i++) {
+      for (var j = 3, cols = this.table.rows[i].cells.length; j < cols; j++) {
+        this.table.rows[i].cells[j].style.width = maxCellWidth;
+        this.table.rows[i].cells[j].myDiv.style.width = maxCellWidth;
+      }
+    }
+  }
+
+  /**
+   * Lock table and menu buttons except @param exceptionInput.
+   * @param {input} exceptionInput Input of table cell which will not be locked.
+   */
+  lockTable(exceptionInput) {
+    for (let i = 1, rows = this.table.rows.length - 1; i < rows; i++) {
+      for (let j = 1, cols = this.table.rows[i].cells.length; j < cols; j++) {
+        if (this.table.rows[i].cells[j].myDiv == exceptionInput) {
+          continue;
+        }
+        $(this.table.rows[i].cells[j].myDiv).prop("readonly", true);
+      }
+    }
+    this.lockArrows();
+    this.locked = true;
+    this.getEditor().lockMenuButtons(true);
+  }
+
+  /**
+   * Unlocks table and menu buttons.
+   */
+  unlockTable() {
+    for (var i = 1, rows = this.table.rows.length - 1; i < rows; i++) {
+      for (var j = 1, cols = this.table.rows[i].cells.length; j < cols; j++) {
+        $(this.table.rows[i].cells[j].myDiv).prop('readonly', false);
+      }
+    }
+    this.unlockArrows();
+    this.locked = false;
+    this.getEditor().lockMenuButtons();
+  }
+
+  /**
+   * Removes all event listeners from all table arrows 
+   * (buttons for setting state as (non)initial/(non)accepting).
+   */
+  lockArrows() {
+    d3.select(this.table).selectAll(".base-arrow").each(function (ed) {
+      $(d3.select(this).node()).off();
+    });
+  }
+
+  /**
+   * Reassigns event listeners for all table arrows
+   * (buttons for setting state as (non)initial/(non)accepting).
+   */
+  unlockArrows() {
+    let t = this;
+    d3.select(this.table).selectAll(".base-arrow").each(function (ed) {
+      let arrow = d3.select(this).node();
+      if (arrow.classList.contains("top-arrow")) {
+        $(arrow).click(() => t.setInitDiv(arrow));
+      }
+      else {
+        $(arrow).click(() => t.toggleAccArrow(arrow));
+      }
+    });
+  }
+
+  /* ------------------------------ Table insert methods ------------------------------ */
+
+  insertCell(row, index, classlist, width = null) {
+    var cell = row.insertCell(index);
+    //var cellS = d3.select(cell);
+    classlist.forEach(c => {
+      $(cell).addClass(c);
+      //cellS.classed(c, true); 
+    });
+
+    if (width != null) {
+      cell.style.width = width;
+      cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
+    }
+    return cell;
+  }
+
+  createInput(classlist, value, prevValue, width = MIN_TABLE_CELL_WIDTH) {
+    var input = document.createElement("input");
+    input.value = value;
+    input.prevValue = prevValue;
+    if (width != null) {
+      input.style.minWidth = MIN_TABLE_CELL_WIDTH;
+      input.style.width = width;
+    }
+    input.style.margin = "0em";
+    //var sel = d3.select(input);
+    classlist.forEach(c => {
+      $(input).addClass(c);
+      //sel.classed(c, true);
+    });
+    return input;
+  }
+
+  insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = "") {
+    var cell = index == null ? row.insertCell(row.cells.length) : row.insertCell(index);
+    cell.innerHTML = innerHtml;
+
+    //TODO cleanup
+    //var cellS = d3.select(cell);
+    cellClasslist.forEach(c => {
+      $(cell).addClass(c);
+      //cellS.classed(c, true); 
+    });
+
+    var div = document.createElement("div");
+    if (divClasslist != null) {
+      //var d = d3.select(div);
+      divClasslist.forEach(dc => {
+        $(div).addClass(dc);
+        //d.classed(dc, true); 
+      });
+    }
+
+    cell.myDiv = div;
+    cell.appendChild(div);
+    return cell;
+  }
+
+  insertInactiveCell(row, index) {
+    var classes = [
+      tableClasses.myCell,
+      tableClasses.inactiveCell,
+      tableClasses.noselectCell
+    ];
+    return this.insertCellWithDiv(row, index, classes, []);
+  }
+
+
+  /* ------------------------------ Table utils ------------------------------ */
+
+  deselectCell() {
+    if (this.selectedCellInput != null) {
+      $(this.selectedCellInput).removeClass(tableClasses.selectedHeaderInput);
+      $(this.selectedCellInput).addClass(tableClasses.rowHeader);
+      /*       d3.select(input).classed(tableClasses.selectedHeaderInput, false);
+            d3.select(input).classed(tableClasses.rowHeader, true); */
+      this.selectedCellInput = null;
+    }
+  }
+
+  selectDifferentRowHeaderCell(input) {
+    var prev;
+    if (this.selectedCellInput != null) {
+      prev = d3.select(this.selectedCellInput);
+    }
+    if (prev != null) {
+      prev.classed(tableClasses.selectedHeaderInput, false);
+      prev.classed(tableClasses.rowHeader, true);
+    }
+    var next = d3.select(input);
+    next.classed(tableClasses.selectedHeaderInput, true);
+    next.classed(tableClasses.rowHeader, false);
+
+    this.selectedCellInput = input;
+  }
+
+  /**
+   * Deletes symbol from all table and graph transitions.
+   * If transition was containing only this symbol, it is deleted.
+   * @param {string}    symbol      Transition symbol to delete.
+   */
+  deleteSymbolFromAllEdges(symbol) {
+    var edgesToDelete = [];
+    var editor = this.getEditor();
+
+    this.edgesData.forEach(ed => {
+      if (ed.symbols == symbol) {
+        edgesToDelete.push(ed);
+      }
+      else {
+        var symbolsArray = ed.symbols.split(',');
+        if (symbolsArray.indexOf(symbol) != -1) {
+          symbolsArray.splice(symbolsArray.indexOf(symbol), 1);
+          editor.Graph.renameEdge(ed, symbolsArray.join(","));
+        }
+      }
+    });
+
+    edgesToDelete.forEach(ed => {
+      editor.Graph.deleteEdge(ed);
+    });
+  }
+
+  /**
+ * Checks if state name already exists in table.
+ * @param  {input elem}  input 
+ * @param  {string}      stateName state name
+ * @return {boolean}     true if state name already exists, false otherwise
+ */
+  tableStateAlreadyExists(input, stateName) {
+    let ri = input.parentNode.parentNode.rowIndex;
+    for (let i = 2, j = this.table.rows.length - 1; i < j; i++) {
+      if (i != ri && stateName == this.table.rows[i].cells[STATE_INDEX].myDiv.value) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Checks if symbol already exists as table column.
+   * @param  {input elem}  input 
+   * @param  {string}      symbol transition symbol
+   * @return {boolean}     true if symbol already exists, false otherwise
+   */
+  tableColumnSymbolAlreadyExists(input, symbol) {
+    let ci = input.parentNode.cellIndex;
+    for (let i = 2, j = this.table.rows[1].cells.length; i < j; i++) {
+      if (i != ci && symbol == this.table.rows[1].cells[i].myDiv.value) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+
+  /**
+   * Sets table into "alert" mode - table is locked and error is shown.
+   * @param {string}  error Error message.
+   * @param {td}      exc   All table cells are locked except this one.
+   */
+  activateAlertMode(error, exc) {
+    this.setAlert(error, true);
+    showElem(this.alertText);
+    this.lockTable(exc);
+  }
+
+  /**
+   * Sets table error message.
+   * @param {string}      error error message
+   * @param {boolean}     tableLocked 
+   */
+  setAlert(error, tableLocked = true) {
+    this.alertText.innerHTML = error;
+    if (tableLocked) {
+      this.alertText.innerHTML += " " + errors.tableLocked;
+    }
+  }
+
+
+  /* ------------------------------ Table event handlers ------------------------------ */
+  inputClickHandler() {
+    if (!this.locked) {
+      this.deselectCell();
+    }
+  }
+
+  tableCellChanged(input) {
+    var editor = this.getEditor();
+    if (!(editor.type == "NFA" && tableIncorrectNfaEfaInnerCellSyntax(input.value))
+      || (editor == "DFA" && incorrectTableDFATransitionsSyntax(input.value))
+    ) {
+      $(input).removeClass(tableClasses.incorrectCell);
+      if (this.locked) {
+        this.alertText.innerHTML == "";
+        hideElem(this.alertText);
+        this.unlockTable();
+      }
+    }
+  }
+
+  tableCellChangedFinal(input) {
+    var editor = this.getEditor();
+    var type = editor.type;
+
+    if (incorrectTableInnerCellSyntax(type, input.value)) {
+      $(input).addClass(tableClasses.incorrectCell);
+
+      var err = errors.innerCellIncorrectSyntaxBase + " ";
+      if (type == "DFA") {
+        err += errors.DFAInnerCellSyntax;
+      }
+      else {
+        err += errors.NFAInnerCellSyntax
+      }
+      this.activateAlertMode(err, input);
+    }
+    else {
+      var prevName = input.prevValue;
+      var newName = input.value;
+      if (typeIsNondeterministic(type)) { // odstranenie {}
+        prevName = prevName.substring(1, prevName.length - 1);
+        newName = newName.substring(1, newName.length - 1);
+      }
+      var sourceStateId = this.table.rows[input.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
+      var symbol = this.table.rows[1].cells[input.parentNode.cellIndex].myDiv.prevValue;
+      var prevStates = prevName.split(",");
+      var newStates = newName.split(",");
+      newStates = removeDuplicates(newStates);
+
+      //vymaze edges ktore uz nemaju pismenko, pripadne vymaze pismeno z transition
+      for (let i = 0; i < prevStates.length; i++) {
+        if (newStates.indexOf(prevStates[i]) == -1) {
+          var ed = this.getEdgeDataByStates(sourceStateId, prevStates[i]);
+          if (ed != null) {
+            var trs = ed.symbols.split(',');
+            if (trs.length <= 1) {
+              editor.Graph.deleteEdge(ed);
+            }
+            else {
+              trs.splice(trs.indexOf(symbol), 1);
+              editor.Graph.renameEdge(ed, trs.join(','));
+            }
+          }
+        }
+      }
+      if (newStates.length == 1 && newStates[0] == "") {
+        newStates = [];
+      }
+
+      for (let i = 0, len = newStates.length; i < len; i++) {
+        //ak predtym stav s tymto nazvom bol v cell == nenastala v nom zmena
+        if (prevStates.indexOf(newStates[i]) != -1) continue;
+
+        //ak NEEXISTUJE v grafe stav s danym nazvom=
+        if (this.getStateDataById(newStates[i]) == null) {
+          var addRowBool = true;
+          for (var j = 2, rows = this.table.rows.length - 1; j < rows; j++) { //skontrolovanie, ze sa nazov tohto stavu nenachadza v inom riadku tabulky
+            if (this.table.rows[j].cells[STATE_INDEX].myDiv.value == newStates[i]) {
+              addRowBool = false;
+              break;
+            }
+          }
+          if (addRowBool) {
+            this.insertRow(newStates[i]);
+          }
+          else {
+            editor.Graph.createState(this.getNewStateData(newStates[i], 100, 100, false, false, true));
+          }
+          editor.Graph.createEdge(this.getNewEdgeData(sourceStateId, newStates[i], symbol), elemOrigin.fromTable);
+        }
+        else {
+          var ed = this.getEdgeDataByStates(sourceStateId, newStates[i]);
+          if (ed != null) {
+            var trs = ed.symbols.split(",");
+            if (trs.indexOf(symbol) == -1) {
+              trs.push(symbol);
+              editor.Graph.renameEdge(ed, trs.join(','));
+            }
+          }
+          else {
+            editor.Graph.createEdge(this.getNewEdgeData(sourceStateId, newStates[i], symbol), elemOrigin.fromTable);
+          }
+        }
+      }
+      //vytvaranie novych transitions
+      //pripadne pridavanie pismiek do existujucich
+      var x = newStates.toString();
+      if (typeIsNondeterministic(type)) {
+        x = "{" + x + "}";
+      }
+      input.value = input.prevValue = x;
+    }
+  }
+
+  tableHeaderCellClick(input) {
+    if (!this.locked && this.selectedCellInput != input) {
+      this.selectDifferentRowHeaderCell(input);
+    }
+  }
+
+  /*
+  table header cells (symbols of transition) on change
+*/
+  tableChChanged(input) {
+    var value = input.value;
+    var type = this.getEditor().type;
+
+    if (value == "\\e") {
+      input.value = epsSymbol
+      value = epsSymbol
+    }
+
+    if (incorrectTableColumnHeaderSyntax(type, value)) {
+      $(input).addClass(tableClasses.incorrectCell);
+      var err;
+      if (type == "EFA") {
+        err = errors.EFA_incorrectTransitionSymbol;
+      }
+      else {
+        err = errors.NFA_incorrectTransitionSymbol;
+      }
+      this.activateAlertMode(err, input);
+    }
+    else if (this.tableColumnSymbolAlreadyExists(input, value)) {
+      $(input).addClass(tableClasses.incorrectCell);
+      this.activateAlertMode(errors.duplicitTransitionSymbol, input);
+    }
+    else {
+      $(input).removeClass(tableClasses.incorrectCell);
+      if (this.locked) {
+        hideElem(this.alertText);
+        this.unlockTable();
+      }
+    }
+  }
+
+  tableChChangedFinal(input) {
+    if ($(input).hasClass(tableClasses.incorrectCell) || this.locked) {
+      return;
+    }
+    var prevName = input.prevValue;
+    var newName = input.value;
+    var editor = this.getEditor();
+    if (editor.type == "EFA" && newName == "\\e") {
+      input.value = epsSymbol;
+      newName = input.value;
+    }
+
+    this.table.symbols.splice(this.table.symbols.indexOf(prevName), 1);
+    this.table.symbols.push(newName);
+
+    if (prevName != newName) {
+      // Rename the symbol in graph
+      this.edgesData.forEach(ed => {
+        if (ed.symbols == prevName) {
+          editor.Graph.renameEdge(ed, newName);
+        }
+        else {
+          var syms = ed.symbols.split(',');
+          syms[syms.indexOf(prevName)] = newName;
+          editor.Graph.renameEdge(ed, syms.join(','));
+        }
+      });
+      input.prevValue = input.value;
+    }
+  }
+
+  tableRhChanged(e) {
+    var input = e.target;
+    var stateName = input.value;
+    //var rowIndex = input.parentNode.parentNode.rowIndex;
+
+    if (incorrectStateSyntax(stateName)) {
+      d3.select(input).classed(tableClasses.incorrectCell, true);
+      this.activateAlertMode(errors.incorrectStateSyntax, input);
+    }
+    else if (this.tableStateAlreadyExists(input, stateName)) {
+      d3.select(input).classed(tableClasses.incorrectCell, true);
+      this.activateAlertMode(errors.duplicitState, input);
+    }
+    else {
+      d3.select(input).classed(tableClasses.incorrectCell, false);
+      if (this.locked) {
+        this.unlockTable();
+        hideElem(this.alertText);
+      }
+    }
+  }
+
+  tableRhChangedFinal(input) {
+    if ($(input).hasClass(tableClasses.incorrectCell) == false && !this.locked) {
+      if (input.prevValue == input.value) return;
+
+      var prevName = input.prevValue;
+      var newName = input.value;
+
+      this.table.states.splice(this.table.states.indexOf(prevName), 1);
+      this.table.states.push(newName);
+
+      var editor = this.getEditor();
+      //update state in graph
+      editor.Graph.renameState(this.getStateDataById(prevName), newName);
+
+      // Traverse all transitions cells in table and change the name
+      for (let i = 2, rows = this.table.rows.length - 1; i < rows; i++) {
+        for (let j = 2, cols = this.table.rows[i].cells.length; j < cols; j++) {
+          var val = this.table.rows[i].cells[j].myDiv.value;
+          val = val.replace(/{|}/g, "");
+          var vals = val.split(",");
+          var index = vals.indexOf(prevName);
+          if (index != -1) {
+            vals[index] = newName;
+            val = vals.toString();
+            if (typeIsNondeterministic(editor.type)) {
+              this.table.rows[i].cells[j].myDiv.value = "{" + val + "}";
+            }
+            else if (editor.type == "DFA") {
+              this.table.rows[i].cells[j].myDiv.value = val;
+            }
+            this.table.rows[i].cells[j].myDiv.prevValue = this.table.rows[i].cells[j].myDiv.value;
+          }
+        }
+      }
+      input.prevValue = input.value;
+    }
+  }
+
+  cellKeypressHandler(event, regex) {
+    var code = event.keyCode || event.which;
+    if (code == 13) {
+      event.preventDefault();
+      event.target.blur();
+      return false;
+    }
+/*     var kc = event.charCode;
+    if (kc == 0) {
+      return true;
+    }
+    var txt = String.fromCharCode(kc);
+    if (!regex.test(txt)) {
+      return false;
+    } */
+  }
+
+  cellKeyupHandler(e, regex) {
+    var code = e.keyCode || e.which;
+    var value = e.target.value;
+    if (code == 13) {
+      e.preventDefault();
+      e.target.blur();
+      return false;
+    }
+    var kc = e.charCode;
+    if (kc == 0) {
+      return true;
+    }
+    if (!regex.test(value)) {
+      return false;
+    }
+  }
+
+}
+
+class TextClass extends EditorElement {
+  constructor(editorId, statesData, edgesData, txa) {
+    super(editorId, statesData, edgesData);
+    this.textArea = txa;
+    this.initialise();
+  }
+
+  initialise() {
+    this.textDiv = document.createElement("div");
+    this.textDiv.setAttribute("class", "text-div-" + this.editorId);
+    this.textDiv.appendChild(this.textArea);
+  }
+
+  updateValue(val) {
+    this.textArea.innerText = val;
+    $(this.textArea).trigger("change");
+  }
+}
+
+class Editor {
+  constructor(id, type, textArea) {
+    this.id = id;
+    this.type = type;
+    this.statesData = [];
+    this.edgesData = [];
+    this.div = document.getElementById(id);
+    this.TextClass = new TextClass(this.id, this.statesData, this.edgesData, textArea);
+
+    EditorManager.addEditor(this);
+  }
+
+  appendSyntaxCheck() {
+    var errDiv = document.createElement("div");
+    errDiv.setAttribute("id", this.id + "-error");
+    errDiv.setAttribute("class", "alert alert-info");
+    errDiv.setAttribute("title", syntaxDivTitle);
+
+    var errIcon = document.createElement("div");
+    errIcon.setAttribute("id", this.id + "-i");
+
+    var errText = document.createElement("div");
+    errText.setAttribute("id", this.id + "-error-text");
+    errText.innerHTML = syntaxDefaultText;
+
+    errDiv.appendChild(errIcon);
+    errDiv.appendChild(errText);
+
+    this.TextClass.textDiv.appendChild(errDiv);
+    this.syntaxCheckDiv = errDiv;
+
+    if (jeProhlizeciStranka_new()) {
+      hideElem(errDiv);
+    }
+
+    //call the funtion that links parser function to textarea
+    eval("registerElem(this.id, " + this.type + "Parser.parse" + ", this.TextClass.textArea)");
+
+    return errDiv;
   }
 }
 
@@ -1337,21 +2792,26 @@ class TextEditor extends Editor {
   }
 
   initialise() {
-    this.addSyntaxCheck();
-  } 
+    this.div.appendChild(this.TextClass.textDiv);
+    this.appendSyntaxCheck();
+  }
 }
 
 class GraphEditor extends Editor {
   constructor(id, type, textArea) {
     super(id, type, textArea);
+    this.stateIdCounter = 0;
+    this.edgeIdCounter = 0;
     this.initialise();
+
+    //When syntax check is fixed, uncomment this
+    //this.appendSyntaxCheck();
+
   }
 
   initialise() {
     this.lastEdited = "graph";
-    this.statesData = [];
-    this.edgesData = [];
-  
+
     //create rulers - elements used to calculate svg and table text length
     var ruler = document.getElementById("ruler");
     if (!ruler) {
@@ -1366,31 +2826,31 @@ class GraphEditor extends Editor {
     }
     this.div.parentNode.insertBefore(ruler, this.div.nextSibling);
     this.div.parentNode.insertBefore(tableRuler, this.div.nextSibling);
-  
+
     //create menu buttons
     var graphButton = createButton(graphMenuButton, MENU_BUTTON);
     graphButton.addEventListener("click", () => this.clickGraph());
-  
+
     var textButton = createButton(textMenuButton, MENU_BUTTON);
     textButton.addEventListener("click", () => this.clickText());
-  
+
     var tableButton = createButton(tableMenuButton, MENU_BUTTON);
     tableButton.addEventListener("click", () => this.clickTable());
-  
+
     appendChildren(this.div, [graphButton, tableButton, textButton]);
-  
+
     //create hint
     var hintDiv = this.initHint();
+
     this.Graph = new Graph(this.id, this.statesData, this.edgesData);
     this.Table = new Table(this.id, this.statesData, this.edgesData);
-  
-    appendChildren(this.div, [hintDiv, this.Graph.graphDiv, this.Table.tableDiv]);
+
+    appendChildren(this.div, [hintDiv, this.Graph.graphDiv, this.Table.tableDiv, this.TextClass.textDiv]);
 
     this.hintDiv = hintDiv;
-  
-    hideElem(this.TextArea);
-    this.div.appendChild(this.TextArea); //moves the existing textarea into div
-  
+    hideElem(this.TextClass.textDiv);
+    //this.div.appendChild(this.TextArea); //moves the existing textarea into div
+
     this.Graph.graphDiv.lastHeight = this.Graph.graphDiv.offsetHeight;
     this.Graph.graphDiv.lastWidth = this.Graph.graphDiv.offsetWidth;
 
@@ -1401,11 +2861,11 @@ class GraphEditor extends Editor {
     var hintDiv = document.createElement("div");
     hintDiv.setAttribute("class", "hintDiv");
     $(hintDiv).prop("title", hintTitle);
-  
+
     var hintButton = createButton(hintLabel, "hintButton");
     hintButton.style.marginBottom = "7px";
     hintButton.addEventListener("click", () => this.clickHintButton());
-  
+
     var hintContentDiv = document.createElement("div");
     hintContentDiv.setAttribute("class", "hint-content-div");
     hideElem(hintContentDiv);
@@ -1413,17 +2873,40 @@ class GraphEditor extends Editor {
     hintDiv.appendChild(hintContentDiv);
     hintDiv.contentDiv = hintContentDiv;
     hintDiv.hintButton = hintButton;
-  
-    setupHints(hintContentDiv);
+
+    this.setupHints(hintContentDiv);
     return hintDiv;
   }
 
-  clickGraph() {
-    alert("clicked graph of " + this.id);
+  setupHints(div) {
+    for (const property in hints) {
+      div.appendChild(createParagraph(hints[property]));
+    }
   }
 
-  clickText(){
-    alert("clicked text of " + this.id);
+  clickGraph() {
+    hideElem(this.TextClass.textDiv);
+    hideElem(this.Table.tableDiv);
+
+    showElem(this.Graph.graphDiv);
+    showElem(this.hintDiv);
+
+    if (!jeProhlizeciStranka_new()) {
+      EditorManager.deselectAll();
+    }
+    this.lastEdited = "graph";
+  }
+
+  clickText() {
+    if (!jeProhlizeciStranka_new()) {
+      EditorManager.deselectAll();
+    }
+    hideElem(this.Graph.graphDiv);
+    hideElem(this.hintDiv);
+    hideElem(this.Table.tableDiv);
+
+    showElem(this.TextClass.textDiv);
+    this.lastEdited = "text";
   }
 
   clickTable() {
@@ -1438,8 +2921,8 @@ class GraphEditor extends Editor {
     }
     hideElem(this.Graph.graphDiv);
     hideElem(this.hintDiv);
-    hideElem(this.TextArea);
-  
+    hideElem(this.TextClass.textDiv);
+
     this.Table.createTableFromData();
     showElem(this.Table.tableDiv);
     this.lastEdited = "table";
@@ -1456,24 +2939,34 @@ class GraphEditor extends Editor {
     }
   }
 
+  /**
+ * Lock or unlock editor menu buttons.
+ * @param {boolean} val If 'null' unlocks, if 'true' locks all menu buttons.
+ */
+  lockMenuButtons(val = null) {
+    d3.select(this.div).selectAll("." + MENU_BUTTON).attr("disabled", val);
+  }
+
+
+  //TODO?
   reconstructGraph(answer) {
     if (!answer || answer == "") return;
-    
+
     //parse zoom/pan
     var tr = answer.substring(answer.length - 21);
     if (tr.length > 2 && tr.split(";").length == 3) {
       let s = tr.split(";");
       if (s && s.length == 3) {
         let t = convertStringToTransform(s[0], s[1], s[2]);
-        setTransform(div, t.k, t.x, t.y);
+        this.Graph.setTransform(div, t.k, t.x, t.y);
       }
     }
-  
+
     var splitted = answer.split("##states");
     var data = splitted[1].split("edges");
     var states = data[0];
     var rest = data[1];
-  
+
     if (states != null && states != "") {
       states = states.split("@");
       for (var d of states) {
@@ -1484,14 +2977,14 @@ class GraphEditor extends Editor {
         var y = parseInt(stateParts[2]);
         var initial = stateParts[3] == "1";
         var accepting = stateParts[4] == "1";
-        var data = newStateData(div, id, x, y, initial, accepting, true);
-        addState(div, data);
-  
+        var data = this.Graph.getNewStateData(id, x, y, initial, accepting, true);
+        this.Graph.createState(data);
+
         if (initial) {
-          setNewStateAsInitial(div, data);
+          this.Graph.setNewStateAsInitial(data);
         }
         if (accepting) {
-          addAcceptingCircle(getStateGroupById(div, data.id));
+          this.Graph.addAcceptingCircle(this.Graph.getStateGroupById(data.id));
         }
       }
     }
@@ -1500,23 +2993,22 @@ class GraphEditor extends Editor {
       for (var d of rest) {
         var edgeData = d.split(';');
         if (edgeData.length != 6) continue;
-  
+
         var sourceId = edgeData[0];
         var targetId = edgeData[1];
         var symbols = edgeData[2];
         var dx = parseFloat(edgeData[3]);
         var dy = parseFloat(edgeData[4]);
         var angle = parseFloat(edgeData[5]);
-  
-        var data = newEdgeData(div, sourceId, targetId, symbols, dx, dy, angle);
+
+        var data = this.Graph.getNewEdgeData(sourceId, targetId, symbols, dx, dy, angle);
         data = checkEdgePathData(data);
-        if (checkEdgeSymbolsValidity(div, data.id, data.source, symbols).result) {
-          addEdge(div, data, elemOrigin.fromExisting);
+        if (this.checkEdgeSymbolsValidity(data.id, data.source, symbols).result) {
+          this.Graph.createEdge(data, elemOrigin.fromExisting);
         }
       }
     }
-  
-    div.textArea.innerText = answer;
+    this.TextClass.updateText(answer);
     //TODO parse init arrow angle
   }
 
@@ -1533,15 +3025,14 @@ class GraphEditor extends Editor {
       result = this.generateQuestionResult();
     }
 
-    this.TextArea.innerText = result;
-    $(this.TextArea).trigger("change");
+    this.TextClass.updateValue(result);
   }
 
   generateQuestionResult() {
     var result = "";
     var initState;
     var acceptingStates = [];
-  
+
     this.statesData.forEach(function (state) {
       if (state.initial) {
         initState = state;
@@ -1551,12 +3042,12 @@ class GraphEditor extends Editor {
         acceptingStates.push(state);
       }
     });
-  
+
     if (this.type == "DFA") {
       for (let i = 0; i < this.edgesData.length; i++) {
         const edge = this.edgesData[i];
-        if (!(checkEdgeSymbolsValidity(this.div, edge.id, edge.source, edge.symbols).result)) continue;
-  
+        if (!(this.checkEdgeSymbolsValidity(edge.id, edge.source, edge.symbols).result)) continue;
+
         edge.symbols.split(",").forEach((symbol) => {
           if (symbol == epsSymbol) {
             symbol = "\\e";
@@ -1567,11 +3058,11 @@ class GraphEditor extends Editor {
     }
     else if (typeIsNondeterministic(this.type)) {
       var transitions = new Map();
-  
+
       for (let i = 0; i < this.edgesData.length; i++) {
         const edge = this.edgesData[i];
-        if (!(checkEdgeSymbolsValidity(this.div, edge.id, edge.source, edge.symbols).result)) continue;
-  
+        if (!(this.checkEdgeSymbolsValidity(edge.id, edge.source, edge.symbols).result)) continue;
+
         edge.symbols.split(",").forEach((symbol) => {
           var s = symbol;
           if (s == epsSymbol) {
@@ -1585,12 +3076,12 @@ class GraphEditor extends Editor {
           transitions.set("(" + edge.source.id + "," + s + ")", val);
         });
       }
-  
+
       for (let [key, value] of transitions.entries()) {
         result += key + "={" + value + "} ";
       }
     }
-  
+
     result += "final={";
     if (acceptingStates.length > 0) {
       for (var i = 0; i < acceptingStates.length; i++) {
@@ -1601,7 +3092,7 @@ class GraphEditor extends Editor {
       }
     }
     result += "}";
-  
+
     //position data
     result += " ##";
     result += "states";
@@ -1611,7 +3102,7 @@ class GraphEditor extends Editor {
         + ";" + d.y.toFixed(2)
         + ";" + (d.initial ? 1 : 0)
         + ";" + (d.accepting ? 1 : 0);
-  
+
     });
     result += "edges";
     this.edgesData.forEach(function (d) {
@@ -1628,42 +3119,131 @@ class GraphEditor extends Editor {
     }
     var t = d3.zoomTransform(this.Graph.svgGroup.node());
     //t = Object { k: 1.148698354997035, x: 500.950304961033, y: 446.2509705696626 }
-    result+= `@t:${t.k.toFixed(3)};${t.x.toFixed(3)};${t.y.toFixed(3)}`;
+    result += `@t:${t.k.toFixed(3)};${t.x.toFixed(3)};${t.y.toFixed(3)}`;
     return result;
-  }
-
-  findStatePlacement() {
-
   }
 
   isEmpty() {
     return this.statesData.length === 0 && this.edgesData.length === 0;
   }
+
+  generateStateId() {
+    this.stateIdCounter++;
+    var id = "s" + this.stateIdCounter;
+
+    while (!this.stateIdIsUnique(null, id)) {
+      this.stateIdCounter++;
+      id = "s" + this.stateIdCounter;
+    }
+    return id;
+  }
+
+  generateEdgeId() {
+    return ++this.edgeIdCounter;
+  }
+
+  stateIdIsUnique(stateData, newId) {
+    for (var i = 0, j = this.statesData.length; i < j; i++) {
+      if (this.statesData[i].id == newId) {
+        if (stateData == null) {
+          return false;
+        }
+        else if (stateData && this.statesData[i] != stateData) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  checkStateNameValidity(stateData, newId) {
+    var err = "";
+    var valid = false;
+
+    if (!newId) {
+      err = errors.emptyState;
+    }
+    else if (!this.stateIdIsUnique(stateData, newId)) {
+      err = stateNameAlreadyExists;
+    }
+    else if (incorrectStateSyntax(newId)) {
+      err = errors.incorrectStateSyntax;
+    }
+    else if (newId.length > 50) {
+      err = errors.stateNameTooLong;
+    }
+    else {
+      valid = true;
+    }
+    return {
+      result: valid,
+      errMessage: err
+    };
+  }
+
+  checkEdgeSymbolsValidity(edgeId, sourceStateData, symbols) {
+    var err = "", valid = true;
+    var expectedSyntax = this.type == "EFA" ? expectedEFASyntax : expectedDFASyntax;
+
+    if (symbols == null || symbols == "") {
+      err = errors.emptyTransition;
+      valid = false;
+    }
+    else if (incorrectGraphTransitionsSyntax(this.type, symbols)) {
+      err = INVALID_SYNTAX_ERROR + "<br>" + expectedSyntax;
+      valid = false;
+    }
+    else if (this.type == "DFA") {
+      if (edgeId != null && this.transitionWithSymbolExists(edgeId, sourceStateData.id, symbols)
+        || edgeId == null && this.transitionWithSymbolExists(null, sourceStateData.id, symbols)) {
+        err = DFAInvalidTransition;
+        valid = false;
+      }
+    }
+    else if (symbols.length > 300) {
+      err = errors.transitionSymbolsTooLong;
+      valid = false;
+    }
+    return { result: valid, errMessage: err };
+  }
+
+  transitionWithSymbolExists(edgeId, stateId, symbols) {
+    for (let i = 0, j = this.edgesData.length; i < j; i++) {
+      const ed = this.edgesData[i];
+      if (ed.source.id === stateId && (edgeId == null || (edgeId != null && edgeId != ed.id))) {
+        if (intersects(ed.symbols.split(","), symbols.split(","))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 }
 
 
 
-/**
- * States of editor in graph mode.
- */
-const graphStateEnum = Object.freeze({
-  "default": 0,
-  "creatingEdge": 1,
-  "namingEdge": 2,
-  "renamingEdge": 3,
-  "renamingState": 4,
-  "mergingEdge": 5,
-  "initial": 6 //when editor contains no states
-});
 
-/**
- * Enum to specify state and edge data origin.
- */
-const elemOrigin = Object.freeze( {
-    "default": 0, //from graph
-    "fromTable": 1,
-    "fromExisting": 2 //when reverse creating editor from existing data (IS in browse mode)
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * Decides editor language based on actual IS language and loads correct language file.
@@ -1698,7 +3278,7 @@ function initialise(div, textArea) {
     editor = new GraphEditor(div.id, type, textArea);
     editor.Graph.reconstruct(textArea.innerText);
     $(textArea).prop('readonly', true);
-    
+
     if (editor.isEmpty()) {
       editor.Graph.setViewToMiddle();
       if (!jeProhlizeciStranka_new()) {
@@ -1724,94 +3304,61 @@ function initTableDiv(div) {
   div.tableDiv.appendChild(alertP);
 }
 
-/**
- * Creates div where syntax check will be shown.
- * @param {string} id id of div where syntax check will belong
- */
-function initSyntaxCheck(id) {
-  var div = document.getElementById(id);
-
-  var errDiv = document.createElement("div");
-  errDiv.setAttribute("id", id + "-error");
-  errDiv.setAttribute("class", "alert alert-info");
-  errDiv.setAttribute("title", syntaxDivTitle);
-
-  var errIcon = document.createElement("div");
-  errIcon.setAttribute("id", id + "-i");
-
-  var errText = document.createElement("div");
-  errText.setAttribute("id", id + "-error-text");
-  errText.innerHTML = syntaxDefaultText;
-
-  errDiv.appendChild(errIcon);
-  errDiv.appendChild(errText);
-
-  div.appendChild(errDiv);
-  div.errDiv = errDiv;
-
-  if (jeProhlizeciStranka_new() || !typeIsRegOrGram(div.type)) {
-    hideElem(errDiv);
-  }
-
-  eval("registerElem(id, " + div.type + "Parser.parse" + ", div.textArea)");
-}
 
 document.addEventListener('keyup', windowKeyUp);
 
 /**
  * Handles editor's key up events.
- * @param {event} event
+ * @param {KeyBoardEvent} event
  */
 function windowKeyUp(event) {
   //SELECTED_ELEM_GROUP is either null, or a d3 selection - stateGroup or an edgeGroup
   if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka_new()) return;
 
-  var graphDiv = SELECTED_ELEM_GROUP.node().parentGraphDiv;
-  var div = graphDiv.parentNode;
+  var g = SELECTED_ELEM_GROUP.node().parentGraph;
   var data = SELECTED_ELEM_GROUP.datum();
 
-  if (graphDiv.style.display == "none") return;
+  if (g.graphDiv.style.display == "none") return;
 
   if (event.key.toLowerCase() == "escape") {
-    if (getGraphState(div) == graphStateEnum.creatingEdge 
+    if (g.getCurrentState() == graphStateEnum.creatingEdge
       || SELECTED_ELEM_GROUP.classed("activeRenaming")) {
-        EditorManager.deselectAll();
+      EditorManager.deselectAll();
     }
   }
   if (event.key.toLowerCase() == "delete") {
     if (SELECTED_ELEM_GROUP.classed("activeRenaming")) return; //allow delete while renaming
 
     if (SELECTED_ELEM_GROUP.node().classList.contains(graphConsts.stateElem)) { // if selected element is state
-      deleteState(div, data);
-      graphDiv.graphState.selectedState = null;
+      g.deleteState(data);
+      g.graphState.selectedState = null;
     }
     else { // if selected element is edge
-      deleteEdge(div, data);
-      graphDiv.graphState.selectedEdge = null;
+      g.deleteEdge(data);
+      g.graphState.selectedEdge = null;
     }
-    if (isEmpty(div)) {
-      setGraphState(div, graphStateEnum.initial);
+    if (g.getEditor().isEmpty()) {
+      g.setCurrentState(graphStateEnum.initial);
     }
     else {
-      setGraphState(div, graphStateEnum.default)
+      g.setCurrentState(graphStateEnum.default);
     }
-    hideAllExtras(graphDiv);
     SELECTED_ELEM_GROUP = null;
-    enableAllDragging(div);
+    g.hideAllExtras();
+    g.enableAllDragging();
   }
 }
 
 
 /* ------------------------------ zoom & dragging ------------------------------ */
 
-
-
+//currently unused
 function setViewToState(div, x, y) {
   div.graphDiv.svg.transition().duration(1).call(
     div.zoom.transform,
     d3.zoomIdentity.translate(params.width / 2, params.height / 2)
       .scale(1)
-      .translate(-x - (div.graphDiv.offsetWidth/3), -y - (div.graphDiv.offsetHeight/3))
+      .translate(-x - (div.graphDiv.offsetWidth / 3), -y - (div.graphDiv.offsetHeight / 3))
   );
   generateQuestionResult(div);
 }
@@ -1826,104 +3373,6 @@ function convertStringToTransform(k, x, y) {
   return { k: k, x: x, y: y };
 }
 
-function updateOutgoingEdges(edgeGroups, stateData) {
-  edgeGroups
-    .filter(function (edgeData) {
-      return edgeData.source.id === stateData.id;
-    })
-    .each(function (edgeData, index) {
-      var tx, ty, newDef;
-      if (edgeData.source == edgeData.target) {
-        var def = "M " + stateData.x + " " + stateData.y + " C "
-          + cubicControlPoints(stateData.x, stateData.y, edgeData.angle)
-          + " " + stateData.x + " " + stateData.y;
-        var s = def.split(" ");
-        var tx = (+s[4] + +s[6] + +s[1]) / 3;
-        var ty = (+s[5] + +s[7] + +s[2]) / 3;
-        newDef = def;
-      }
-      else {
-        var str = d3.select(this).select("." + graphConsts.edgePath).attr("d").split(" ");
-        str[1] = stateData.x;
-        str[2] = stateData.y;
-
-        str[4] = ((+str[1] + (+str[6])) / 2) + edgeData.dx;
-        str[5] = ((+str[2] + (+str[7])) / 2) + edgeData.dy;
-
-        tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
-        ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
-
-        newDef = str.join(" ");
-      }
-      d3.select(this).select("." + graphConsts.edgePath).attr("d", newDef);
-      repositionEdgeInput(d3.select(this).select("foreignObject"), tx, ty);
-      repositionMarker(d3.select(this));
-    });
-
-}
-
-function updateIncommingEdges(edgeGroups, stateData) {
-  edgeGroups
-    .filter(function (edgeData) {
-      return edgeData.target.id === stateData.id && edgeData.source != edgeData.target;
-    })
-    .each(function (edgeData, index) {
-      var str = d3.select(this).select("." + graphConsts.edgePath).attr("d").split(" ");
-
-      str[6] = stateData.x;
-      str[7] = stateData.y;
-
-      str[4] = ((+str[1] + (+str[6])) / 2) + edgeData.dx;
-      str[5] = ((+str[2] + (+str[7])) / 2) + edgeData.dy;
-
-      var tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
-      var ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
-
-      d3.select(this).select("." + graphConsts.edgePath).attr("d", str.join(" "));
-
-      repositionEdgeInput(d3.select(this).select("foreignObject"), tx, ty);
-      repositionMarker(d3.select(this));
-    });
-
-}
-
-function edgeDragstart() {
-  var graphDiv = d3.select(this).node().parentGraphDiv;
-  deselectAll(graphDiv.parentNode.getAttribute("id"));
-
-  if (graphIsInRenamingState(getGraphState(graphDiv)) && !d3.select(this).classed("activeRenaming")) {
-    endRenaming(graphDiv.parentNode);
-  }
-
-  selectEdge(d3.select(this), graphDiv);
-  toggleFullnameVisibitity(graphDiv.svg.svgGroup.stateFullnameRect);
-
-  hideAllContextMenus(graphDiv.parentNode);
-  hideElem(graphDiv.renameError);
-
-
-}
-
-function edgeDragmove(event, d) {
-  var edgeG = d3.select(this);
-  var oldPathDefinition = edgeG.select("." + graphConsts.edgePath).attr("d");
-
-  edgeG
-    .select("." + graphConsts.edgePath)
-    .attr("d", repositionPathCurve(d, event.x, event.y, oldPathDefinition));
-
-  var coords = getEdgeInputPosition(edgeG.select("." + graphConsts.edgePath).attr("d"), d.source == d.target);
-
-  repositionEdgeInput(edgeG.select("foreignObject"), coords.tx, coords.ty);
-  repositionMarker(edgeG);
-}
-
-function edgeDragend() {
-  var graphDiv = d3.select(this).node().parentGraphDiv;
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(graphDiv.parentNode);
-  }
-}
 
 function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
   if (edgeData.source.id == edgeData.target.id) {
@@ -1956,7 +3405,7 @@ function getNewPathDefinition(mouseX, mouseY, pathDef, edgeData) {
   edgeData.dy = dy;
 
   //snap into straight line if edge curve is small
-  if (Math.abs(dy) <= 17 && Math.abs(dx) <= 17){
+  if (Math.abs(dy) <= 17 && Math.abs(dx) <= 17) {
     edgeData.dx = edgeData.dy = 0;
     return getStraightPathDefinition(edgeData.source.x, edgeData.source.y, edgeData.target.x, edgeData.target.y);
   }
@@ -2022,453 +3471,6 @@ function repositionEdgeInput(foreignObject, x, y) {
   }
 }
 
-
-/* ------------------------------ state functions ------------------------------ */
-
-
-
-function toggleAcceptingState(questionDiv, stateData, stateG) {
-  if (stateData.accepting) {
-    stateG.select("." + graphConsts.stateAccCircle).remove();
-  } else {
-    addAcceptingCircle(stateG);
-  }
-  stateData.accepting = !stateData.accepting;
-
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(questionDiv);
-  }
-}
-
-function addAcceptingCircle(stateG) {
-  stateG
-    .append("circle")
-    .classed(graphConsts.stateAccCircle, true)
-    .classed(graphConsts.stateElem, true)
-    .attr("r", graphConsts.nodeRadius - 3.5);
-  stateG.select("foreignObject").raise();
-}
-
-function setNewStateAsInitial(questionDiv, stateData) {
-  setInitStateAsNotInitial(questionDiv);
-
-  questionDiv.statesData
-    .filter(function (d) { return d.id == stateData.id; })
-    .map(function (d) { d.initial = true; });
-
-  questionDiv.graphDiv.graphState.initialState = stateData;
-  repositionInitArrow(questionDiv.graphDiv, stateData, 3.14);
-
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(questionDiv);
-  }
-}
-
-function setInitStateAsNotInitial(questionDiv) {
-  questionDiv.statesData
-    .filter(function (d) { return d.initial == true; })
-    .map(function (d) { d.initial = false; });
-
-  hideInitArrow(questionDiv.graphDiv);
-}
-
-
-
-function tryToRenameState(questionDiv, stateData, newId, prompt = null) {
-  if (prompt != null) {
-    showRenameError(prompt, questionDiv);
-  }
-  var input = getStateGroupById(questionDiv, stateData.id).select(".stateInput").node();
-
-  var validityCheck = checkStateNameValidity(questionDiv, stateData, newId);
-  if (!validityCheck.result) {
-    showRenameError(validityCheck.errMessage, questionDiv);
-    input.correct = false;
-  }
-  else {
-    input.correct = true;
-    input.blur();
-  }
-
-}
-
-/* ------------------------------ transition (edge) functions ------------------------------ */
-
-function addEdge(questionDiv, edgeData, origin = elemOrigin.default) {
-  var temporaryEdgePath = questionDiv.graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgePath);
-
-  if (edgeData.source == edgeData.target && origin == elemOrigin.default) {
-    if (temporaryEdgePath.node().angle) {
-      edgeData.angle = temporaryEdgePath.node().angle;
-    }
-    else {
-      edgeData.angle = 1.55;
-    }
-  }
-  questionDiv.edgesData.push(edgeData);
-
-  var newEdge = questionDiv.graphDiv.svg.svgGroup.edgeGroups
-    .data(questionDiv.edgesData).enter().append("g").classed(graphConsts.edgeGroup, true);
-
-  newEdge.node().parentGraphDiv = questionDiv.graphDiv;
-
-
-  addEdgeSvg(questionDiv, newEdge, origin, temporaryEdgePath.attr("d"));
-
-  repositionMarker(newEdge);
-  updateEdgeInputPosition(newEdge);
-  updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
-
-
-  if (!jeProhlizeciStranka_new()) {
-    addEdgeEvents(questionDiv, newEdge);
-    generateTextFromData(questionDiv);
-  }
-
-  return newEdge;
-}
-
-function addEdgeEvents(div, edge) {
-  edge
-    .call(dragEdge)
-    .on("mouseover", function () {
-      d3.select(this).classed(graphConsts.mouseOver, true);
-    })
-    .on("mouseout", function () {
-      d3.select(this).classed(graphConsts.mouseOver, false);
-    })
-    .on("dblclick", function (_, d) {
-      if (div.graphDiv.graphState.selectedEdge == d) {
-        initRenaming(div, graphStateEnum.renamingEdge, div.graphDiv.graphState.selectedEdge.symbols);
-      }
-    })
-    .on("contextmenu", function (event) {
-      event.preventDefault();
-
-      if (getGraphState(div) == graphStateEnum.renamingEdge) {
-        return;
-      }
-      deselectAll(div.getAttribute("id"));
-      hideAllExtras(div.graphDiv);
-      selectEdge(d3.select(this), div.graphDiv);
-    });
-
-  edge.select("input")
-    .on("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    })
-    .on("keydown", function (e, d) {
-      edgeInputOnKeyDown(div, e, d, d3.select(this).node());
-    })
-    .on("keyup", function (_, d) {
-      var input = d3.select(this).node();
-      if (input.getAttribute("readonly") != "readonly") {
-        input.correct = checkEdgeSymbolsValidity(div, d.id, d.source, input.value).result;
-      }
-    })
-    .on("blur", function (_, d) {
-      edgeOnBlur(div, d, d3.select(this).node());
-    });
-}
-
-function addEdgeSvg(div, newEdge, origin, tempEdgeDef) {
-  newEdge
-    .append("svg:path")
-    .classed(graphConsts.edgePath, true)
-    .classed(graphConsts.edgeElem, true)
-    .attr("d", function (d) {
-      if (origin == elemOrigin.fromExisting) {
-        return d.source != d.target ? reverseCalculateEdge(d.source, d.target, d.dx, d.dy) : calculateSelfloop(d.source.x, d.source.y, d.angle);
-      }
-      if (d.source == d.target) {
-        if (origin == elemOrigin.fromTable) {
-          d.angle = 1.55;
-          return calculateSelfloop(d.source.x, d.source.y, d.angle);
-        }
-        return tempEdgeDef;
-      }
-      return getStraightPathDefinition(d.source.x, d.source.y, d.target.x, d.target.y);
-    });
-
-  newEdge
-    .append("svg:path")
-    .classed(graphConsts.edgeMarker, true)
-    .classed(graphConsts.edgeElem, true)
-    .attr("marker-end", "url(#end-arrow" + div.getAttribute("id") + ")");
-
-  var fo = newEdge
-    .append("foreignObject")
-    .classed(graphConsts.edgeElem, true)
-    .attr("height", 29)
-    .attr("width", 50);
-
-  var input = fo
-    .append("xhtml:input")
-    .classed("edgeInput", true)
-    .classed(graphConsts.edgeElem, true);
-
-  input.node().correct = false;
-
-  setEdgeInput(input.node(), newEdge.datum().symbols);
-  if (origin == elemOrigin.default && div.type == "EFA") {
-    setEdgeInput(input.node(), epsSymbol);
-    input.node().correct = true;
-  }
-  setEdgeInputWidth(input.node(), 50);
-  if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
-    setEdgeInputWidth(input.node());
-    makeReadonly(input.node());
-    input.node().correct = true;
-  }
-}
-
-/**
- * Defines editor's behaviour when editing transition is finished
- * (input containing transition symbols goes out of focus = blur).
- * @param {HTML element}  div   div element containing editor
- * @param {object}        d     edge (transition) data
- * @param {HTML element}  input input element
- */
-function edgeOnBlur(div, d, input) {
-  getEdgeGroupById(div, d.id).classed("activeRenaming", false);
-  input.correct = checkEdgeSymbolsValidity(div, d.id, d.source, input.value).result;
-  makeReadonly(input);
-
-  if (input.correct == false) {
-    if (getGraphState(div) == graphStateEnum.mergingEdge || getGraphState(div) == graphStateEnum.renamingEdge) {
-      setEdgeInput(input, d.symbols);
-      setEdgeInputWidth(input);
-      updateEdgeInputPosition(getEdgeGroupById(div, d.id));
-    }
-    else {
-      deleteEdge(div, d);
-      deselectAll(div);
-    }
-  }
-  else {
-    renameEdge(div, d, input.value);
-  }
-  setGraphState(div, graphStateEnum.default);
-  hideElem(div.graphDiv.renameError);
-  enableAllDragging(div);
-}
-
-/**
- * 
- * @param {*} div 
- * @param {*} e 
- * @param {*} d 
- * @param {*} input 
- * @returns 
- */
-function edgeInputOnKeyDown(div, e, d, input) {
-  if (input.getAttribute("readonly") == "readonly") return;
-
-  var len = visualLength(input.value);
-  var w = parseInt((input.style.width).substring(0, input.style.width.length - 2));
-  if (w && (w - len) < 20) {
-    setEdgeInputWidth(input, len + 50);
-    updateEdgeInputPosition(getEdgeGroupById(div, d.id));
-  }
-
-  if (e.key.toLowerCase() == "enter") {
-    tryToRenameEdge(div, d, input.value);
-  }
-}
-
-function renameEdge(questionDiv, edgeData, symbols) {
-  questionDiv.edgesData
-    .filter(function (ed) { return ed.id == edgeData.id; })
-    .map(function (ed) { ed.symbols = symbols; });
-
-  var edgeGroup = getEdgeGroupById(questionDiv, edgeData.id);
-  var input = edgeGroup.select("input").node();
-  setEdgeInput(input, symbols);
-  setEdgeInputWidth(input);
-  updateEdgeInputPosition(edgeGroup);
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(questionDiv);
-  }
-}
-
-function deleteEdge(questionDiv, edgeData) {
-  deleteEdgeSvg(questionDiv.graphDiv.svg.svgGroup, edgeData);
-  updateEdgeGroups(questionDiv.graphDiv.svg.svgGroup);
-  deleteEdgeData(questionDiv.edgesData, edgeData);
-  if (!jeProhlizeciStranka_new()) {
-    generateTextFromData(questionDiv);
-  }
-}
-
-function deleteEdgeSvg(svgGroup, edgeData) {
-  svgGroup
-    .select(".edges")
-    .selectAll("g")
-    .filter(function (ed) {
-      return ed.id == edgeData.id;
-    })
-    .remove();
-}
-
-function deleteEdgeData(edgesData, edgeData) {
-  edgesData.splice(edgesData.indexOf(edgeData), 1);
-}
-
-function tryToRenameEdge(questionDiv, edgeData, newSymbols, prompt = null) {
-  var graphDiv = questionDiv.graphDiv;
-  var edgeG = getEdgeGroupById(questionDiv, edgeData.id);
-  setRenameErrorPosition(getGraphState(graphDiv), graphDiv.renameError, edgeG, graphDiv.k);
-
-  if (prompt != null) {
-    showRenameError(prompt, questionDiv);
-  }
-
-  newSymbols = replaceEpsilon(removeDuplicates(newSymbols.split(",")));
-  if (questionDiv.type == "EFA" && newSymbols == "") {
-    newSymbols = epsSymbol;
-  }
-
-  var input = edgeG.select("input").node();
-  var validityCheck = checkEdgeSymbolsValidity(questionDiv, edgeData.id, edgeData.source, newSymbols);
-  if (!validityCheck.result) {
-    showRenameError(validityCheck.errMessage, questionDiv);
-    input.correct = false;
-  }
-  else {
-    input.correct = true;
-    renameEdge(questionDiv, edgeData, newSymbols);
-    input.blur();
-    deselectAll();
-  }
-}
-
-/* ------------------------------ NEW STATE CONTEXT MENU ------------------------------ */
-
-function createAddStateMenu(questionDiv) {
-  var div = document.createElement("div");
-  div.setAttribute("class", CONTEXT_MENU);
-
-  var button = createContextMenuButton(addStateText);
-  button.addEventListener("click", function (e) {
-    var y = e.clientY - questionDiv.graphDiv.svg.node().getBoundingClientRect().y;
-    var x = e.clientX - questionDiv.graphDiv.svg.node().getBoundingClientRect().x;
-    var coords = getPointWithoutTransform([x, y], questionDiv.graphDiv.svg.svgGroup);
-
-    addState(questionDiv, newStateData(questionDiv, null, coords.x, coords.y, false, false));
-    hideElem(div);
-  });
-  div.appendChild(button);
-  questionDiv.graphDiv.appendChild(div);
-  questionDiv.graphDiv.addStateContextMenu = div;
-}
-
-
-/* ------------------------------ State CONTEXT MENU + handlers ------------------------------ */
-
-function deleteStateHandler(questionDiv) {
-  deleteState(questionDiv, questionDiv.graphDiv.graphState.selectedState);
-  hideElem(questionDiv.graphDiv.stateContextMenuDiv);
-}
-
-function renameStateHandler(questionDiv) {
-  hideElem(questionDiv.graphDiv.stateContextMenuDiv);
-
-  initRenaming(
-    questionDiv,
-    graphStateEnum.renamingState,
-    questionDiv.graphDiv.graphState.selectedState.id);
-}
-
-function initRenaming(div, state, stateId, errMsg = null) {
-  var input, elemG, isState;
-  if (state == graphStateEnum.renamingState) {
-    elemG = getStateGroupById(div, stateId);
-    elemG.select("input").node().value = elemG.datum().id;
-    isState = true;
-  }
-  else {
-    elemG = getEdgeGroupById(div, div.graphDiv.graphState.selectedEdge.id);
-  }
-
-  elemG.node().classList.add("activeRenaming");
-  input = elemG.select("input").node();
-  removeReadonly(input);
-
-  input.focus();
-
-  input.selectionStart = input.selectionEnd = 10000; //set caret position to end
-  disableAllDragging(div.graphDiv.svg);
-  div.graphDiv.svg.svgGroup.selectAll("." + graphConsts.stateGroup).on(".drag", null);
-
-  setGraphState(div, state);
-  if (isState) selectState(elemG, div.graphDiv, elemG.datum());
-
-  setRenameErrorPosition(state, div.graphDiv.renameError, elemG);
-  errMsg != null ? showRenameError(errMsg, div) : hideElem(div.graphDiv.renameError);
-}
-
-function endRenaming(div) {
-  if (SELECTED_ELEM_GROUP) {
-    SELECTED_ELEM_GROUP.select("input").node().blur();
-  }
-  setGraphState(div, graphStateEnum.default);
-  hideElem(div.graphDiv.renameError);
-  enableAllDragging(div);
-}
-
-function setRenameErrorPosition(state, errDiv, activeElemG) {
-  var x, y;
-  if (state == graphStateEnum.renamingState) {
-    var p = applyTransformationToPoint([activeElemG.datum().x, activeElemG.datum().y + 13], activeElemG);
-    x = p.x;
-    y = p.y;
-  }
-  else {
-    var input = activeElemG.select("input");
-    var inputWidth = parseInt((input.node().style.width).substring(0, input.node().style.width.length - 2));
-
-    var t = getEdgeInputPosition(
-      activeElemG.select("." + graphConsts.edgePath).attr("d"),
-      activeElemG.datum().source == activeElemG.datum().target);
-
-    var p = applyTransformationToPoint([t.tx - inputWidth / 2, t.ty + 16], activeElemG);
-    x = p.x;
-    y = p.y;
-  }
-  setElemPosition(errDiv, y, x);
-}
-
-function setStateAsInitialHandler(questionDiv) {
-  setNewStateAsInitial(questionDiv, questionDiv.graphDiv.graphState.selectedState);
-  hideElem(questionDiv.graphDiv.stateContextMenuDiv);
-}
-
-function toggleAcceptingStateHandler(questionDiv) {
-  var d = questionDiv.graphDiv.graphState.selectedState;
-  toggleAcceptingState(questionDiv, d, getStateGroupById(questionDiv, d.id));
-  hideElem(questionDiv.graphDiv.stateContextMenuDiv);
-}
-
-
-/* ------------------------------ Edge CONTEXT MENU + handlers ------------------------------ */
-
-
-
-function deleteEdgeHandler(questionDiv) {
-  deleteEdge(questionDiv, questionDiv.graphDiv.graphState.selectedEdge);
-  hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
-}
-
-function renameEdgeHandler(questionDiv) {
-  hideElem(questionDiv.graphDiv.edgeContextMenuDiv);
-  initRenaming(questionDiv, graphStateEnum.renamingEdge, questionDiv.graphDiv.graphState.selectedEdge.symbols);
-}
-
-
-/* ------------------------------ Updating functions ------------------------------ */
-
-
 /* ------------------------------ HTML elements utils ------------------------------ */
 
 function hideElem(element) {
@@ -2483,12 +3485,6 @@ function showElem(element, inline = false) {
   }
   else {
     element.style.display = "block";
-  }
-}
-
-function setupHints(div) {
-  for (const property in hints) {
-    div.appendChild(createParagraph(hints[property]));
   }
 }
 
@@ -2522,7 +3518,7 @@ function createContextMenuButton(innerText) {
   return b;
 }
 
-function findParentWithClass(childNode, parentClass) {
+/* function findParentWithClass(childNode, parentClass) {
   var parent = null, found = 0;
   try {
     parent = childNode.parentNode;
@@ -2536,6 +3532,12 @@ function findParentWithClass(childNode, parentClass) {
   }
   catch (e) { }
   return parent;
+} */
+
+function appendChildren(parentElement, childrenArray) {
+  childrenArray.forEach(e => {
+    parentElement.appendChild(e);
+  });
 }
 
 function makeReadonly(input) {
@@ -2562,12 +3564,6 @@ function tableVisualLength(val) {
   var ruler = document.getElementById("table-ruler");
   ruler.innerHTML = val;
   return ruler.offsetWidth;
-}
-
-function showRenameError(msg, questionDiv) {
-  var p = questionDiv.graphDiv.renameError;
-  p.innerHTML = msg;
-  showElem(p);
 }
 
 function setElemPosition(elem, top, left) {
@@ -2619,25 +3615,6 @@ function reverseCalculateEdge(source, target, dx, dy) {
   //return "M " + s1.x + " " + s1.y + " Q " + c1 + " " + c2 + " " + s2.x + " " + s2.y;
 }
 
-/**
-* Function to determine if state already has another outgoing edge with symbol (used in DFA)
-* @param {*} questionDiv 
-* @param {*} edgeId 
-* @param {*} stateId 
-* @param {*} symbols 
-*/
-function transitionWithSymbolExists(questionDiv, edgeId, stateId, symbols) {
-  for (let i = 0; i < questionDiv.edgesData.length; i++) {
-    const ed = questionDiv.edgesData[i];
-    if (ed.source.id === stateId && (edgeId == null || (edgeId != null && edgeId != ed.id))) {
-      if (intersects(ed.symbols.split(","), symbols.split(","))) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 function hideEdge(edgeG) {
   edgeG.select("." + graphConsts.edgePath).classed("hidden", true);
   edgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
@@ -2647,32 +3624,6 @@ function repositionTemporaryEdgeToState(stateData) {
   temporaryEdgePath
     .classed("hidden", false)
     .attr("d", "M" + stateData.x + "," + stateData.y + "L" + stateData.x + "," + stateData.y);
-}
-
-function checkEdgeSymbolsValidity(questionDiv, edgeId, sourceStateData, symbols) {
-  var err = "", valid = true;
-  var expectedSyntax = questionDiv.type == "EFA" ? expectedEFASyntax : expectedDFASyntax;
-
-  if (symbols == null || symbols == "") {
-    err = errors.emptyTransition;
-    valid = false;
-  }
-  else if (incorrectGraphTransitionsSyntax(questionDiv.type, symbols)) {
-    err = INVALID_SYNTAX_ERROR + "<br>" + expectedSyntax;
-    valid = false;
-  }
-  else if (questionDiv.type == "DFA") {
-    if (edgeId != null && transitionWithSymbolExists(questionDiv, edgeId, sourceStateData.id, symbols)
-      || edgeId == null && transitionWithSymbolExists(questionDiv, null, sourceStateData.id, symbols)) {
-      err = DFAInvalidTransition;
-      valid = false;
-    }
-  }
-  else if (symbols.length > 300) {
-    err = errors.transitionSymbolsTooLong;
-    valid = false;
-  }
-  return { result: valid, errMessage: err };
 }
 
 function checkEdgePathData(data) {
@@ -2707,12 +3658,12 @@ function getCroppedTitle(input) {
 }
 
 function toggleFullnameVisibitity(rect, visible = false) {
-  rect.style("visibility", function () { 
-      return visible == true ? "visible" : "hidden"; 
-    }
+  rect.style("visibility", function () {
+    return visible == true ? "visible" : "hidden";
+  }
   );
-  rect.FullnameText.style("visibility", function () { 
-    return visible == true ? "visible" : "hidden"; 
+  rect.FullnameText.style("visibility", function () {
+    return visible == true ? "visible" : "hidden";
   });
 }
 
@@ -2729,78 +3680,10 @@ function showFullname(invisibleRect, d) {
     .attr("y", d.y + (graphConsts.nodeRadius + 2));
 }
 
-/* ------------------------------ Graph - State placement functions ------------------------------ */
 
-function findStatePlacement(div, newStateData) {
-  var states = div.statesData;
-
-  var transform = d3.zoomTransform(div.graphDiv.svg.svgGroup.node());
-
-  var baseX, baseY;
-  if (isEmpty(div)) {
-    baseX = -(div.graphDiv.lastWidth / 2) + 100;
-    baseY = -(div.graphDiv.lastHeight / 2) + 100;
-  }
-  else if (div.graphDiv.graphState.initialState != null) {
-    baseX = div.graphDiv.graphState.initialState.x;
-    baseY = div.graphDiv.graphState.initialState.y;
-  }
-  else {
-    //find topmost
-    let top = states[0];
-    states.forEach(d => {
-      if (d.y < top.y) {
-        top = d;
-      }
-    });
-    baseX = top.x;
-    baseY = top.y;
-  }
-
-  //var app = applyTransformationToPoint([baseX, baseY], div.graphDiv.svg.svgGroup);
-  //var x = graphConsts.nodeRadius + 10 - transform.x;
-  //var y = graphConsts.nodeRadius + 10 - transform.y;
-  var x = baseX;
-  var y = baseY;
-  newStateData.x = x;
-  newStateData.y = y;
-  var mult = 5;
-
-  while (invalidStatePosition(states, newStateData)) {
-    x += graphConsts.nodeRadius * mult;
-    if (x > div.graphDiv.lastWidth - transform.x) {
-      x = baseX; // posunutie x na zaciatok riadku
-      y += graphConsts.nodeRadius * mult; //posunutie dolu
-    }
-    if (y + graphConsts.nodeRadius + 100 > div.graphDiv.lastHeight) {
-      div.graphDiv.style.height = y + graphConsts.nodeRadius + 100;
-      
-    }
-
-    newStateData.x = x;
-    newStateData.y = y;
-  }
-  newStateData.isNew = false;
-  return newStateData;
-}
-
-function invalidStatePosition(states, state) {
-  for (var i = 0; i < states.length; i++) {
-    if (state.id == states[i].id) {
-      continue;
-    }
-    if ((Math.abs(states[i].x - state.x) < graphConsts.nodeRadius * 2)
-      && (Math.abs(states[i].y - state.y) < graphConsts.nodeRadius * 2)) {
-      return true;
-    }
-  }
-  return false;
-}
 
 
 /* ------------------------------ General Graph related utils ------------------------------ */
-
-
 
 function typeIsNondeterministic(type) {
   return type == "NFA" || type == "EFA";
@@ -2817,17 +3700,11 @@ function graphIsInRenamingState(state) {
     state == graphStateEnum.mergingEdge;
 }
 
-
-function resetStateIds(questionDiv) {
-  questionDiv.graphDiv.stateIdCounter = 0;
-}
-
+//unnecessary?
 function updateSvgDimensions(questionDiv) {
   questionDiv.graphDiv.lastHeight = questionDiv.graphDiv.offsetHeight;
   questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
 }
-
-
 
 
 /* ------------------------------ Math utils ------------------------------ */
@@ -2898,8 +3775,14 @@ function replaceEpsilon(array) {
   return array.toString().replace(/\\e/g, epsSymbol);
 }
 
+/**
+ * Decides if two arrays have at least one common element.
+ * @param   {array}     array1 
+ * @param   {array}     array2 
+ * @returns {boolean}   True if arrays intersects, false otherwise.
+ */
 function intersects(array1, array2) {
-  for (let i = 0; i < array1.length; i++) {
+  for (let i = 0, len = array1.length; i < len; i++) {
     if (array2.includes(array1[i])) {
       return true;
     }
@@ -2913,719 +3796,12 @@ function removeDuplicates(array) {
   });
 }
 
-function generateId(type) {
-  var result = `${type}-`;
-  var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-  for (let i = 0; i < 6; i++) {
-    result += symbols.charAt(Math.floor(Math.random() * symbols.length));
-  }
-
-  result += `-${idCount++}`;
-  return result;
-}
-
-/* ------------------------------ Table ------------------------------ */
-const STATE_INDEX = 2;
-var MIN_TABLE_CELL_WIDTH = "50px";
-var MIN_STATE_WIDTH = "50px";
-
-function createTable(questionDiv) {
-  var table = document.createElement("table");
-  table.setAttribute("class", tableClasses.myTable);
-  table.style.width = "0";
-  table.selectedCellInput = null;
-  table.selectedInitDiv = null;
-  table.questionDiv = questionDiv;
-  table.alertStatus = questionDiv.tableDiv.alertText;
-  questionDiv.tableDiv.table = table;
-  questionDiv.tableDiv.appendChild(table);
-  return table;
-}
-
-function createTableFromData(questionDiv) {
-  var oldTable = questionDiv.tableDiv.table;
-  var table = createTable(questionDiv);
-
-  table.states = [], table.exitStates = [], table.symbols = [];
-  table.initState = null;
-
-  questionDiv.statesData.forEach(d => {
-    table.states.push(d.id);
-    if (d.initial) {
-      table.initState = d.id;
-    }
-    if (d.accepting) {
-      table.exitStates.push(d.id);
-    }
-  });
-
-  questionDiv.edgesData.forEach(d => {
-    d.symbols.split(',').forEach(symb => {
-      if (!table.symbols.includes(symb)) table.symbols.push(symb);
-    });
-  });
-
-  //table.states.sort();
-  table.symbols.sort();
-
-  MIN_STATE_WIDTH = findLongestTitle(table.states) + "px";
-  //create first row = consisting of 3 inactive cells
-  var row1 = table.insertRow(table.rows.length); // -1 ?
-  insertInactiveCell(row1, 0);
-  insertInactiveCell(row1, 1);
-  insertInactiveCell(row1, 2);
-
-  //create second row - "symbols" row
-  var row2 = table.insertRow(table.rows.length);
-  insertInactiveCell(row2, 0);
-  insertInactiveCell(row2, 1);
-  var cell = insertInactiveCell(row2, 2);
-  
-  cell.style.width = MIN_STATE_WIDTH;
-  addResizable(table, cell);
-
-  var maxColWidth = findLongestTitle(table.symbols) - 10;
-
-  // filling out columns' headers from symbols and delete buttons above them
-  table.symbols.forEach(symb => {
-    insertColumnDeleteButton(table, row1);
-    insertColumnHeader(row2, symb, maxColWidth);
-  });
-  insertColumnAddButton(table, row1);
-
-  // filling out rows' headers (states' titles)
-  table.states.forEach(stateTitle => {
-    var row = table.insertRow(table.rows.length);
-    insertRowDeleteButton(table, row);
-
-    var arrCell = insertArrows(table, row, row.cells.length);
-
-    insertRowHeader(row, stateTitle, MIN_STATE_WIDTH);
-
-    if (table.initState == stateTitle) {
-      $(arrCell.initArrow).addClass("selected-arrow");
-      table.selectedInitDiv = arrCell.initArrow;
-    }
-    if (table.exitStates.includes(stateTitle)) {
-      $(arrCell.accArrow).addClass("selected-arrow");
-    }
-
-    for (var j = 0; j < table.symbols.length; j++) {
-      insertInnerCell(table, row);
-    }
-  });
-  insertRowAddButton(table);
-
-  // filling transitions
-  questionDiv.edgesData.forEach(ed => {
-    var row = table.rows[table.states.indexOf(ed.source.id) + 2];
-
-    ed.symbols.split(",").forEach(symb => {
-      var cell = row.cells[table.symbols.indexOf(symb) + 3];
-
-      if (questionDiv.type == "DFA") {
-        cell.myDiv.value = ed.target.id;
-      }
-      else if (typeIsNondeterministic(questionDiv.type)) {
-        var result = cell.myDiv.value.replace(/{|}/g, "");
-        if (result == "") {
-          result = ed.target.id
-        }
-        else {
-          result = result.split(",").sort().join(",");
-          result += "," + ed.target.id;
-        }
-        cell.myDiv.value = "{" + result + "}";
-      }
-      cell.myDiv.prevValue = cell.myDiv.value;
-      
-      maxColWidth = Math.max(maxColWidth, tableVisualLength(cell.myDiv.value));
-    });
-  });
-
-  setInnerCellSizes(table, maxColWidth + 10 + "px");
-
-  questionDiv.tableDiv.removeChild(oldTable);
-  questionDiv.tableDiv.removeChild(questionDiv.tableDiv.alertText);
-  questionDiv.tableDiv.appendChild(questionDiv.tableDiv.alertText);
-
-  if (jeProhlizeciStranka_new()) {
-    $(table).find("input").prop("disabled", true).addClass("mydisabled");
-  }
-}
-
-function insertArrows(table, row, index) {
-  var cell = insertCell(row, index, ["arrow-td"], "40px");
-  cell.style.minWidth = "40px";
-
-  var initArr = document.createElement("div");
-  $(initArr).prop("class", "top-arrow base-arrow");
-  $(initArr).prop("title", tableInitialButtonName);
-  initArr.innerHTML = initSymbol;
-
-
-  var accArr = document.createElement("div");
-  $(accArr).prop("class", "bottom-arrow base-arrow");
-  $(accArr).prop("title", tableAcceptingButtonName);
-  accArr.innerHTML = accSymbol;
-
-  if (!jeProhlizeciStranka_new()) {
-    $(initArr).click(() => setInitDiv(table, initArr));
-    $(accArr).click(() => toggleAccArrow(accArr));
-  }
-
-  cell.initArrow = initArr;
-  cell.accArrow = accArr;
-
-  cell.appendChild(initArr);
-  cell.appendChild(accArr);
-
-  return cell;
-}
-
-function insertColumnAddButton(table, row) {
-  var cell = insertCellWithDiv(row, null, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
-  if (!jeProhlizeciStranka_new()) {
-    $(cell).prop("title", tableAddSymbolHover);
-    cell.addEventListener("click", () => insertColumn(table));
-  }
-}
-
-function insertColumnDeleteButton(table, row) {
-  var cell = insertCellWithDiv(row, null,
-    [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
-
-
-  if (!jeProhlizeciStranka_new()) {
-    $(cell).prop("title", tableDelSymbolHover);
-    cell.addEventListener("click", () => deleteColumn(table, cell.cellIndex));
-  }
-}
-
-function insertRowAddButton(table) {
-  var newRow = table.insertRow(table.rows.length);
-  var cell = insertCellWithDiv(newRow, 0, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
-
-  if (!jeProhlizeciStranka_new()) {
-    $(cell).prop("title", tableAddRowHover);
-    cell.addEventListener("click", function (e) { insertRow(table); });
-  }
-}
-
-function insertRowDeleteButton(table, row) {
-  var cell = insertCellWithDiv(row, 0,
-    [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
-
-  if (!jeProhlizeciStranka_new()) {
-    $(cell).prop("title", tableDelRowHover);
-    cell.addEventListener("click", function () { deleteRow(table, cell.parentNode.rowIndex); });
-  }
-}
-
-function insertInnerCell(table, row) {
-  var cell = insertCell(row, row.cells.length, [tableClasses.myCell]);
-
-  var value = typeIsNondeterministic(table.questionDiv.type) ? "{}" : "";
-  var input = createInput([tableClasses.inputCellDiv], value, value,
-    table.rows[1].cells[cell.cellIndex].style.minWidth);
-
-  input.addEventListener("click", (e) => inputClickHandler(e, table));
-  input.addEventListener("input", (e) => tableCellChanged(e, table, input));
-  input.addEventListener("focusout", (e) => tableCellChangedFinal(e, table, input));
-
-  var regex = typeIsNondeterministic(table.questionDiv.type) ? /[a-zA-Z0-9{},]/ : /[a-zA-Z0-9\-]/;
-
-  input.addEventListener("keypress", function (e) { cellKeypressHandler(e, regex); });
-
-  cell.myDiv = input;
-  cell.appendChild(input);
-}
-
-function insertRowHeader(row, name, width) {
-  var cell = insertCell(row, row.cells.length, ["row-header-cell"], width);
-  var table = findParentWithClass(cell, tableClasses.myTable);
-  var input = createInput([tableClasses.inputCellDiv, tableClasses.rowHeader], name, name, width);
-  input.defaultClass = tableClasses.rowHeader;
-
-  $(input).click(() => tableHeaderCellClick(table, input));
-  $(input).on("input", (e) => tableRhChanged(e, table));
-  $(input).focusout((e) => tableRhChangedFinal(e, table, input));
-  $(input).keypress((e) => cellKeypressHandler(e, stateSyntax()));
-
-  cell.myDiv = input;
-  cell.appendChild(input);
-  return cell;
-}
-
-function insertColumnHeader(row, symbol, width) {
-  var cell = insertCell(row, row.cells.length, [tableClasses.columnHeader], width);
-  var table = findParentWithClass(cell, tableClasses.myTable);
-  var input = createInput([tableClasses.inputColumnHeaderDiv, tableClasses.inputCellDiv], symbol, symbol, width);
-
-  cell.myDiv = input;
-
-  addResizable(table, cell);
-  cell.appendChild(input);
-
-  input.addEventListener("click", (e) => inputClickHandler(e));
-  input.addEventListener("input", (e) => tableChChanged(e, table, input));
-  input.addEventListener("focusout", (e) => tableChChangedFinal(e, table, input));
-
-  var regex = table.questionDiv.type == "EFA" ? tableEFATransitionSyntax() : DFATableTransitionSymbolsSyntax();
-  input.addEventListener("keypress", function (e) {
-    cellKeypressHandler(e, regex);
-  });
-}
-
-function insertRow(table, title) {
-  if (table.locked) {
-    return;
-  }
-  //if this is a first state to be created in editor
-  if (isEmpty(table.questionDiv) && getGraphState(table.questionDiv) == graphStateEnum.initial) {
-    endEmptyGraphState(table.questionDiv);
-  }
-  if (title == null) {
-    title = generateStateId(table.parentNode.parentNode);
-  }
-  deselectCell(table);
-  table.rows[table.rows.length - 1].deleteCell(0);
-  insertRowDeleteButton(table, table.rows[table.rows.length - 1]);
-  insertArrows(table, table.rows[table.rows.length - 1], 1);
-
-  insertRowHeader(table.rows[table.rows.length - 1], title, table.rows[1].cells[STATE_INDEX].style.width);
-
-  for (i = STATE_INDEX + 1; i < table.rows[0].cells.length - 1; i++) {
-    insertInnerCell(table, table.rows[table.rows.length - 1]);
-  }
-  insertRowAddButton(table);
-
-  // create state in graph
-  var data = newStateData(table.questionDiv, title, -(params.width / 2) + 100, -(params.height / 2) + 100, false, false, true);
-  addState(table.questionDiv, data);
-}
-
-function insertColumn(table, symb = null) {
-  if (table.locked) {
-    return;
-  }
-  deselectCell(table);
-  table.rows[0].deleteCell(table.rows[0].cells.length - 1);
-  insertColumnDeleteButton(table, table.rows[0]);
-  insertColumnAddButton(table, table.rows[0]);
-
-  if (!symb) {
-    symb = findSymbol(table);
-  }
-  table.symbols.push(symb);
-  insertColumnHeader(table.rows[1], symb);
-
-  for (var i = 2; i < table.rows.length - 1; i++) {
-    insertInnerCell(table, table.rows[i]);
-  }
-}
-
-function deleteRow(table, rowIndex) {
-  if (table.locked) return;
-
-  var stateId = table.rows[rowIndex].cells[STATE_INDEX].myDiv.value;
-  table.states.splice(table.states.indexOf(stateId), 1);
-  //delete state in graph (& from data)
-  var data = getStateDataById(table.questionDiv, stateId);
-  deleteState(table.questionDiv, data);
-
-  for (i = STATE_INDEX; i < table.rows.length - 1; i++) { //for each row
-    for (j = 3; j < table.rows[i].cells.length; j++) { //for each column
-      var value = table.rows[i].cells[j].myDiv.value;
-      if (typeIsNondeterministic(table.questionDiv.type)) {
-        value = value.replace(/{|}/g, "");
-        var stateIds = value.split(",");
-        var index = stateIds.indexOf(stateId);
-        if (index != -1) {
-          stateIds.splice(index, 1);
-          value = "{" + stateIds.toString() + "}";
-          table.rows[i].cells[j].myDiv.value = value;
-          table.rows[i].cells[j].myDiv.prevValue = value;
-        }
-      }
-      else { //DFA
-        if (stateId == value) {
-          table.rows[i].cells[j].myDiv.value = "";
-          table.rows[i].cells[j].myDiv.prevValue = "";
-        }
-      }
-    }
-  }
-  table.deleteRow(rowIndex);
-}
-
-function deleteColumn(table, index) {
-  if (table.locked) return;
-  var symbol = table.rows[1].cells[index].myDiv.value;
-  table.symbols.splice(table.symbols.indexOf(symbol), 1);
-  deleteSymbolFromAllEdges(table.questionDiv, symbol);
-
-  // Delete table column
-  for (var i = 0; i < table.rows.length - 1; i++) {
-    table.rows[i].deleteCell(index); //deleteCell() automaticky posunie vsetky cells dolava
-  }
-}
-
-function setInitDiv(table, div) {
-  if (!table.locked) {
-    deselectCell(table);
-  }
-  if (table.selectedInitDiv == div) {
-    unselectInitDiv(table);
-    setInitStateAsNotInitial(table.questionDiv);
-    return;
-  }
-  if (table.selectedInitDiv != null) {
-    unselectInitDiv(table);
-  }
-  $(div).addClass("selected-arrow");
-  table.selectedInitDiv = div;
-
-  //edit state in graph
-  var stateId = table.rows[div.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
-  var data = getStateDataById(table.questionDiv, stateId);
-  setNewStateAsInitial(table.questionDiv, data);
-}
-
-function unselectInitDiv(table) {
-  $(table.selectedInitDiv).removeClass("selected-arrow");
-  table.selectedInitDiv = null;
-}
-
-function toggleAccArrow(div) {
-  var table = findParentWithClass(div, tableClasses.myTable);
-  if (!table.locked) {
-    deselectCell(table);
-  }
-  $(div).toggleClass("selected-arrow");
-
-  var stateId = table.rows[div.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
-
-  //edit state in graph
-  var stateG = getStateGroupById(table.questionDiv, stateId);
-  toggleAcceptingState(table.questionDiv, stateG.datum(), stateG);
-}
-
-/*
-  table header cells (symbols of transition) on change
-*/
-function tableChChanged(e, table, input) {
-  var value = input.value;
-  var type = table.questionDiv.type;
-
-  if (value == "\\e") {
-    input.value = epsSymbol
-    value = epsSymbol
-  }
-
-  if (incorrectTableColumnHeaderSyntax(type, value)) {
-
-    $(input).addClass(tableClasses.incorrectCell);
-    var err;
-    if (type == "EFA") {
-      err = errors.EFA_incorrectTransitionSymbol;
-    }
-    else {
-      err = errors.NFA_incorrectTransitionSymbol;
-    }
-    activateAlertMode(table, err, input);
-  }
-  else if (tableColumnSymbolAlreadyExists(table, input, value)) {
-    $(input).addClass(tableClasses.incorrectCell);
-    activateAlertMode(table, errors.duplicitTransitionSymbol, input);
-  }
-  else {
-    $(input).removeClass(tableClasses.incorrectCell);
-    if (table.locked) {
-      hideElem(table.alertStatus);
-      unlockTable(table);
-    }
-  }
-}
-
-function tableChChangedFinal(_, table, input) {
-  if ($(input).hasClass(tableClasses.incorrectCell) || table.locked) {
-    return;
-  }
-  var prevName = input.prevValue;
-  var newName = input.value;
-  if (table.questionDiv.type == "EFA" && newName == "\\e") {
-    input.value = epsSymbol;
-    newName = input.value;
-  }
-
-  table.symbols.splice(table.symbols.indexOf(prevName), 1);
-  table.symbols.push(newName);
-
-  if (prevName != newName) {
-    // Rename the symbol in graph
-    table.questionDiv.edgesData.forEach(ed => {
-      if (ed.symbols == prevName) {
-        renameEdge(table.questionDiv, ed, newName);
-      }
-      else {
-        var syms = ed.symbols.split(',');
-        syms[syms.indexOf(prevName)] = newName;
-        renameEdge(table.questionDiv, ed, syms.join(','));
-      }
-    });
-    input.prevValue = input.value;
-  }
-}
-
-function tableRhChanged(e, table) {
-  var input = e.target;
-  var stateName = input.value;
-  //var rowIndex = input.parentNode.parentNode.rowIndex;
-
-  if (incorrectStateSyntax(stateName)) {
-    d3.select(input).classed(tableClasses.incorrectCell, true);
-    activateAlertMode(table, errors.incorrectStateSyntax, input);
-  }
-  else if (tableStateAlreadyExists(table, input, stateName)) {
-    d3.select(input).classed(tableClasses.incorrectCell, true);
-    activateAlertMode(table, errors.duplicitState, input);
-  }
-  else {
-    d3.select(input).classed(tableClasses.incorrectCell, false);
-    if (table.locked) {
-      unlockTable(table);
-      hideElem(table.alertStatus);
-    }
-  }
-}
-
-function tableRhChangedFinal(e, table, input) {
-  if ($(input).hasClass(tableClasses.incorrectCell) == false && !table.locked) {
-    if (input.prevValue == input.value) return;
-
-    var prevName = input.prevValue;
-    var newName = input.value;
-
-    table.states.splice(table.states.indexOf(prevName), 1);
-    table.states.push(newName);
-
-    //update state in graph
-    renameState(table.questionDiv, getStateDataById(table.questionDiv, prevName), newName);
-
-    // Traverse all transitions cells in table and change the name
-    for (var i = 2; i < table.rows.length - 1; i++) {
-      for (var j = 2; j < table.rows[i].cells.length; j++) {
-        var val = table.rows[i].cells[j].myDiv.value;
-        val = val.replace(/{|}/g, "");
-        var vals = val.split(",");
-        var index = vals.indexOf(prevName);
-        if (index != -1) {
-          vals[index] = newName;
-          val = vals.toString();
-          if (typeIsNondeterministic(table.questionDiv.type)) {
-            table.rows[i].cells[j].myDiv.value = "{" + val + "}";
-          }
-          else if (table.questionDiv.type == "DFA") {
-            table.rows[i].cells[j].myDiv.value = val;
-          }
-          table.rows[i].cells[j].myDiv.prevValue = table.rows[i].cells[j].myDiv.value;
-        }
-      }
-    }
-    input.prevValue = input.value;
-  }
-}
-
-function tableCellChanged(_, table, input) {
-  if (!(table.parentNode.type == "NFA" && tableIncorrectNfaEfaInnerCellSyntax(input.value))
-    || (table.questionDiv.type == "DFA" && incorrectTableDFATransitionsSyntax(input.value))
-  ) {
-    d3.select(input).classed(tableClasses.incorrectCell, false);
-    if (table.locked) {
-      table.questionDiv.tableDiv.alertText.innerHTML == "";
-      hideElem(table.questionDiv.tableDiv.alertText);
-      unlockTable(table);
-    }
-  }
-}
-
-function tableCellChangedFinal(e, table, input) {
-  var questionDiv = table.questionDiv;
-  var type = questionDiv.type;
-
-  if (incorrectTableInnerCellSyntax(type, input.value)) {
-    d3.select(input).classed(tableClasses.incorrectCell, true);
-
-    var err = errors.innerCellIncorrectSyntaxBase + " ";
-    if (type == "DFA") {
-      err += errors.DFAInnerCellSyntax;
-    }
-    else {
-      err += errors.NFAInnerCellSyntax
-    }
-    activateAlertMode(table, err, input);
-  }
-  else {
-    var prevName = input.prevValue;
-    var newName = input.value;
-    if (typeIsNondeterministic(type)) { // odstranenie {}
-      prevName = prevName.substring(1, prevName.length - 1);
-      newName = newName.substring(1, newName.length - 1);
-    }
-    var sourceStateId = table.rows[input.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
-    var symbol = table.rows[1].cells[input.parentNode.cellIndex].myDiv.prevValue;
-    var prevStates = prevName.split(",");
-    var newStates = newName.split(",");
-    newStates = removeDuplicates(newStates);
-
-    //vymaze edges ktore uz nemaju pismenko, pripadne vymaze pismeno z transition
-    for (let i = 0; i < prevStates.length; i++) {
-      if (newStates.indexOf(prevStates[i]) == -1) {
-        var edgeData = getEdgeDataByStates(questionDiv, sourceStateId, prevStates[i]);
-        if (edgeData != null) {
-          var trs = edgeData.symbols.split(',');
-          if (trs.length <= 1) {
-            deleteEdge(questionDiv, edgeData);
-          }
-          else {
-            trs.splice(trs.indexOf(symbol), 1);
-            renameEdge(questionDiv, edgeData, trs.join(','));
-          }
-        }
-      }
-    }
-    if (newStates.length == 1 && newStates[0] == "") {
-      newStates = [];
-    }
-
-    for (let i = 0; i < newStates.length; i++) {
-      //ak predtym stav s tymto nazvom bol v cell == nenastala v nom zmena
-      if (prevStates.indexOf(newStates[i]) != -1) continue;
-
-      //ak NEEXISTUJE v grafe stav s danym nazvom
-      if (getStateDataById(questionDiv, newStates[i]) == null) {
-        var addRowBool = true;
-        for (var j = 2; j < table.rows.length - 1; j++) { //skontrolovanie, ze sa nazov tohto stavu nenachadza v inom riadku tabulky
-          if (table.rows[j].cells[STATE_INDEX].myDiv.value == newStates[i]) {
-            addRowBool = false;
-            break;
-          }
-        }
-        if (addRowBool) {
-          insertRow(table, newStates[i]);
-        }
-        else {
-          addState(questionDiv, newStateData(questionDiv, newStates[i], 100, 100, false, false, true));
-        }
-        addEdge(questionDiv, newEdgeData(questionDiv, sourceStateId, newStates[i], symbol), elemOrigin.fromTable);
-      }
-      else {
-        var edgeData = getEdgeDataByStates(questionDiv, sourceStateId, newStates[i]);
-        if (edgeData != null) {
-          var trs = edgeData.symbols.split(",");
-          if (trs.indexOf(symbol) == -1) {
-            trs.push(symbol);
-            renameEdge(questionDiv, edgeData, trs.join(','));
-          }
-        }
-        else {
-          addEdge(questionDiv, newEdgeData(questionDiv, sourceStateId, newStates[i], symbol), elemOrigin.fromTable);
-        }
-      }
-    }
-    //vytvaranie novych transitions
-    //pripadne pridavanie pismiek do existujucich
-    var x = newStates.toString();
-    if (typeIsNondeterministic(type)) {
-      x = "{" + x + "}";
-    }
-    input.value = input.prevValue = x;
-  }
-}
-
-function tableHeaderCellClick(table, input) {
-  if (!table.locked && table.selectedCellInput != input) {
-    selectDifferentRowHeaderCell(table, input);
-  }
-}
-
-
-/* ------------------------------ Table helper functions ------------------------------ */
-
 /**
- * Sets table into "alert" mode - table is locked and error is shown.
- * @param {table elem}  table table
- * @param {string}      error error message
- * @param {td elem}     exc   exception
- */
-function activateAlertMode(table, error, exc) {
-  setAlert(table, error, true);
-  showElem(table.alertStatus);
-  lockTable(table, exc);
-}
-
-/**
- * Sets table error message.
- * @param {table elem}  table 
- * @param {string}      error error message
- * @param {boolean}     tableLocked 
- */
-function setAlert(table, error, tableLocked = true) {
-  table.alertStatus.innerHTML = error;
-  if (tableLocked) {
-    table.alertStatus.innerHTML += " " + errors.tableLocked;
-  }
-}
-
-/**
- * Lock or unlock editor menu buttons.
- * @param {div} questionDiv parent div of menu buttons
- * @param {boolean} val if null unlock, if true lock
- */
-function lockButtons(questionDiv, val = null) {
-  d3.select(questionDiv).selectAll("." + MENU_BUTTON).attr("disabled", val);
-}
-
-/**
- * Lock table and menu buttons except @param exceptionInput.
- * @param {table elem} table 
- * @param {input elem} exceptionInput input of table cell
- */
-function lockTable(table, exceptionInput) {
-  for (var i = 1; i < table.rows.length - 1; i++) {
-    for (var j = 1; j < table.rows[i].cells.length; j++) {
-      if (table.rows[i].cells[j].myDiv == exceptionInput) {
-        continue;
-      }
-      $(table.rows[i].cells[j].myDiv).prop('readonly', true);
-    }
-  }
-  table.locked = true;
-  lockButtons(table.questionDiv, true);
-}
-
-/**
- * Unlocks table and menu buttons.
- * @param {table elem} table 
- */
-function unlockTable(table) {
-  for (var i = 1; i < table.rows.length - 1; i++) {
-    for (var j = 1; j < table.rows[i].cells.length; j++) {
-      $(table.rows[i].cells[j].myDiv).prop('readonly', false);
-    }
-  }
-  table.locked = false;
-  lockButtons(table.questionDiv);
-}
-
-/**
- * Find next alphabet symbol to be added as column value. Original author is Matej Poklemba.
+ * Finds next alphabet symbol to be added as column value. Original author is Matej Poklemba.
  * @param  {table elem} table 
  * @return {string}     symbol
  */
-function findSymbol(table) {
+function findNextAlphabetSymbol(table) {
   var symbol, symbprefix = "";
   var k = 'a'.charCodeAt(0);
   do {
@@ -3641,207 +3817,7 @@ function findSymbol(table) {
   return symbol;
 }
 
-/**
- * Checks if state name already exists in table.
- * @param  {table elem}  table
- * @param  {input elem}  input 
- * @param  {string}      stateName state name
- * @return {boolean}     true if state name already exists, false otherwise
- */
-function tableStateAlreadyExists(table, input, stateName) {
-  var ri = input.parentNode.parentNode.rowIndex;
-  for (var i = 2; i < table.rows.length - 1; i++) {
-    if (i != ri && stateName == table.rows[i].cells[STATE_INDEX].myDiv.value) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Checks if symbol already exists as table column.
- * @param  {table elem}  table 
- * @param  {input elem}  input 
- * @param  {string}      symbol transition symbol
- * @return {boolean}     true if symbol already exists, false otherwise
- */
-function tableColumnSymbolAlreadyExists(table, input, symbol) {
-  var ci = input.parentNode.cellIndex;
-  for (var i = 2; i < table.rows[1].cells.length; i++) {
-    if (i != ci && symbol == table.rows[1].cells[i].myDiv.value) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Deletes symbol from all table and graph transitions.
- * If transition was containing only this symbol, it is deleted.
- * @param {div elem}  questionDiv parent div
- * @param {string}    symbol      transition symbol to delete
- */
-function deleteSymbolFromAllEdges(questionDiv, symbol) {
-  var edgesToDelete = [];
-
-  questionDiv.edgesData.forEach(ed => {
-    if (ed.symbols == symbol) {
-      edgesToDelete.push(ed);
-    }
-    else {
-      var symbolsArray = ed.symbols.split(',');
-      if (symbolsArray.indexOf(symbol) != -1) {
-        symbolsArray.splice(symbolsArray.indexOf(symbol), 1);
-        renameEdge(questionDiv, ed, symbolsArray.join(","));
-      }
-    }
-  });
-
-  edgesToDelete.forEach(ed => {
-    deleteEdge(questionDiv, ed);
-  });
-}
-
-function insertCell(row, index, classlist, width = null) {
-  var cell = row.insertCell(index);
-  var cellS = d3.select(cell);
-  classlist.forEach(c => { cellS.classed(c, true); });
-
-  if (width != null) {
-    cell.style.width = width;
-    cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
-  }
-  return cell;
-}
-
-function createInput(classlist, value, prevValue, width = MIN_TABLE_CELL_WIDTH) {
-  var input = document.createElement("input");
-  input.value = value;
-  input.prevValue = prevValue;
-  if (width != null) {
-    input.style.minWidth = MIN_TABLE_CELL_WIDTH;
-    input.style.width = width;
-  }
-  input.style.margin = "0em";
-  var sel = d3.select(input);
-  classlist.forEach(c => {
-    sel.classed(c, true);
-  });
-  return input;
-}
-
-function insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = "") {
-  var cell = index == null ? row.insertCell(row.cells.length) : row.insertCell(index);
-  cell.innerHTML = innerHtml;
-
-  var cellS = d3.select(cell);
-  cellClasslist.forEach(c => { cellS.classed(c, true); });
-
-  var div = document.createElement("div");
-  if (divClasslist != null) {
-    var d = d3.select(div);
-    divClasslist.forEach(dc => { d.classed(dc, true); });
-  }
-
-  cell.myDiv = div;
-  cell.appendChild(div);
-  return cell;
-}
-
-function insertInactiveCell(row, index) {
-  var classes = [
-    tableClasses.myCell,
-    tableClasses.inactiveCell,
-    tableClasses.noselectCell
-  ];
-  return insertCellWithDiv(row, index, classes, [ ]);
-}
-
-function inputClickHandler(event) {
-  var input = event.target;
-  var table = input.parentNode.parentNode.parentNode.parentNode;
-  if (!table.locked) {
-    deselectCell(table);
-  }
-}
-
-function cellKeypressHandler(event, regex) {
-  var code = event.keyCode || event.which;
-  if (code == 13) {
-    event.preventDefault();
-    event.target.blur();
-    return false;
-  }
-  var kc = event.charCode;
-  if (kc == 0) {
-    return true;
-  }
-  var txt = String.fromCharCode(kc);
-  if (!txt.match(regex)) {
-    return false;
-  }
-}
-
-function deselectCell(table) {
-  if (table.selectedCellInput != null) {
-    var input = table.selectedCellInput;
-    d3.select(input).classed(tableClasses.selectedHeaderInput, false);
-    d3.select(input).classed(tableClasses.rowHeader, true);
-    table.selectedCellInput = null;
-  }
-}
-
-function selectDifferentRowHeaderCell(table, input) {
-  var prev;
-  if (table.selectedCellInput != null) {
-    prev = d3.select(table.selectedCellInput);
-  }
-  if (prev != null) {
-    prev.classed(tableClasses.selectedHeaderInput, false);
-    prev.classed(tableClasses.rowHeader, true);
-  }
-  var next = d3.select(input);
-  next.classed(tableClasses.selectedHeaderInput, true);
-  next.classed(tableClasses.rowHeader, false);
-
-  table.selectedCellInput = input;
-}
-
-/**
- * Adds jQuery resizable handles for table cell.
- * @param {table elem} table
- * @param {td elem}    cell
- */
-function addResizable(table, cell) {
-  $(cell).resizable({
-    handles: 'e',
-    resize: function () {
-      var minSize = MIN_TABLE_CELL_WIDTH.substring(0, 2);
-      if (parseInt(this.style.width) >= parseInt(minSize)) {
-        this.style.minWidth = this.style.width;
-        var ci = this.cellIndex;
-
-        //change width of all cells in column
-        for (var i = 1; i < table.rows.length - 1; i++) {
-          table.rows[i].cells[ci].style.width = this.style.width;
-          table.rows[i].cells[ci].myDiv.style.width = this.style.width;
-        }
-      }
-    },
-  });
-  cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
-}
-
-function setInnerCellSizes(table, maxCellWidth) {
-  for (var i = 1; i < table.rows.length - 1; i++) {
-    for (var j = 3; j < table.rows[i].cells.length; j++) {
-      table.rows[i].cells[j].style.width = maxCellWidth;
-      table.rows[i].cells[j].myDiv.style.width = maxCellWidth;
-    }
-  }
-}
-
-function findLongestTitle(array) {
+function findLongestElem(array) {
   var max = 0;
   var padding = 10;
 
@@ -3849,6 +3825,19 @@ function findLongestTitle(array) {
     max = Math.max(max, tableVisualLength(title));
   });
   return max + padding;
+}
+
+function generateEditorId(type) {
+  var result = `${type}-`;
+  var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  var len = symbols.length;
+
+  for (let i = 0; i < 6; i++) {
+    result += symbols.charAt(Math.floor(Math.random() * len));
+  }
+
+  result += `-${editorIdCount++}`;
+  return result;
 }
 
 /* ------------------------------ Syntax functions ------------------------------ */

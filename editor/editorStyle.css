@@ -370,7 +370,7 @@ border-spacing:2px;
     cursor: default;
 }
 
-.incorrect-cell {
+.incorrect-cell, .row-header-cell>.incorrect-cell {
     background-color: #ff6666;
 }
 

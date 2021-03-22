@@ -27,10 +27,10 @@ if (typeof editor_init !== 'function') {
     window.scrollTo(0, 0);
   }
   editor_init = function (type) {
-    var id = generateId(type);
+    var id = generateEditorId(type);
     //if element with id already exists, generate a new id
     while (document.getElementById(id) != null) {
-      id = generateId(type);
+      id = generateEditorId(type);
     }
     otazky[document.getElementsByTagName('textarea').length] = id;
   };
@@ -733,7 +733,7 @@ function initCreatingTransition(event, graphDiv, hide = false) {
     graphDiv.svg.svgGroup.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
     temporaryEdgePath.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, mouseX, mouseY));
   }
-  disableAllDragging(graphDiv.svg)
+  disableAllDragging(graphDiv.svg);
 }
 
 
@@ -906,7 +906,6 @@ function updateOutgoingEdges(edgeGroups, stateData) {
       repositionEdgeInput(d3.select(this).select("foreignObject"), tx, ty);
       repositionMarker(d3.select(this));
     });
-
 }
 
 function updateIncommingEdges(edgeGroups, stateData) {
@@ -2069,7 +2068,7 @@ function clickGraph(questionDiv) {
   if (!jeProhlizeciStranka_new()) {
     deselectAll();
   }
-  questionDiv.lastEdited = "graph"
+  questionDiv.lastEdited = "graph";
 }
 
 function clickTable(questionDiv) {
@@ -2732,7 +2731,7 @@ function removeDuplicates(array) {
   });
 }
 
-function generateId(type) {
+function generateEditorId(type) {
   var result = `${type}-`;
   var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
