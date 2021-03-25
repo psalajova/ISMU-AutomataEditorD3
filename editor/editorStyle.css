@@ -49,14 +49,20 @@ textarea:read-only {
     display: none;
 }
 
+.syntaxHint{
+    background-color: #99999986;
+    border: 1px solid grey;
+}
+
 /* Graph ----------------------------------------- */
 .hint-content-div {
     margin-bottom: 5px;
     margin-top: 0px;
     width: 902px;
-    background-color: #b5e9a5;
-    border: 1px solid #95cf84;
+    background-color: #aefd9b;
+    border: 1px solid #7cec61;
     padding: 5px;
+    display: none;
 }
 
 .hint-paragraph {
@@ -74,12 +80,19 @@ textarea:read-only {
     border: 0px solid #dedede;
     background-color: #dedede;
     min-width: 60px;
-    display: block;
+    display: inline-block;
 }
 
 .hintButton:hover {
     color:#002776;
     background-color: #cccccc;
+}
+
+code {
+    background-color: #7ae262;
+    padding: 0.1rem 0.2rem 0.1rem 0.2rem;
+    border-radius: 3px;
+    
 }
 
 /* context menus ------------------------------- */

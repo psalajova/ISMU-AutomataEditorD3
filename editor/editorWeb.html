@@ -4,14 +4,10 @@
 <head>
     <meta charset="utf-8">
 
+    <script src="jquery.min.js"></script>
+    <script src="jquery-ui.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="jquery-ui.css">
 
-    <script src="d3.v6.min.js"></script>
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
-
-    <link rel="stylesheet" type="text/css" href="editorStyle.css">
     <style>
         body {
             font-family: "Open Sans", Arial, sans-serif;
@@ -21,31 +17,38 @@
         }
     </style>
 
+<script>
+    if ($(`script[src=\"editor2.js\"]`).length === 0) {
+        let scripts = ["editor2.js", "utilIS.js", "d3.v6.min.js"];
+        scripts.forEach(src => {
+            document.write("\<script src=\"" + "" + src + "\"><\/script>");
+        });
+        document.write("\<style type=\"text/css\">@import \"" + "" + "editorStyle.css" + "\";<\/style>");
+    }
+    ["DFA", "NFA", "EFA", "GRA"].forEach(type => {
+        if ($(`script[src=\"Parsers/${type}Parser.js\"]`).length === 0) {
+            document.write(`\<script src=\""Parsers/"${type}Parser.js\"><\/script>`);
+        }
+    });
+</script>
+<!--
+    <script src="https://ajax.googleapis.com/ajax/libs/d3js/6.2.0/d3.min.js"></script>
+    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/jquery-ui.js"></script>
+    <style type="text/css">@import "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/jquery-ui.css";</style>
+    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editor2.js"></script>
+    <style type="text/css">@import "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editorStyle.css";</style>
+    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/GRAParser.js"></script>
+    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/REGParser.js"></script>
+    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/utilIS.js"></script>
+-->
+
 
 </head>
 
 <body>
-    <script>
-        //first check jquery i guess
-        if ($('script[src="editor2-class.js"]').length === 0) { //if document doesnt have script with this src
-            var editorPath = "editor2-class.js";
-            document.write("\<script src=\"" + editorPath + "\"><\/script>");
 
-            //var stylePath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editorStyle.css";
-            //document.write("\<style type=\"text/css\">@import \"" + stylePath + "\";<\/style>");
-        }
-    </script>
-    <script src="utilIS.js"></script>
     <script src="languages/EN.js"></script>
-    <script src="Parsers/DFAParser.js"></script>
-    <script src="Parsers/GRAParser.js"></script>
-    <script src="Parsers/NFAParser.js"></script>
-    <script src="Parsers/EFAParser.js"></script>
     <span id="ruler"></span>
-
-
-
-
     <div id="constrainer">
         <p>DFA</p>
         <script>editor_init("DFA");</script>
@@ -72,113 +75,18 @@
 
     </div>
     <script>
-        if ($('script[src="editor2-class.js"]').length === 0) { //if document doesnt have script with this src
-            var editorPath = "editorStyle.css";
-            document.write("\<script src=\"" + editorPath + "\"><\/script>");
+        if ($(`script[src=\"editor2.js\"]`).length === 0) {
+            let scripts = ["editor2.js", "utilIS.js", "d3.v6.min.js"];
+            scripts.forEach(src => {
+                document.write("\<script src=\"" + "" + src + "\"><\/script>");
+            });
+            document.write("\<style type=\"text/css\">@import \"" + "" + "editorStyle.css" + "\";<\/style>");
         }
-        /* const editors = [];
-
-        class Table2 {
-            constructor(edId, data) {
-                this.editorId = edId;
-                this.tableData = data;
+        ["DFA", "NFA", "EFA", "GRA"].forEach(type => {
+            if ($(`script[src=\"Parsers/${type}Parser.js\"]`).length === 0) {
+                document.write(`\<script src=\"Parsers/${type}Parser.js\"><\/script>`);
             }
-
-            modifyGraph(i) {
-                var e = this.getEditor();
-                return e.graph.getIthElem(i);
-            }
-
-            deleteFromData(id) {
-                this.tableData.splice(id, 1);
-            }
-
-            addChar(char) {
-                this.tableData.push(char);
-            }
-
-            print() {
-                console.log("table data:");
-                console.log(this.tableData);
-            }
-
-            getEditor() {
-                for (let i = 0; i < editors.length; i++) {
-                    const element = editors[i];
-                    if (element.id === this.editorId) {
-                        return element;
-                    }
-                }
-                return null;
-            }
-        }
-
-        class Graph2 {
-            constructor(edId, data) {
-                this.editorId = edId;
-                this.graphData = data;
-                this.elems = [0,1,2,3,4,5,6];
-                this.usedElems = [];
-                this.initialise();
-            }
-
-            initialise() {
-                this.svg = "svg created without existing before!";
-            }
-
-            addChar(ch) {
-                this.graphData.push(ch);
-            }
-
-            getIthElem(i) {
-                this.usedElems.push(this.elems[i]);
-                return this.elems[i];
-            }
-
-            print() {
-                console.log("graph data:");
-                console.log(this.svg);
-                console.log(this.graphData);
-            }
-        }
-
-        class TryGraphEditor {
-            data = [];
-            table;
-            constructor(id, data) {
-                this.id = id;
-                this.data = data;
-                this.table = new Table2(this.id, this.data);
-                this.graph = new Graph2(this.id, this.data);
-                editors.push(this);
-            }
-
-            printData() {
-                console.log("editor data:");
-                console.log(this.data);
-            }
-
-            tryTable(character) {
-                this.table.addChar(character);
-            }
-        }
-
-        var e = new TryGraphEditor("firstEditor", ['a', 'b']); */
-
-/*         e.printData();
-        e.tryTable('first');
-        e.printData();
-        e.graph.print();
-        e.graph.addChar('G!!');
-        e.printData();
-        e.table.print();
-        e.table.deleteFromData('a');
-        e.printData();
-        console.log(e.graph.usedElems);
-        console.log(e.table.modifyGraph(2));
-        console.log(e.graph.usedElems);
-        e.graph.print();
-        e.printData(); */
+        });
         
     </script>
 </body>

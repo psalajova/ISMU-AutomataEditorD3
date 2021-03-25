@@ -17,6 +17,7 @@ var textMenuButton = "Text";
 var tableMenuButton = "Tabulka";
 var hintLabel = "Nápověda";
 var hintTitle = "Nápověda k používání grafového editoru";
+var syntaxLabel = "Syntax";
 
 var tableInitialButtonName = "Počáteční stav"; //table button to toggle initial state
 var tableAcceptingButtonName = "Akceptující stav"; //table button to toggle accepting state
@@ -36,9 +37,13 @@ var renameEdgeText = "Upravit symboly přechodu";
 //new state
 var addStateText = addSymbol + " Nový stav";
 
+var STATE_SYNTAX = "{a-z,A-Z,0-9}";
+var DFA_TRANSITION_SYNTAX = "{a-z,A-Z,0-9}";
+var EFA_TRANSITION_SYNTAX = "{a-z,A-Z,0-9}, \\e, ε}";
+var INVALID_SYNTAX_ERROR = "<strong>Chyba:</strong> Nevyhovující syntax!";
 
 /* ------------------------------ hint ------------------------------ */
-var hints = {
+var graphHints = {
   addState : "<b>Vytvoření stavu:</b> dvojklikem na plátno nebo kliknutím pravého tlačítka na plátno.",
   addTransition : "<b>Vytvoření prechodu:</b> klik na stav + klik na cílový stav.",
   drag : "Stavy i přechody můžete přesouvat taháním myší.",
@@ -48,12 +53,21 @@ var hints = {
   delete : "Vymazat stav/přechod můžete i označením daného elementu a stisknutím klávesy DEL.",
 }
 
+var graphSyntaxHints = {
+  states: `<b>Název stavu:</b> řetězec znaků z ${STATE_SYNTAX}.`,
+  transition: `<b>Symbol (znak) přechodu:</b> znak z ${DFA_TRANSITION_SYNTAX}, nebo sekvence jakýchkoli znaků (kromě uvozovek a bílých znaků) uzavřenou v uvozovkách.`,
+  efa: "V nedeterminstických automatech s ε-kroky se přechod pod prázdným slovem zapisuje pomocí znaku ε nebo \\e.",
+  commas: `Přechod pod více znaky se zapisuje jako jednotlivé znaky oddělené čárkami (např. <code>a</code>, <code>a,c,d</code>, <code>1,2</code>, <code>"abcd"</code>, <code>"cd12","abc"</code>).`,
+}
+
+var tableSyntaxHints = {
+  a: graphSyntaxHints.states,
+  b: graphSyntaxHints.transition,
+  c: graphSyntaxHints.efa,
+  d: `<b>Výsledek přechodové funkce</b>: název stavu, v případě nedeterministického automatu množina obsahující názvy stavů (např. <code>{s1,s2,s3}</code>)`,
+}
 
 /* ------------------------------ errors ------------------------------ */
-var STATE_SYNTAX = "{a-z,A-Z,0-9}";
-var DFA_TRANSITION_SYNTAX = "{a-z,A-Z,0-9}";
-var EFA_TRANSITION_SYNTAX = "{a-z,A-Z,0-9}, \\e, ε}";
-var INVALID_SYNTAX_ERROR = "<strong>Chyba:</strong> Nevyhovující syntax!";
 
 var errors = {
   tableLocked : "Tabulka je uzamčena dokud nebude chyba opravena.",
@@ -64,26 +78,26 @@ var errors = {
   emptyState: "<strong>Chyba!</strong> Prázdný název stavu není povolen.",
 
   //table header cells (transition symbols) errors
-  EFA_incorrectTransitionSymbol : "<strong>Chyba!</strong> Nevyhovující syntax symbolu přechodu (řetězec znaků z {a-z,A-Z,0-9}, \\e nebo ε).",
-  NFA_incorrectTransitionSymbol : "<strong>Chyba!</strong> Nevyhovující syntax symbolu přechodu (řetězec znaků z {a-z,A-Z,0-9}).",
+  EFA_incorrectTransitionSymbol : "<strong>Chyba!</strong> Nevyhovující syntax symbolu přechodu.",
+  incorrectTransitionSymbol : "<strong>Chyba!</strong> Nevyhovující syntax symbolu přechodu.",
   emptyTransition: "<strong>Chyba!</strong> Nelze přidat prázdný přechod.",
   duplicitTransitionSymbol : "<strong>Chyba!</strong> Duplicitní název symbolu přechodu není povolen.",
 
   // table inner cell errors
   innerCellIncorrectSyntaxBase: "<strong>Chyba!</strong> Nevyhovující syntax výsledku přechodové funkce.",
-  NFAInnerCellSyntax: "Očekávané řetězce znaků z {a-z,A-Z,0-9} oddělené čárkami, uzavřeny do složených závorek {}.",
-  DFAInnerCellSyntax: "Očekávaný řetězec znaků z {a-z,A-Z,0-9}.",
+  NFAInnerCellSyntax: "Očekávané názvy stavů oddělené čárkami, uzavřeny do složených závorek {}.",
+  DFAInnerCellSyntax: "Očekávaný název stavu",
 
-  transitionSymbolsTooLong: "Prekrocena maximalna dlzka symbolov prechodu (300)!",
+  transitionSymbolsTooLong: "Překročena maximální délka symbolů přechodu (max. 300 znaků)!",
   stateNameTooLong: "Název stavu je příliš dlouhý (max. 50 znaků)."
 }
 
 var stateNameAlreadyExists = "<strong>Chyba:</strong> Takto pojmenovaný stav již existuje.";
 var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. <br>Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
-var DFAInvalidTransition = "<strong>Chyba:</strong> Zadání vyžaduje determinizmus (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu již existuje).";
+var DFAInvalidTransition = "<strong>Chyba:</strong> Zadání vyžaduje <b>determinizmus</b> (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu již existuje).";
 
-var expectedEFASyntax = "Očekávané znaky z " + EFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + EFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
-var expectedDFASyntax = "Očekávané znaky z " + DFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + DFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
+//var expectedEFASyntax = "Očekávané znaky z " + EFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + EFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
+//var expectedDFASyntax = "Očekávané znaky z " + DFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + DFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
 
 
 var tableDelSymbolHover = "Vymazat sloupec (symbol ze všech přechodů)";
