@@ -18,17 +18,17 @@
     </style>
 
 <script>
-    if ($(`script[src=\"editor2.js\"]`).length === 0) {
-        let scripts = ["editor2.js", "utilIS.js", "d3.v6.min.js"];
-        scripts.forEach(src => {
-            document.write("\<script src=\"" + "" + src + "\"><\/script>");
+    //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
+    var ISpath = "";
+    if ($(`script[src=\"${ISpath}editor2.js\"]`).length === 0) {
+        ["editor2.js", "utilIS.js", "d3.v6.min.js"].forEach(src => {
+            document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
         });
-        document.write("\<style type=\"text/css\">@import \"" + "" + "editorStyle.css" + "\";<\/style>");
+        document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
     }
-    ["DFA", "NFA", "EFA", "GRA"].forEach(type => {
-        if ($(`script[src=\"Parsers/${type}Parser.js\"]`).length === 0) {
-            document.write(`\<script src=\""Parsers/"${type}Parser.js\"><\/script>`);
-        }
+    ["DFA", "NFA", "EFA", "GRA", "REG"].forEach(type => {
+        if ($(`script[src=\"${ISpath}Parsers/${type}Parser.js\"]`).length === 0) {
+            document.write(`\<script src="${ISpath}Parsers/${type}Parser.js\"><\/script>`);}
     });
 </script>
 <!--
@@ -46,7 +46,6 @@
 </head>
 
 <body>
-
     <script src="languages/EN.js"></script>
     <span id="ruler"></span>
     <div id="constrainer">
@@ -69,8 +68,8 @@
 
         <hr style="margin-top: 30px; margin-bottom: 30px; border-top: 1px solid #cacaca; border-bottom: 0px solid;">
 
-        <p>EFA</p>
-        <script>editor_init("EFA");</script>
+        <p>REG</p>
+        <script>editor_init("REG");</script>
         <textarea></textarea>
 
     </div>
