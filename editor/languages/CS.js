@@ -55,16 +55,18 @@ var graphHints = {
 
 var graphSyntaxHints = {
   states: `<b>Název stavu:</b> řetězec znaků z ${STATE_SYNTAX}.`,
-  transition: `<b>Symbol (znak) přechodu:</b> znak z ${DFA_TRANSITION_SYNTAX}, nebo sekvence jakýchkoli znaků (kromě uvozovek a bílých znaků) uzavřenou v uvozovkách.`,
-  efa: "V nedeterminstických automatech s ε-kroky se přechod pod prázdným slovem zapisuje pomocí znaku ε nebo \\e.",
-  commas: `Přechod pod více znaky se zapisuje jako jednotlivé znaky oddělené čárkami (např. <code>a</code>, <code>a,c,d</code>, <code>1,2</code>, <code>"abcd"</code>, <code>"cd12","abc"</code>).`,
+  transition: `<b>Symbol (znak) přechodu:</b> znak z ${DFA_TRANSITION_SYNTAX}, nebo sekvence jakýchkoli znaků (kromě uvozovek a bílých znaků) uzavřena v uvozovkách.`,
+  efa: `V nedeterminstických automatech s ε-kroky se přechod pod prázdným slovem zapisuje pomocí znaku ε nebo \\e.`,
+  commas: `Přechod pod více znaky se zapisuje jako jednotlivé znaky oddělené čárkami (např. <code>a,c</code>; <code>b,ε,a</code>; <code>"dog","cat","mouse"</code>;).`,
+  lang: `Abeceda jazyka rozpoznávaného automatem je dána znaky, které se objeví na jeho přechodech.`
 }
 
 var tableSyntaxHints = {
   a: graphSyntaxHints.states,
   b: graphSyntaxHints.transition,
   c: graphSyntaxHints.efa,
-  d: `<b>Výsledek přechodové funkce</b>: název stavu, v případě nedeterministického automatu množina obsahující názvy stavů (např. <code>{s1,s2,s3}</code>)`,
+  d: graphSyntaxHints.lang,
+  e: `<b>Výsledek přechodové funkce</b>: název stavu, v případě nedeterministického automatu množina obsahující názvy stavů (např. <code>{s1,s2,s3}</code>)`,
 }
 
 /* ------------------------------ errors ------------------------------ */
@@ -95,10 +97,6 @@ var errors = {
 var stateNameAlreadyExists = "<strong>Chyba:</strong> Takto pojmenovaný stav již existuje.";
 var edgeAlreadyExistsAlert = "Přechod mezi těmito stavy již existuje. <br>Chcete-li přidat přechod pod nějakým symbolem, upravte symboly stávajícího přechodu.";
 var DFAInvalidTransition = "<strong>Chyba:</strong> Zadání vyžaduje <b>determinizmus</b> (přechod z tohoto stavu pod alespoň jedním z těchto symbolů do jiného stavu již existuje).";
-
-//var expectedEFASyntax = "Očekávané znaky z " + EFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + EFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
-//var expectedDFASyntax = "Očekávané znaky z " + DFA_TRANSITION_SYNTAX + ", nebo řetězce znaků z " + DFA_TRANSITION_SYNTAX + " uzavřeny do uvozovek \"\", oddělené čárkami."
-
 
 var tableDelSymbolHover = "Vymazat sloupec (symbol ze všech přechodů)";
 var tableDelRowHover = "Vymazat řádek (stav a všechny jeho přechody)";
