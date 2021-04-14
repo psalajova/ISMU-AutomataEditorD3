@@ -3864,7 +3864,7 @@ function generateEditorId(type) {
 /* ------------------------------ Syntax functions ------------------------------ */
 
 var stateNameSyntax = "[a-zA-Z0-9]+";
-//defines any nonempty sequence of symbols that are not white space or "", enclosed in "", eg. "aaa", "79878"
+//defines any nonempty sequence of symbols that are not white space or "", enclosed in ""; eg. "aaa", "79878"
 var quotSeq = "\"[^\\s\"]+\"";
 
 /**
@@ -3976,7 +3976,7 @@ function incorrectTableColumnHeaderSyntax(type, value) {
 
 /**
  * Registers function to element with correct question id.
- * Author is Radim Cebis, modified by Patricia Salajova.
+ * The original author is Radim Cebis, modified by Patricia Salajova.
  * This is the function used to bind syntax parser to editor's textarea.
  * @param {string}      id    Question id.
  * @param {function}    func  Function. 
@@ -3985,8 +3985,10 @@ function incorrectTableColumnHeaderSyntax(type, value) {
 function registerElem(id, func, elem) {
   // when we are in inspection (browse) mode, we do not want the syntax check to work
   if (jeProhlizeciStranka_new()) {
-    if (document.getElementById(id + "-error"))
-      document.getElementById(id + "-error").setAttribute("hidden", '');
+    if (document.getElementById(id + "-error")) {
+      //hide the syntax check
+      document.getElementById(id + "-error").setAttribute("hidden", ''); 
+    }
     return;
   }
 
@@ -4031,8 +4033,8 @@ function registerElem(id, func, elem) {
 }
 
 /**
- * Decides if current IS page is in inspection (browsing) mode or not.
- * Works for *new version* of IS.
+ * Decides if the current IS page is in inspection (browse) mode or not.
+ * Works for the *new version* of IS.
  * @return {boolean} True if page is in inspection mode, false otherwise.
  */
 function jeProhlizeciStranka_new() {
