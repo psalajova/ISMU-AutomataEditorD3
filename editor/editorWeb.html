@@ -4,9 +4,9 @@
 <head>
     <meta charset="utf-8">
 
-    <script src="jquery.min.js"></script>
-    <script src="jquery-ui.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="jquery-ui.css">
+    <script src="Libs/jquery.min.js"></script>
+    <script src="Libs/jquery-ui.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="Libs/jquery-ui.css">
 
     <style>
         body {
@@ -21,7 +21,7 @@
     //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
     var ISpath = "";
     if ($(`script[src=\"${ISpath}editor2.js\"]`).length === 0) {
-        ["editor2.js", "utilIS.js", "d3.v6.min.js"].forEach(src => {
+        ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
             document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
         });
         document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
@@ -75,7 +75,7 @@
     </div>
     <script>
         if ($(`script[src=\"editor2.js\"]`).length === 0) {
-            let scripts = ["editor2.js", "utilIS.js", "d3.v6.min.js"];
+            let scripts = ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"];
             scripts.forEach(src => {
                 document.write("\<script src=\"" + "" + src + "\"><\/script>");
             });
