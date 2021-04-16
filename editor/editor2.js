@@ -214,14 +214,14 @@ class EditorElement {
       angle: angle
     }
   }
-  
+
   initHintContent(content) {
     var div = document.createElement("div");
     div.setAttribute("class", "hint-content-div");
     $(div).prop("title", hintTitle);
 
     this.setupHints(div, content);
-    
+
     return div;
   }
 
@@ -261,11 +261,11 @@ class Graph extends EditorElement {
 
     var graphHintButton = createButton(hintLabel, "hintButton");
     graphHintButton.style.marginBottom = "7px";
-    
+
     var syntaxButton = createButton(syntaxLabel, "hintButton");
     syntaxButton.style.marginBottom = "7px";
 
-  
+
     var graphHintsDiv = this.initHintContent(graphHints);
     var graphSyntaxDiv = this.initHintContent(graphSyntaxHints);
 
@@ -623,7 +623,6 @@ class Graph extends EditorElement {
     menu.appendChild(button);
     this.graphDiv.appendChild(menu);
     this.addStateContextMenu = menu;
-
   }
 
   initRenameError() {
@@ -1584,7 +1583,7 @@ class Graph extends EditorElement {
     else {
       g.renameEdge(d, input.value);
     }
-    if (g.dblclickedState == true && input.value === epsSymbol 
+    if (g.dblclickedState == true && input.value === epsSymbol
       && g.getEditor().type == "EFA" && g.getCurrentState() == graphStateEnum.namingEdge) {
       g.dblclickedState = false;
       g.deleteEdge(d);
@@ -1829,6 +1828,7 @@ class Table extends EditorElement {
   constructor(editorId, statesData, edgesData) {
     super(editorId, statesData, edgesData);
     this.initialise();
+    this.incorrectInputs = new Set();
   }
 
   initialise() {
@@ -1848,8 +1848,8 @@ class Table extends EditorElement {
     syntaxButton.style.marginBottom = "7px";
     var syntaxContentDiv = this.initHintContent(tableSyntaxHints);
 
-/*     this.syntaxDiv = document.createElement("div");
-    this.syntaxDiv.setAttribute("class", "hintDiv"); */
+    /*     this.syntaxDiv = document.createElement("div");
+        this.syntaxDiv.setAttribute("class", "hintDiv"); */
 
     syntaxButton.addEventListener("click", () => this.clickHintButton(syntaxContentDiv));
     appendChildren(this.tableDiv, [syntaxButton, syntaxContentDiv]);
@@ -1972,6 +1972,7 @@ class Table extends EditorElement {
     //re-append error
     this.tableDiv.removeChild(this.alertText);
     this.tableDiv.appendChild(this.alertText);
+    hideElem(this.alertText);
 
     if (jeProhlizeciStranka_new()) {
       $(table).find("input").prop("disabled", true).addClass("mydisabled");
@@ -2062,17 +2063,15 @@ class Table extends EditorElement {
 
   insertInnerCell(row) {
     var cell = this.insertCell(row, row.cells.length, [tableClasses.myCell]);
-
     var value = typeIsNondeterministic(this.getEditor().type) ? "{}" : "";
-    var input = this.createInput([tableClasses.inputCellDiv], value, value,
+    var input = this.createInput([tableClasses.inputCellDiv], value,
       this.table.rows[1].cells[cell.cellIndex].style.minWidth);
 
-    $(input).click(() => this.inputClickHandler());
-    $(input).on("input", () => this.tableCellChanged(input));
-    $(input).focusout(() => this.tableCellChangedFinal(input));
+    $(input).click(() => this.innerCellOnClick());
+    $(input).on("input", () => this.innerCellOnInput(input));
+    $(input).focusout(() => this.innerCellOnFocusout(input));
 
     var regex = typeIsNondeterministic(this.getEditor().type) ? /[a-zA-Z0-9{},]/ : /[a-zA-Z0-9\-]/;
-
     $(input).keypress((e) => this.cellKeypressHandler(e, regex));
 
     cell.myDiv = input;
@@ -2081,12 +2080,12 @@ class Table extends EditorElement {
 
   insertRowHeader(row, name, width) {
     var cell = this.insertCell(row, row.cells.length, ["row-header-cell"], width);
-    var input = this.createInput([tableClasses.inputCellDiv, tableClasses.rowHeader], name, name, width);
+    var input = this.createInput([tableClasses.inputCellDiv, tableClasses.rowHeader], name, width);
     input.defaultClass = tableClasses.rowHeader;
 
     $(input).click(() => this.tableHeaderCellClick(input));
-    $(input).on("input", (e) => this.tableRhChanged(e));
-    $(input).focusout(() => this.tableRhChangedFinal(input));
+    $(input).on("input", (e) => this.rowHeaderOnInput(e));
+    $(input).focusout(() => this.rowHeaderOnFocusout(input));
     $(input).keypress((e) => this.cellKeypressHandler(e, stateSyntax()));
 
     cell.myDiv = input;
@@ -2096,21 +2095,18 @@ class Table extends EditorElement {
 
   insertColumnHeader(row, symbol, width) {
     var cell = this.insertCell(row, row.cells.length, [tableClasses.columnHeader], width);
-    var input = this.createInput([tableClasses.inputColumnHeaderDiv, tableClasses.inputCellDiv], symbol, symbol, width);
-
+    var input = this.createInput([tableClasses.inputColumnHeaderDiv, tableClasses.inputCellDiv], symbol, width);
     cell.myDiv = input;
-
     this.addResizable(cell);
     cell.appendChild(input);
 
-    $(input).click(() => this.inputClickHandler());
-    $(input).on("input", () => this.tableChChanged(input));
-    $(input).focusout(() => this.tableChChangedFinal(input));
+    $(input).click(() => this.innerCellOnClick());
+    $(input).on("input", () => this.columnHeaderOnInput(input));
+    $(input).focusout(() => this.columnHeaderOnFocusout(input));
 
     var regex = this.getEditor().type == "EFA" ? graphEFATransitionSyntax() : graphTransitionsSyntax();
 
     $(input).keypress((e) => this.cellKeypressHandler(e, regex));
-    //$(input).keyup(   (e) => this.cellKeyupHandler(e, regex));
   }
 
   insertRow(title) {
@@ -2125,7 +2121,7 @@ class Table extends EditorElement {
     if (title == null) {
       title = editor.generateStateId();
     }
-    this.deselectCell();
+    this.deselectSelectedCell();
     this.table.rows[this.table.rows.length - 1].deleteCell(0);
     this.insertRowDeleteButton(this.table.rows[this.table.rows.length - 1]);
     this.insertArrows(this.table.rows[this.table.rows.length - 1], 1);
@@ -2149,7 +2145,7 @@ class Table extends EditorElement {
     if (this.locked) {
       return;
     }
-    this.deselectCell();
+    this.deselectSelectedCell();
     this.table.rows[0].deleteCell(this.table.rows[0].cells.length - 1);
     this.insertColumnDeleteButton(this.table.rows[0]);
     this.insertColumnAddButton(this.table.rows[0]);
@@ -2209,13 +2205,13 @@ class Table extends EditorElement {
 
     // Delete table column
     for (let i = 0, j = this.table.rows.length - 1; i < j; i++) {
-      this.table.rows[i].deleteCell(index); //deleteCell() automaticky posunie vsetky cells dolava
+      this.table.rows[i].deleteCell(index);
     }
   }
 
   setInitDiv(initDiv) {
     if (!this.locked) {
-      this.deselectCell();
+      this.deselectSelectedCell();
     }
     if (this.selectedInitDiv === initDiv) {
       this.unselectInitDiv();
@@ -2241,7 +2237,7 @@ class Table extends EditorElement {
 
   toggleAccArrow(acceptDiv) {
     if (!this.locked) {
-      this.deselectCell();
+      this.deselectSelectedCell();
     }
     $(acceptDiv).toggleClass("selected-arrow");
 
@@ -2253,12 +2249,11 @@ class Table extends EditorElement {
   }
 
   /**
-   * Adds jQuery resizable handles for resizing a table cell.
+   * Adds jQuery resizable handles for resizing columns'.
    * @param {td}  cell  Table cell.
    */
   addResizable(cell) {
     var table = this.table;
-
     $(cell).resizable({
       handles: 'e',
       resize: function () {
@@ -2302,7 +2297,7 @@ class Table extends EditorElement {
     }
     this.lockArrows();
     this.locked = true;
-    this.getEditor().lockMenuButtons(true);
+    //this.getEditor().lockMenuButtons(true);
   }
 
   /**
@@ -2316,7 +2311,7 @@ class Table extends EditorElement {
     }
     this.unlockArrows();
     this.locked = false;
-    this.getEditor().lockMenuButtons();
+    //this.getEditor().lockMenuButtons();
   }
 
   /**
@@ -2330,7 +2325,7 @@ class Table extends EditorElement {
   }
 
   /**
-   * Reassigns event listeners for all table arrows
+   * Assigns event listeners for all table arrows
    * (buttons for setting state as (non)initial/(non)accepting).
    */
   unlockArrows() {
@@ -2350,10 +2345,8 @@ class Table extends EditorElement {
 
   insertCell(row, index, classlist, width = null) {
     var cell = row.insertCell(index);
-    //var cellS = d3.select(cell);
     classlist.forEach(c => {
       $(cell).addClass(c);
-      //cellS.classed(c, true); 
     });
 
     if (width != null) {
@@ -2363,19 +2356,17 @@ class Table extends EditorElement {
     return cell;
   }
 
-  createInput(classlist, value, prevValue, width = MIN_TABLE_CELL_WIDTH) {
+  createInput(classlist, value, width = MIN_TABLE_CELL_WIDTH) {
     var input = document.createElement("input");
-    input.value = value;
-    input.prevValue = prevValue;
+    input.value = input.prevValue = value;
+
     if (width != null) {
       input.style.minWidth = MIN_TABLE_CELL_WIDTH;
       input.style.width = width;
     }
     input.style.margin = "0em";
-    //var sel = d3.select(input);
     classlist.forEach(c => {
       $(input).addClass(c);
-      //sel.classed(c, true);
     });
     return input;
   }
@@ -2384,22 +2375,16 @@ class Table extends EditorElement {
     var cell = index == null ? row.insertCell(row.cells.length) : row.insertCell(index);
     cell.innerHTML = innerHtml;
 
-    //TODO cleanup
-    //var cellS = d3.select(cell);
     cellClasslist.forEach(c => {
       $(cell).addClass(c);
-      //cellS.classed(c, true); 
     });
 
     var div = document.createElement("div");
     if (divClasslist != null) {
-      //var d = d3.select(div);
       divClasslist.forEach(dc => {
         $(div).addClass(dc);
-        //d.classed(dc, true); 
       });
     }
-
     cell.myDiv = div;
     cell.appendChild(div);
     return cell;
@@ -2417,12 +2402,11 @@ class Table extends EditorElement {
 
   /* ------------------------------ Table utils ------------------------------ */
 
-  deselectCell() {
+  //is it necessary to have???
+  deselectSelectedCell() {
     if (this.selectedCellInput != null) {
       $(this.selectedCellInput).removeClass(tableClasses.selectedHeaderInput);
       $(this.selectedCellInput).addClass(tableClasses.rowHeader);
-      /*       d3.select(input).classed(tableClasses.selectedHeaderInput, false);
-            d3.select(input).classed(tableClasses.rowHeader, true); */
       this.selectedCellInput = null;
     }
   }
@@ -2471,10 +2455,10 @@ class Table extends EditorElement {
   }
 
   /**
- * Checks if state name already exists in table.
- * @param  {input elem}  input 
- * @param  {string}      stateName state name
- * @return {boolean}     true if state name already exists, false otherwise
+ * Checks if state's name already exists in table.
+ * @param  {HTMLElement} input      HTML input element.
+ * @param  {String}      stateName  State name.
+ * @return {Boolean}                True if state name already exists, false otherwise
  */
   tableStateAlreadyExists(input, stateName) {
     let ri = input.parentNode.parentNode.rowIndex;
@@ -2488,9 +2472,9 @@ class Table extends EditorElement {
 
   /**
    * Checks if symbol already exists as table column.
-   * @param  {input elem}  input 
-   * @param  {string}      symbol transition symbol
-   * @return {boolean}     true if symbol already exists, false otherwise
+   * @param  {HTMLElement} input  HTML input element.
+   * @param  {String}      symbol The transition symbol.
+   * @return {Boolean}            True if symbol already exists, false otherwise.
    */
   tableColumnSymbolAlreadyExists(input, symbol) {
     let ci = input.parentNode.cellIndex;
@@ -2502,67 +2486,104 @@ class Table extends EditorElement {
     return false;
   }
 
-
   /**
    * Sets table into "alert" mode - table is locked and error is shown.
-   * @param {string}  error Error message.
-   * @param {td}      exc   All table cells are locked except this one.
+   * @param {String}      errorMsg  The error message.
+   * @param {HTMLElement} exc       HTML td element; all table cells are locked except this one.
    */
-  activateAlertMode(error, exc) {
-    this.setAlert(error, true);
+  activateAlertMode(errorMsg, exc) {
+    this.setAlertMsg(errorMsg, true);
     showElem(this.alertText);
     this.lockTable(exc);
   }
 
   /**
-   * Sets table error message.
-   * @param {string}      error error message
-   * @param {boolean}     tableLocked 
+   * Sets the table error message.
+   * @param {String}      error The error message.
+   * @param {Boolean}     tableLocked 
    */
-  setAlert(error, tableLocked = true) {
+  setAlertMsg(error, tableLocked = true) {
     this.alertText.innerHTML = error;
     if (tableLocked) {
       this.alertText.innerHTML += " " + errors.tableLocked;
     }
   }
 
+  /**
+   * Resets all incorrect cells to their previous correct value and unblocks table.
+   */
+  rollback() {
+    this.incorrectInputs.forEach(input => {
+      input.value = input.prevValue;
+      $(input).removeClass(tableClasses.incorrectCell);
+    });
+    this.incorrectInputs = new Set();
+    hideElem(this.alertText);
+    if (this.locked) {
+      this.unlockTable();
+    }
+  }
+
+  /**
+   * Marks the input as incorrect and locks the table.
+   * (Edge-case) If another table cell was already incorrect, the method rollback() is called
+   * which resets all incorrect cells to their previous correct value.
+   * @param {String}      errMsg Error message to display.
+   * @param {HTMLElement} input 
+   */
+  setIncorrectInput(errMsg, input) {
+    this.incorrectInputs.add(input);
+    $(input).addClass(tableClasses.incorrectCell);
+    if (this.incorrectInputs.size > 1) {
+      this.rollback();
+    }
+    else if (this.incorrectInputs.has(input)) {
+      this.activateAlertMode(errMsg, input);
+    }
+  }
+
+  /**
+   * Removes input's incorrect status and unlocks the table.
+   * @param {HTMLElement} input 
+   */
+  unblockInput(input) {
+    $(input).removeClass(tableClasses.incorrectCell);
+    this.incorrectInputs.delete(input);
+    if (this.locked) {
+      this.unlockTable();
+      hideElem(this.alertText);
+    }
+  }
 
   /* ------------------------------ Table event handlers ------------------------------ */
-  inputClickHandler() {
+  /**
+   * Handles the table's inner cells' behaviour on a click event.
+   */
+  innerCellOnClick() {
     if (!this.locked) {
-      this.deselectCell();
+      this.deselectSelectedCell();
     }
   }
 
-  tableCellChanged(input) {
-    var editor = this.getEditor();
-    if (!(editor.type == "NFA" && tableIncorrectNfaEfaInnerCellSyntax(input.value))
-      || (editor == "DFA" && incorrectTableDFATransitionsSyntax(input.value))
-    ) {
-      $(input).removeClass(tableClasses.incorrectCell);
-      if (this.locked) {
-        this.alertText.innerHTML == "";
-        hideElem(this.alertText);
-        this.unlockTable();
-      }
+  /**
+   * Handles the @param input on input change.
+   * @param {HTMLElement} input 
+   */
+  innerCellOnInput(input) {
+    if (incorrectTableInnerCellSyntax(this.getEditor().type, input.value)) {
+      this.setIncorrectInput(errors.innerCellIncorrectSyntaxBase + " ", input);
+    }
+    else {
+      this.unblockInput(input);
     }
   }
 
-  tableCellChangedFinal(input) {
+  innerCellOnFocusout(input) {
     var editor = this.getEditor();
     var type = editor.type;
 
     if (incorrectTableInnerCellSyntax(type, input.value)) {
-      $(input).addClass(tableClasses.incorrectCell);
-
-      var err = errors.innerCellIncorrectSyntaxBase + " ";
-/*       if (type == "DFA") {
-        err += errors.DFAInnerCellSyntax;
-      }
-      else {
-        err += errors.NFAInnerCellSyntax
-      } */
-      this.activateAlertMode(err, input);
+      this.setIncorrectInput(errors.innerCellIncorrectSyntaxBase + " ", input);
     }
     else {
       var prevName = input.prevValue;
@@ -2634,11 +2655,11 @@ class Table extends EditorElement {
       }
       //vytvaranie novych transitions
       //pripadne pridavanie pismiek do existujucich
-      var x = newStates.toString();
+      var val = newStates.toString();
       if (typeIsNondeterministic(type)) {
-        x = "{" + x + "}";
+        val = "{" + val + "}";
       }
-      input.value = input.prevValue = x;
+      input.value = input.prevValue = val;
     }
   }
 
@@ -2648,44 +2669,27 @@ class Table extends EditorElement {
     }
   }
 
-  /*
-  table header cells (symbols of transition) on change
-*/
-  tableChChanged(input) {
-    var value = input.value;
-    var type = this.getEditor().type;
-
-    if (value == "\\e") {
-      input.value = epsSymbol
-      value = epsSymbol
+  /**
+   * Handles table column header cell ("transition sybol" cell) on input change.
+   * @param {HTMLElement} input 
+   */
+  columnHeaderOnInput(input) {
+    if (input.value == "\\e") {
+      input.value = epsSymbol;
     }
 
-    if (incorrectTableColumnHeaderSyntax(type, value)) {
-      $(input).addClass(tableClasses.incorrectCell);
-/*       var err;
-      if (type == "EFA") {
-        err = errors.EFA_incorrectTransitionSymbol;
-      }
-      else {
-        err = errors.NFA_incorrectTransitionSymbol;
-      } */
-      var err = errors.incorrectTransitionSymbol;
-      this.activateAlertMode(err, input);
+    if (incorrectTableColumnHeaderSyntax(this.getEditor().type, input.value)) {
+      this.setIncorrectInput(errors.incorrectTransitionSymbol, input);
     }
-    else if (this.tableColumnSymbolAlreadyExists(input, value)) {
-      $(input).addClass(tableClasses.incorrectCell);
-      this.activateAlertMode(errors.duplicitTransitionSymbol, input);
+    else if (this.tableColumnSymbolAlreadyExists(input, input.value)) {
+      this.setIncorrectInput(errors.duplicitTransitionSymbol, input);
     }
     else {
-      $(input).removeClass(tableClasses.incorrectCell);
-      if (this.locked) {
-        hideElem(this.alertText);
-        this.unlockTable();
-      }
+      this.unblockInput(input);
     }
   }
 
-  tableChChangedFinal(input) {
+  columnHeaderOnFocusout(input) {
     if ($(input).hasClass(tableClasses.incorrectCell) || this.locked) {
       return;
     }
@@ -2716,29 +2720,21 @@ class Table extends EditorElement {
     }
   }
 
-  tableRhChanged(e) {
+  rowHeaderOnInput(e) {
     var input = e.target;
-    var stateName = input.value;
-    //var rowIndex = input.parentNode.parentNode.rowIndex;
 
-    if (incorrectStateSyntax(stateName)) {
-      d3.select(input).classed(tableClasses.incorrectCell, true);
-      this.activateAlertMode(errors.incorrectStateSyntax, input);
+    if (incorrectStateSyntax(input.value)) {
+      this.setIncorrectInput(errors.incorrectStateSyntax, input);
     }
-    else if (this.tableStateAlreadyExists(input, stateName)) {
-      d3.select(input).classed(tableClasses.incorrectCell, true);
-      this.activateAlertMode(errors.duplicitState, input);
+    else if (this.tableStateAlreadyExists(input, input.value)) {
+      this.setIncorrectInput(errors.duplicitState, input);
     }
     else {
-      d3.select(input).classed(tableClasses.incorrectCell, false);
-      if (this.locked) {
-        this.unlockTable();
-        hideElem(this.alertText);
-      }
+      this.unblockInput(input);
     }
   }
 
-  tableRhChangedFinal(input) {
+  rowHeaderOnFocusout(input) {
     if ($(input).hasClass(tableClasses.incorrectCell) == false && !this.locked) {
       if (input.prevValue == input.value) return;
 
@@ -2872,14 +2868,14 @@ class Editor {
     return errDiv;
   }
 
-/*   addParser() {
-    //let path = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
-    let path = "Parsers/";
-    if ($(`script[src=\"${path}${this.type}Parser.js\"]`).length === 0) {
-      console.log("adding parser "+ this.type);
-      document.write(`\<script src=\"${path}${this.type}Parser.js\"><\/script>`);
-    }
-  } */
+  /*   addParser() {
+      //let path = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
+      let path = "Parsers/";
+      if ($(`script[src=\"${path}${this.type}Parser.js\"]`).length === 0) {
+        console.log("adding parser "+ this.type);
+        document.write(`\<script src=\"${path}${this.type}Parser.js\"><\/script>`);
+      }
+    } */
 }
 
 class TextEditor extends Editor {
@@ -2936,24 +2932,25 @@ class GraphEditor extends Editor {
 
     appendChildren(this.div, [graphButton, tableButton, textButton]);
 
-
     this.Graph = new Graph(this.id, this.statesData, this.edgesData);
     this.Table = new Table(this.id, this.statesData, this.edgesData);
 
     appendChildren(this.div, [this.Graph.graphDiv, this.Table.tableDiv, this.TextClass.textDiv]);
 
     hideElem(this.TextClass.textDiv);
-    //this.div.appendChild(this.TextArea); //moves the existing textarea into div
 
     this.Graph.graphDiv.lastHeight = this.Graph.graphDiv.offsetHeight;
     this.Graph.graphDiv.lastWidth = this.Graph.graphDiv.offsetWidth;
 
     this.Graph.initStartText();
-  } 
+  }
 
   clickGraph() {
     hideElem(this.TextClass.textDiv);
     hideElem(this.Table.tableDiv);
+    if (this.lastEdited == "table") {
+      //this.Table.rollback();
+    }
 
     showElem(this.Graph.hintDiv);
     showElem(this.Graph.graphDiv);
@@ -2968,6 +2965,9 @@ class GraphEditor extends Editor {
     if (!jeProhlizeciStranka_new()) {
       EditorManager.deselectAll();
     }
+    if (this.lastEdited == "table") {
+      this.Table.rollback();
+    }
     hideElem(this.Graph.hintDiv);
     hideElem(this.Graph.graphDiv);
     hideElem(this.Table.tableDiv);
@@ -2981,6 +2981,7 @@ class GraphEditor extends Editor {
       EditorManager.deselectAll();
     }
     if (this.lastEdited == "table") {
+      this.Table.rollback();
       return;
     }
     if (this.lastEdited == "graph") {
@@ -3297,14 +3298,14 @@ function setupLanguage() {
 
 /**
  * Initialises editor based on question type.
- * @param {HTMLElement} div       Div element where the editor will be placed.
- * @param {HTMLElement} textArea  Textarea element which was created automatically by IS.
+ * @param {HTMLElement} div       HTML div element where the editor will be placed.
+ * @param {HTMLElement} textArea  HTML textarea element which was created automatically by IS.
  */
 function initialise(div, textArea) {
   div.setAttribute("class", QUESTION_DIV);
   var type = div.getAttribute("id").substring(0, 3);
   var editor;
-  
+
   if (typeIsRegOrGram(type)) {
     editor = new TextEditor(div.id, type, textArea);
     if (jeProhlizeciStranka_new()) {
@@ -3329,7 +3330,7 @@ document.addEventListener('keyup', windowKeyUp);
 
 /**
  * Handles editor's key up events.
- * @param {KeyBoardEvent} event
+ * @param {KeyboardEvent} event
  */
 function windowKeyUp(event) {
   //SELECTED_ELEM_GROUP is either null, or a d3 selection - stateGroup or an edgeGroup
@@ -3383,6 +3384,13 @@ function setViewToState(div, x, y) {
   generateQuestionResult(div);
 }
 
+/**
+ * Returns the k, x, y parameters as a d3.transform object.
+ * @param   {Number} k  Zoom level.
+ * @param   {Number} x  X coordinate.
+ * @param   {Number} y  Y coordinate.
+ * @returns {Object}    { k: k, x: x, y: y } transform object.
+ */
 function convertStringToTransform(k, x, y) {
   k = parseFloat(k);
   if (!k) k = 1;
@@ -3407,13 +3415,12 @@ function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
 }
 
 /**
- * Edge (transition) has its path definition (@param pathDef) based on which it is drawn in svg.
- * Based on mouse and edge's source and target states positions gets new edge path.
- * @param   {number}  mouseX    mouse x coordinate
- * @param   {number}  mouseY    mouse y coordinate
- * @param   {string}  pathDef   previous edge path definition
- * @param   {object}  edgeData  edge data
- * @return  {string}  new edge path definition
+ * Based on mouse and transition's source and target states' positions calculates new edge path.
+ * @param   {Number}  mouseX    Mouse x coordinate.
+ * @param   {Number}  mouseY    Mouse y coordinate.
+ * @param   {String}  pathDef   Previous edge path definition.
+ * @param   {Object}  edgeData  Edge data object.
+ * @return  {String}            New edge path definition.
  */
 function getNewPathDefinition(mouseX, mouseY, pathDef, edgeData) {
   var str = pathDef.split(" ");
@@ -3426,7 +3433,7 @@ function getNewPathDefinition(mouseX, mouseY, pathDef, edgeData) {
   edgeData.dx = dx;
   edgeData.dy = dy;
 
-  //snap into straight line if edge curve is small
+  //snap into straight line if edge curve is small enough
   if (Math.abs(dy) <= 17 && Math.abs(dx) <= 17) {
     edgeData.dx = edgeData.dy = 0;
     return getStraightPathDefinition(edgeData.source.x, edgeData.source.y, edgeData.target.x, edgeData.target.y);
@@ -3434,6 +3441,15 @@ function getNewPathDefinition(mouseX, mouseY, pathDef, edgeData) {
   return str.join(" ");
 }
 
+/**
+ * Calculates a new (self-loop) path definition based on the mouse and transition's source and target states' positions.
+ * @param {Number} x1 The original x coordinate.
+ * @param {Number} y1 The original y coordinate.
+ * @param {Number} x2 The new x coordinate.
+ * @param {Number} y2 The new y coordinate.
+ * @param {Object}    edgeData Edge data object.
+ * @returns {String} New path definition.
+ */
 function getNewSelfloopDefinition(x1, y1, x2, y2, edgeData) {
   if (edgeData != null) {
     edgeData.angle = calculateAngle(x1, y1, x2, y2);
@@ -3700,7 +3716,6 @@ function showFullname(invisibleRect, d) {
     .attr("x", d.x - w / 2)
     .attr("y", d.y + (graphConsts.nodeRadius + 2));
 }
-
 
 
 
@@ -3978,8 +3993,8 @@ function incorrectTableColumnHeaderSyntax(type, value) {
  * Registers function to element with correct question id.
  * The original author is Radim Cebis, modified by Patricia Salajova.
  * This is the function used to bind syntax parser to editor's textarea.
- * @param {string}      id    Question id.
- * @param {function}    func  Function. 
+ * @param {String}      id    Question id.
+ * @param {Function}    func  Function. 
  * @param {HTMLElement} elem  Textarea HTMLElement which will be binded with func.
  */
 function registerElem(id, func, elem) {
@@ -3987,7 +4002,7 @@ function registerElem(id, func, elem) {
   if (jeProhlizeciStranka_new()) {
     if (document.getElementById(id + "-error")) {
       //hide the syntax check
-      document.getElementById(id + "-error").setAttribute("hidden", ''); 
+      document.getElementById(id + "-error").setAttribute("hidden", '');
     }
     return;
   }

@@ -15,23 +15,48 @@
             text-rendering: optimizeLegibility;
             font-smooth: auto;
         }
+
+        #constrainer {
+            background-color: rgb(255, 255, 255);
+            width: 914px;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            margin: auto;
+        }
+
+        footer {
+            width: 100%;
+            height: 100px;
+            margin-top: 100px;
+            text-align: center;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: rgb(233, 233, 233);
+            font-family: Roboto, Open Sans, Arial, sans-serif;
+            color: rgb(56, 56, 56);
+            font-size: 15px;
+        }
     </style>
 
-<script>
-    //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
-    var ISpath = "";
-    if ($(`script[src=\"${ISpath}editor2.js\"]`).length === 0) {
-        ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
-            document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
+    <script>
+        //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
+        var ISpath = "";
+        if ($(`script[src=\"${ISpath}editor2.js\"]`).length === 0) {
+            ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
+                document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
+            });
+            document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
+        }
+        ["DFA", "NFA", "EFA", "GRA", "REG"].forEach(type => {
+            if ($(`script[src=\"${ISpath}Parsers/${type}Parser.js\"]`).length === 0) {
+                document.write(`\<script src="${ISpath}Parsers/${type}Parser.js\"><\/script>`);
+            }
         });
-        document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
-    }
-    ["DFA", "NFA", "EFA", "GRA", "REG"].forEach(type => {
-        if ($(`script[src=\"${ISpath}Parsers/${type}Parser.js\"]`).length === 0) {
-            document.write(`\<script src="${ISpath}Parsers/${type}Parser.js\"><\/script>`);}
-    });
-</script>
-<!--
+    </script>
+    <!--
     <script src="https://ajax.googleapis.com/ajax/libs/d3js/6.2.0/d3.min.js"></script>
     <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/jquery-ui.js"></script>
     <style type="text/css">@import "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/jquery-ui.css";</style>
@@ -68,10 +93,20 @@
 
         <hr style="margin-top: 30px; margin-bottom: 30px; border-top: 1px solid #cacaca; border-bottom: 0px solid;">
 
+        <p>EFA</p>
+        <script>editor_init("EFA");</script>
+        <textarea></textarea>
+
+        <hr style="margin-top: 30px; margin-bottom: 30px; border-top: 1px solid #cacaca; border-bottom: 0px solid;">
+
         <p>REG</p>
         <script>editor_init("REG");</script>
         <textarea></textarea>
 
+        <footer>
+            <p>Author: Patricia Salajova</p>
+            <p>This is a test page for the finite automata editor I created as my bachelor thesis at FI MUNI. 2021</p>
+        </footer>
     </div>
     <script>
         if ($(`script[src=\"editor2.js\"]`).length === 0) {
@@ -86,8 +121,10 @@
                 document.write(`\<script src=\"Parsers/${type}Parser.js\"><\/script>`);
             }
         });
-        
+
     </script>
+
+
 </body>
 
 </html>
