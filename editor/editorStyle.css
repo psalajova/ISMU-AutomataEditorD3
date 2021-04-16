@@ -370,6 +370,10 @@ border-spacing:2px;
     cursor: pointer;
 }
 
+.noselect {
+    user-select: none;
+}
+
 /*selected row header input*/
 .row-header-cell>.selected-header-input {
     background-color: #d0d0d0;
@@ -386,6 +390,8 @@ border-spacing:2px;
 
 .incorrect-cell, .row-header-cell>.incorrect-cell {
     background-color: #ff6666;
+    color: #3c0000;
+    font-weight: bolder;
 }
 
 .delete-button-cell { /* td */
@@ -507,31 +513,4 @@ border-spacing:2px;
     background-color: #d9edf7;
     border-color: #bce8f1 !important;
     outline: none;
-}
-
-
-
-/* ------------------------------ To delete ------------------------------ */
-
-.my-type {
-    font-family: Roboto, Open Sans, Arial, sans-serif;
-    color: rgb(56, 56, 56);
-    font-size: 15px;
-    font-style: italic;
-}
-
-.noselect {
-    user-select: none;
-}
-
-#constrainer {
-    background-color: rgb(255, 255, 255);
-    width: 914px;
-    position: absolute;
-	top:0;
-	bottom: 0;
-	left: 0;
-	right: 0;
-  	
-	margin: auto;
 }
