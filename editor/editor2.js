@@ -1,3 +1,5 @@
+const langDirPath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
+
 var editor_init, upload, editorIdCount = 0;
 const MENU_BUTTON = "menu-button";
 const CONTEXT_MENU = "context-menu";
@@ -74,7 +76,7 @@ var SELECTED_ELEM_GROUP, maxZoomout = 0.5;
 
 /* ------------------------------ Initialization ------------------------------ */
 
-//setupLanguage();
+setupLanguage();
 
 
 if (typeof editor_init !== 'function') {
@@ -3282,8 +3284,6 @@ class GraphEditor extends Editor {
   }
 }
 
-
-
 /**
  * Sets editor language based on actual IS language and loads correct language file.
  */
@@ -3292,7 +3292,7 @@ function setupLanguage() {
   if (!lang) {
     lang = "cs";
   }
-  var src = `//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/${lang.toUpperCase()}.js`;
+  var src = `${langDirPath}${lang.toUpperCase()}.js`;
   document.write("\<script src=\"" + src + "\"type='text/javascript'><\/script>");
 }
 
