@@ -3,10 +3,9 @@
 
 <head>
     <meta charset="utf-8">
-
-    <script src="Libs/jquery.min.js"></script>
-    <script src="Libs/jquery-ui.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="Libs/jquery-ui.css">
+    <script src="../Libs/jquery.min.js"></script>
+    <script src="../Libs/jquery-ui.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="../Libs/jquery-ui.css">
 
     <style>
         body {
@@ -43,7 +42,7 @@
 
     <script>
         //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
-        var ISpath = "";
+        var ISpath = "../";
         if ($(`script[src=\"${ISpath}editor2.js\"]`).length === 0) {
             ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
                 document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
@@ -71,7 +70,7 @@
 </head>
 
 <body>
-    <script src="languages/EN.js"></script>
+    <script src="../Languages/EN.js"></script>
     <span id="ruler"></span>
     <div id="constrainer">
         <p>DFA</p>
@@ -109,19 +108,19 @@
         </footer>
     </div>
     <script>
-        if ($(`script[src=\"editor2.js\"]`).length === 0) {
-            let scripts = ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"];
-            scripts.forEach(src => {
-                document.write("\<script src=\"" + "" + src + "\"><\/script>");
+        //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
+        var ISpath = "../";
+        if ($(`script[src=\"${ISpath}editor2.js\"]`).length === 0) {
+            ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
+                document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
             });
-            document.write("\<style type=\"text/css\">@import \"" + "" + "editorStyle.css" + "\";<\/style>");
+            document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
         }
-        ["DFA", "NFA", "EFA", "GRA"].forEach(type => {
-            if ($(`script[src=\"Parsers/${type}Parser.js\"]`).length === 0) {
-                document.write(`\<script src=\"Parsers/${type}Parser.js\"><\/script>`);
+        ["DFA", "NFA", "EFA", "GRA", "REG"].forEach(type => {
+            if ($(`script[src=\"${ISpath}Parsers/${type}Parser.js\"]`).length === 0) {
+                document.write(`\<script src="${ISpath}Parsers/${type}Parser.js\"><\/script>`);
             }
         });
-
     </script>
 
 
