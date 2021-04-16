@@ -2892,7 +2892,7 @@ class TextEditor extends Editor {
   }
 }
 
-class GraphEditor extends Editor {
+class AutomataEditor extends Editor {
   constructor(id, type, textArea) {
     super(id, type, textArea);
     this.stateIdCounter = 0;
@@ -2901,7 +2901,6 @@ class GraphEditor extends Editor {
 
     //When syntax check is fixed, uncomment this
     //this.appendSyntaxCheck();
-
   }
 
   initialise() {
@@ -3313,7 +3312,7 @@ function initialise(div, textArea) {
     }
   }
   else {
-    editor = new GraphEditor(div.id, type, textArea);
+    editor = new AutomataEditor(div.id, type, textArea);
     editor.Graph.reconstruct(textArea.innerText);
     $(textArea).prop('readonly', true);
 

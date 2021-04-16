@@ -43,8 +43,8 @@
     <script>
         //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
         var ISpath = "../";
-        if ($(`script[src=\"${ISpath}editor2.js\"]`).length === 0) {
-            ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
+        if ($(`script[src=\"${ISpath}editor.js\"]`).length === 0) {
+            ["editor.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
                 document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
             });
             document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
@@ -110,8 +110,8 @@
     <script>
         //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
         var ISpath = "../";
-        if ($(`script[src=\"${ISpath}editor2.js\"]`).length === 0) {
-            ["editor2.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
+        if ($(`script[src=\"${ISpath}editor.js\"]`).length === 0) {
+            ["editor.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
                 document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
             });
             document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
