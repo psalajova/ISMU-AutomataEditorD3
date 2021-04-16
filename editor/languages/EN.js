@@ -80,8 +80,8 @@ var errors = {
   emptyState: "<strong>Error!</strong> Empty state name.",
 
   //table header cells (transition symbols) errors
-  EFA_incorrectTransitionSymbol : "<strong>Error!</strong> Wrong transition syntax.",
-  NFA_incorrectTransitionSymbol : "<strong>Error!</strong> Wrong transition syntax.",
+  EFA_incorrectTransitionSymbol : "<strong>Error!</strong> Wrong transition symbol syntax.",
+  incorrectTransitionSymbol : "<strong>Error!</strong> Wrong transition symbol syntax.",
   emptyTransition: "<strong>Error!</strong> The transition cannot be empty.",
   duplicitTransitionSymbol : "<strong>Error!</strong> Duplicit transition symbol.",
 
