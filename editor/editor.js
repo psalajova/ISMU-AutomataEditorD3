@@ -1,4 +1,4 @@
-const langDirPath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
+//const langDirPath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
 
 var editor_init, upload, editorIdCount = 0;
 const MENU_BUTTON = "menu-button";
@@ -76,8 +76,8 @@ var SELECTED_ELEM_GROUP, maxZoomout = 0.5;
 
 /* ------------------------------ Initialization ------------------------------ */
 
-setupLanguage();
 
+setupLanguage();
 
 if (typeof editor_init !== 'function') {
   /*
@@ -113,12 +113,11 @@ if (typeof editor_init !== 'function') {
   upload = function () { editor_init(null); };
 }
 
-
-
-var EditorManager = {
+const EditorManager = {
   editors: new Map(),
 
   addEditor: function (editor) {
+    console.log("adding " + editor.id);
     this.editors.set(editor.id, editor);
   },
 
@@ -220,10 +219,7 @@ class EditorElement {
   initHintContent(content) {
     var div = document.createElement("div");
     div.setAttribute("class", "hint-content-div");
-    $(div).prop("title", hintTitle);
-
     this.setupHints(div, content);
-
     return div;
   }
 
@@ -257,16 +253,16 @@ class Graph extends EditorElement {
   initHints() {
     var hintDiv = document.createElement("div");
     hintDiv.setAttribute("class", "hintDiv");
-    $(hintDiv).prop("title", hintTitle);
 
     this.hintDiv = hintDiv;
 
     var graphHintButton = createButton(hintLabel, "hintButton");
     graphHintButton.style.marginBottom = "7px";
+    $(graphHintButton).prop("title", hintTitle)
 
     var syntaxButton = createButton(syntaxLabel, "hintButton");
     syntaxButton.style.marginBottom = "7px";
-
+    $(syntaxButton).prop("title", syntaxTitle);
 
     var graphHintsDiv = this.initHintContent(graphHints);
     var graphSyntaxDiv = this.initHintContent(graphSyntaxHints);
@@ -939,7 +935,6 @@ class Graph extends EditorElement {
       this.addStateEvents(newStateG);
       this.updateText();
     }
-
   }
 
   addStateSvg(state, origin = elemOrigin.default) {
@@ -1848,14 +1843,11 @@ class Table extends EditorElement {
   createSyntaxHint() {
     var syntaxButton = createButton(syntaxLabel, "hintButton");
     syntaxButton.style.marginBottom = "7px";
+    $(syntaxButton).prop("title", syntaxTitle);
     var syntaxContentDiv = this.initHintContent(tableSyntaxHints);
-
-    /*     this.syntaxDiv = document.createElement("div");
-        this.syntaxDiv.setAttribute("class", "hintDiv"); */
 
     syntaxButton.addEventListener("click", () => this.clickHintButton(syntaxContentDiv));
     appendChildren(this.tableDiv, [syntaxButton, syntaxContentDiv]);
-    //this.tableDiv.appendChild(this.syntaxDiv);
   }
 
   createErrorAlert() {
@@ -2515,6 +2507,7 @@ class Table extends EditorElement {
    * Resets all incorrect cells to their previous correct value and unblocks table.
    */
   rollback() {
+    console.log("rollback");
     this.incorrectInputs.forEach(input => {
       input.value = input.prevValue;
       $(input).removeClass(tableClasses.incorrectCell);
@@ -3005,71 +2998,6 @@ class AutomataEditor extends Editor {
     d3.select(this.div).selectAll("." + MENU_BUTTON).attr("disabled", val);
   }
 
-
-  //TODO?
-  reconstructGraph(answer) {
-    if (!answer || answer == "") return;
-
-    //parse zoom/pan
-    var tr = answer.substring(answer.length - 21);
-    if (tr.length > 2 && tr.split(";").length == 3) {
-      let s = tr.split(";");
-      if (s && s.length == 3) {
-        let t = convertStringToTransform(s[0], s[1], s[2]);
-        this.Graph.setTransform(div, t.k, t.x, t.y);
-      }
-    }
-
-    var splitted = answer.split("##states");
-    var data = splitted[1].split("edges");
-    var states = data[0];
-    var rest = data[1];
-
-    if (states != null && states != "") {
-      states = states.split("@");
-      for (var d of states) {
-        var stateParts = d.split(';');
-        if (stateParts.length != 5) continue;
-        var id = stateParts[0];
-        var x = parseInt(stateParts[1]);
-        var y = parseInt(stateParts[2]);
-        var initial = stateParts[3] == "1";
-        var accepting = stateParts[4] == "1";
-        var data = this.Graph.getNewStateData(id, x, y, initial, accepting, true);
-        this.Graph.createState(data);
-
-        if (initial) {
-          this.Graph.setNewStateAsInitial(data);
-        }
-        if (accepting) {
-          this.Graph.addAcceptingCircle(this.Graph.getStateGroupById(data.id));
-        }
-      }
-    }
-    if (rest != null && rest != "") {
-      rest = rest.split('@');
-      for (var d of rest) {
-        var edgeData = d.split(';');
-        if (edgeData.length != 6) continue;
-
-        var sourceId = edgeData[0];
-        var targetId = edgeData[1];
-        var symbols = edgeData[2];
-        var dx = parseFloat(edgeData[3]);
-        var dy = parseFloat(edgeData[4]);
-        var angle = parseFloat(edgeData[5]);
-
-        var data = this.Graph.getNewEdgeData(sourceId, targetId, symbols, dx, dy, angle);
-        data = checkEdgePathData(data);
-        if (this.checkEdgeSymbolsValidity(data.id, data.source, symbols).result) {
-          this.Graph.createEdge(data, elemOrigin.fromExisting);
-        }
-      }
-    }
-    this.TextClass.updateText(answer);
-    //TODO parse init arrow angle
-  }
-
   addState(stateData) {
     this.Graph.createState(stateData);
   }
@@ -3168,9 +3096,9 @@ class AutomataEditor extends Editor {
         + d.source.id
         + ";" + d.target.id
         + ";" + d.symbols
-        + ";" + d.dx.toFixed(2)
-        + ";" + d.dy.toFixed(2)
-        + ";" + d.angle.toFixed(3);
+        + ";" + shorten(d.dx)
+        + ";" + shorten(d.dy)
+        + ";" + shorten(d.angle);
     });
     if (initState) {
       result += "@initAngle:" + this.Graph.svgGroup.initArrow.node().angle.toFixed(3);
@@ -3291,7 +3219,15 @@ function setupLanguage() {
   if (!lang) {
     lang = "cs";
   }
-  var src = `${langDirPath}${lang.toUpperCase()}.js`;
+  var path;
+  try {
+    path = langDirPath;
+  }
+  catch (err) {
+    path = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
+  }
+
+  var src = `${path}${lang.toUpperCase()}.js`;
   document.write("\<script src=\"" + src + "\"type='text/javascript'><\/script>");
 }
 
@@ -3665,8 +3601,17 @@ function repositionTemporaryEdgeToState(stateData) {
 function checkEdgePathData(data) {
   if (!data.dx) data.dx = 0;
   if (!data.dy) data.dy = 0;
-  if (data.angle != 0 && !data.angle) data.angle = 1.55;
+  if (data.angle != 0 && !data.angle) {
+    data.angle = data.source == data.target ? 1.55 : 0;
+  }
   return data;
+}
+
+function shorten(num) {
+  if (num == 0) {
+    return "";
+  }
+  return num.toFixed(2);
 }
 
 /* ------------------------------ Graph - State utils ------------------------------ */
@@ -3715,8 +3660,6 @@ function showFullname(invisibleRect, d) {
     .attr("x", d.x - w / 2)
     .attr("y", d.y + (graphConsts.nodeRadius + 2));
 }
-
-
 
 /* ------------------------------ General Graph related utils ------------------------------ */
 
