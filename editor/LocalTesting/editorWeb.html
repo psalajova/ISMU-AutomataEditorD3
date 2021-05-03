@@ -43,7 +43,10 @@
     <script>
         //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
         var ISpath = "../";
+        var langDirPath = "../Languages/";
+
         if ($(`script[src=\"${ISpath}editor.js\"]`).length === 0) {
+            
             ["editor.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
                 document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
             });
@@ -54,6 +57,7 @@
                 document.write(`\<script src="${ISpath}Parsers/${type}Parser.js\"><\/script>`);
             }
         });
+        
     </script>
     <!--
     <script src="https://ajax.googleapis.com/ajax/libs/d3js/6.2.0/d3.min.js"></script>
@@ -70,7 +74,9 @@
 </head>
 
 <body>
-    <script src="../Languages/EN.js"></script>
+    <script>
+        
+    </script>
     <span id="ruler"></span>
     <div id="constrainer">
         <p>DFA</p>
@@ -110,13 +116,14 @@
     <script>
         //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
         var ISpath = "../";
+        var langDirPath = "../Languages/";
         if ($(`script[src=\"${ISpath}editor.js\"]`).length === 0) {
             ["editor.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
                 document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
             });
             document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
         }
-        ["DFA", "NFA", "EFA", "GRA", "REG"].forEach(type => {
+        ["REG"].forEach(type => {
             if ($(`script[src=\"${ISpath}Parsers/${type}Parser.js\"]`).length === 0) {
                 document.write(`\<script src="${ISpath}Parsers/${type}Parser.js\"><\/script>`);
             }
