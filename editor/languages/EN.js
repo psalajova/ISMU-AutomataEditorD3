@@ -18,6 +18,7 @@ var tableMenuButton = "Table";
 var hintLabel = "Hint";
 var hintTitle = "How to use graph editor";
 var syntaxLabel = "Syntax";
+var syntaxTitle = "Syntax rules";
 
 var tableInitialButtonName = "Initial state";     //label - table button to toggle initial state
 var tableAcceptingButtonName = "Accepting state"; //label - table button to toggle accepting state

@@ -18,6 +18,7 @@ var tableMenuButton = "Tabulka";
 var hintLabel = "Nápověda";
 var hintTitle = "Nápověda k používání grafového editoru";
 var syntaxLabel = "Syntax";
+var syntaxTitle = "Pravidla syntaxe";
 
 var tableInitialButtonName = "Počáteční stav"; //table button to toggle initial state
 var tableAcceptingButtonName = "Akceptující stav"; //table button to toggle accepting state
