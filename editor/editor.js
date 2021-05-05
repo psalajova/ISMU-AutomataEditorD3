@@ -1,5 +1,3 @@
-//const langDirPath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
-
 var editor_init, upload, editorIdCount = 0;
 const MENU_BUTTON = "menu-button";
 const CONTEXT_MENU = "context-menu";
@@ -117,7 +115,6 @@ const EditorManager = {
   editors: new Map(),
 
   addEditor: function (editor) {
-    console.log("adding " + editor.id);
     this.editors.set(editor.id, editor);
   },
 
@@ -1751,8 +1748,6 @@ class Graph extends EditorElement {
   }
 
 
-
-
   /* ------------------------------ Graph - State placement functions ------------------------------ */
 
   findStatePlacement(newStateData) {
@@ -2132,7 +2127,7 @@ class Table extends EditorElement {
       -(params.width / 2) + 100,
       -(params.height / 2) + 100,
       false, false, true);
-    editor.Graph.createState(data);
+    editor.addState(data);
   }
 
   insertColumn(symb = null) {
@@ -2630,7 +2625,7 @@ class Table extends EditorElement {
             this.insertRow(newStates[i]);
           }
           else {
-            editor.Graph.createState(this.getNewStateData(newStates[i], 100, 100, false, false, true));
+            editor.addState(this.getNewStateData(newStates[i], 100, 100, false, false, true));
           }
           editor.Graph.createEdge(this.getNewEdgeData(sourceStateId, newStates[i], symbol), elemOrigin.fromTable);
         }
@@ -2803,7 +2798,7 @@ class Table extends EditorElement {
 
 }
 
-class TextClass extends EditorElement {
+class TextElem extends EditorElement {
   constructor(editorId, statesData, edgesData, txa) {
     super(editorId, statesData, edgesData);
     this.textArea = txa;
@@ -2829,7 +2824,7 @@ class Editor {
     this.statesData = [];
     this.edgesData = [];
     this.div = document.getElementById(id);
-    this.TextClass = new TextClass(this.id, this.statesData, this.edgesData, textArea);
+    this.TextClass = new TextElem(this.id, this.statesData, this.edgesData, textArea);
     //this.addParser();
     EditorManager.addEditor(this);
   }
@@ -2891,9 +2886,6 @@ class AutomataEditor extends Editor {
     this.stateIdCounter = 0;
     this.edgeIdCounter = 0;
     this.initialise();
-
-    //When syntax check is fixed, uncomment this
-    //this.appendSyntaxCheck();
   }
 
   initialise() {
@@ -2937,6 +2929,11 @@ class AutomataEditor extends Editor {
     this.Graph.graphDiv.lastWidth = this.Graph.graphDiv.offsetWidth;
 
     this.Graph.initStartText();
+
+    //When syntax check is fixed, uncomment this
+    //this.appendSyntaxCheck();
+    //and delete this:
+    $(this.TextClass.textArea).prop('readonly', true);
   }
 
   clickGraph() {
@@ -3250,8 +3247,7 @@ function initialise(div, textArea) {
   else {
     editor = new AutomataEditor(div.id, type, textArea);
     editor.Graph.reconstruct(textArea.innerText);
-    $(textArea).prop('readonly', true);
-
+    
     if (editor.isEmpty()) {
       editor.Graph.setViewToMiddle();
       if (!jeProhlizeciStranka_new()) {
