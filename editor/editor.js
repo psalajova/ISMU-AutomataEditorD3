@@ -1,8 +1,9 @@
-var editor_init, upload, editorIdCount = 0;
 const MENU_BUTTON = "menu-button";
 const CONTEXT_MENU = "context-menu";
 const GRAPH_DIV = "graphDiv";
 const QUESTION_DIV = "editor-content";
+const STATE_INDEX = 2;
+const MIN_TABLE_CELL_WIDTH = "50px";
 
 const graphConsts = {
   selected: "selected",
@@ -36,10 +37,6 @@ const tableClasses = {
   controlButton: "control-button"
 }
 
-const STATE_INDEX = 2;
-var MIN_TABLE_CELL_WIDTH = "50px";
-var MIN_STATE_WIDTH = "50px";
-
 /**
  * Width and height of editor canvas.
  */
@@ -65,15 +62,16 @@ const graphStateEnum = Object.freeze({
  * Enum to specify state and edge data origin.
  */
 const elemOrigin = Object.freeze({
-  "default": 0, //from graph
-  "fromTable": 1,
-  "fromExisting": 2 //when recreating editor from existing data (IS in inspection mode)
+  "default": 0,     //created in graph mode
+  "fromTable": 1,   //created in table mode
+  "fromExisting": 2 //when recreating editor from existing data
 });
 
+var editor_init, upload, editorIdCount = 0;
+var minStateWidth = "50px";
 var SELECTED_ELEM_GROUP, maxZoomout = 0.5;
 
 /* ------------------------------ Initialization ------------------------------ */
-
 
 setupLanguage();
 
@@ -82,7 +80,7 @@ if (typeof editor_init !== 'function') {
     najprv sa iba generuju ids a napla sa otazky{} - robi sa editor_init(type)
     potom window.onload - zoberu sa vsetky textareas a postupne sa k nim vytvara div, initialise...
  */
-  var otazky = {};
+var otazky = {};
 
   var onl = window.onload || function () { };
   window.onload = function () {
@@ -94,23 +92,24 @@ if (typeof editor_init !== 'function') {
         var div = document.createElement("div");
         div.setAttribute("id", otazky[n]);
         txa.parentNode.insertBefore(div, txa.nextSibling);
-        initialise(div, txa);
+        createEditor(div, txa);
       }
     }
-    scroll(0, 0);
-    //window.scrollTo(0, 0);
   }
   editor_init = function (type) {
-    var id = generateEditorId(type);
+    var id = Utils.generateEditorId(type);
     //if element with id already exists, generate a new id
     while (document.getElementById(id) != null) {
-      id = generateEditorId(type);
+      id = Utils.generateEditorId(type);
     }
     otazky[document.getElementsByTagName('textarea').length] = id;
   };
   upload = function () { editor_init(null); };
 }
 
+/**
+ * Object holding all editors in document.
+ */
 const EditorManager = {
   editors: new Map(),
 
@@ -122,9 +121,14 @@ const EditorManager = {
     return this.editors.get(id);
   },
 
+  /**
+   * Deselects all editors' elements except the editor with id @param exceptionId.
+   * Necessary, beacuse only one editor can have active elements at any given moment.
+   * @param {String} exceptionId 
+   */
   deselectAll: function (exceptionId = null) {
     for (let [id, editor] of this.editors) {
-      if (id !== exceptionId && !typeIsRegOrGram(editor.type)) {
+      if (id !== exceptionId && !Utils.typeIsRegOrGram(editor.type)) {
         //TODO
         if (SELECTED_ELEM_GROUP && SELECTED_ELEM_GROUP.node().parentGraph == editor.Graph) {
           SELECTED_ELEM_GROUP.select("input").node().blur();
@@ -140,8 +144,8 @@ const EditorManager = {
         editor.Graph.removeSelectionFromState();
         editor.Graph.removeSelectionFromEdge();
         editor.Graph.hideAllContextMenus();
-        hideElem(editor.Graph.renameError);
-        hideEdge(editor.Graph.temporaryEdgeG);
+        HtmlUtils.hideElem(editor.Graph.renameError);
+        EdgeUtils.hide(editor.Graph.temporaryEdgeG);
 
         editor.Graph.enableAllDragging();
       }
@@ -149,6 +153,9 @@ const EditorManager = {
   }
 }
 
+/**
+ * Base class for one Automata Editor mode.
+ */
 class EditorElement {
   constructor(editorId, statesData, edgesData) {
     this.editorId = editorId;
@@ -172,16 +179,22 @@ class EditorElement {
     return this.getElemById(this.edgesData, id);
   }
 
-  getEdgeDataByStates(sourceTitle, targetTitle) {
+  getEdgeDataByStates(sourceId, targetId) {
     for (let i = 0, j = this.edgesData.length; i < j; i++) {
       const d = this.edgesData[i];
-      if (d.source.id == sourceTitle && d.target.id == targetTitle) {
+      if (d.source.id == sourceId && d.target.id == targetId) {
         return d;
       }
     }
     return null;
   }
 
+  /**
+   * Gets a state or an edge by its id.
+   * @param {Array}   array 
+   * @param {String}  id 
+   * @returns State or edge if id matches, null otherwise.
+   */
   getElemById(array, id) {
     for (let i = 0; i < array.length; i++) {
       const data = array[i];
@@ -190,7 +203,7 @@ class EditorElement {
     return null;
   }
 
-  getNewStateData(id, x, y, initial, accepting, isNew = false) {
+  getNewStateData(id, x, y, initial, accepting = false, isNew = false) {
     return {
       id: id != null ? id : this.getEditor().generateStateId(),
       x: x,
@@ -222,21 +235,24 @@ class EditorElement {
 
   setupHints(div, hints) {
     for (const property in hints) {
-      div.appendChild(createParagraph(hints[property]));
+      div.appendChild(HtmlUtils.createHintParagraph(hints[property]));
     }
   }
 
   clickHintButton(div) {
     if (!jeProhlizeciStranka_new()) EditorManager.deselectAll();
     if (!div.style.display || div.style.display == "none") {
-      showElem(div);
+      HtmlUtils.showElem(div);
     }
     else {
-      hideElem(div);
+      HtmlUtils.hideElem(div);
     }
   }
 }
 
+/**
+ * Represents Graph mode of Automata Editor.
+ */
 class Graph extends EditorElement {
   constructor(editorId, statesData, edgesData) {
     super(editorId, statesData, edgesData);
@@ -253,18 +269,18 @@ class Graph extends EditorElement {
 
     this.hintDiv = hintDiv;
 
-    var graphHintButton = createButton(hintLabel, "hintButton");
+    var graphHintButton = HtmlUtils.createButton(hintLabel, "hintButton");
     graphHintButton.style.marginBottom = "7px";
     $(graphHintButton).prop("title", hintTitle)
 
-    var syntaxButton = createButton(syntaxLabel, "hintButton");
+    var syntaxButton = HtmlUtils.createButton(syntaxLabel, "hintButton");
     syntaxButton.style.marginBottom = "7px";
     $(syntaxButton).prop("title", syntaxTitle);
 
     var graphHintsDiv = this.initHintContent(graphHints);
     var graphSyntaxDiv = this.initHintContent(graphSyntaxHints);
 
-    appendChildren(hintDiv, [graphHintButton, syntaxButton, graphSyntaxDiv, graphHintsDiv]);
+    HtmlUtils.appendChildren(hintDiv, [graphHintButton, syntaxButton, graphSyntaxDiv, graphHintsDiv]);
 
     graphHintButton.addEventListener("click", () => this.clickHintButton(graphHintsDiv));
     syntaxButton.addEventListener("click", () => this.clickHintButton(graphSyntaxDiv));
@@ -272,6 +288,9 @@ class Graph extends EditorElement {
     this.getEditor().div.appendChild(hintDiv);
   }
 
+  /**
+   * Creates all HTML elements of Graph mode.
+   */
   initialise() {
     this.graphDiv.setAttribute("class", GRAPH_DIV);
 
@@ -308,10 +327,10 @@ class Graph extends EditorElement {
     this.dragInitArrow = d3.drag().on("drag", function (e) {
       var arrow = d3.select(this).node();
       var s = g.graphState.initialState;
-      arrow.angle = calculateAngle(s.x, s.y, e.x, e.y);
+      arrow.angle = EdgeUtils.calculateAngle(s.x, s.y, e.x, e.y);
       d3.select(this)
         .attr("d", "M " + s.x + " " + s.y
-          + " C " + cubicControlPoints(s.x, s.y, arrow.angle, 90, 2000)
+          + " C " + MathUtils.cubicControlPoints(s.x, s.y, arrow.angle, 90, 2000)
           + " " + s.x + " " + s.y);
     });
 
@@ -448,7 +467,7 @@ class Graph extends EditorElement {
     this.createStateContextMenu();
     this.createEdgeContextMenu();
     this.createAddStateMenu();
-    this.initRenameError();
+    this.createRenameError();
 
 
     if (!jeProhlizeciStranka_new()) {
@@ -456,17 +475,21 @@ class Graph extends EditorElement {
         .translateExtent([[-(params.width), -(params.height)], [params.width, params.height]]);
 
       //add event listeners if page is not in inspection mode
-      svg.on("mousemove", (e) => this.svgMousemove(e))
-        .on("click", (e) => this.svgRectClick(e))
-        .on("contextmenu", (e) => this.svgRectContextmenu(e));
+      svg.on("mousemove", (e) => this.canvasOnMousemove(e))
+        .on("click", (e) => this.canvasOnClick(e))
+        .on("contextmenu", (e) => this.canvasOnContextmenu(e));
 
-      rect.on("contextmenu", (e) => this.svgRectContextmenu(e))
-        .on("dblclick", (e) => this.svgRectDblclick(e));
+      rect.on("contextmenu", (e) => this.canvasOnContextmenu(e))
+        .on("dblclick", (e) => this.canvasOnDblclick(e));
 
       initArrow.call(g.dragInitArrow);
     }
   }
 
+  /**
+   * Recreates automaton based on @param answer.
+   * @param {String} answer String representing a finite automaton in syntax of IS evaluation service.
+   */
   reconstruct(answer) {
     if (!answer || answer == "") return;
 
@@ -475,7 +498,7 @@ class Graph extends EditorElement {
     if (tr.length > 2 && tr.split(";").length == 3) {
       let s = tr.split(";");
       if (s && s.length == 3) {
-        let t = convertStringToTransform(s[0], s[1], s[2]);
+        let t = Utils.convertStringToTransform(s[0], s[1], s[2]);
         this.setTransform(t.k, t.x, t.y);
       }
     }
@@ -521,7 +544,7 @@ class Graph extends EditorElement {
         var angle = parseFloat(edgeData[5]);
 
         var data = this.getNewEdgeData(sourceId, targetId, symbols, dx, dy, angle);
-        data = checkEdgePathData(data);
+        data = EdgeUtils.checkPathData(data);
         if (editor.checkEdgeSymbolsValidity(data.id, data.source, symbols).result) {
           this.createEdge(data, elemOrigin.fromExisting);
         }
@@ -542,6 +565,9 @@ class Graph extends EditorElement {
 
   /* ------------------------------ components ------------------------------ */
 
+  /**
+   * Creates text shown when editor contains no states and transitions.
+   */
   initStartText() {
     let w = this.graphDiv.offsetWidth;
     let h = this.graphDiv.offsetHeight;
@@ -550,12 +576,12 @@ class Graph extends EditorElement {
       .append("text")
       .classed("initial-text", true)
       .text(emptyGraphText)
-      .attr("x", (w - visualLength(emptyGraphText)) / 2)
-      .attr("y", (h - visualHeight(emptyGraphText)) / 2)
+      .attr("x", (w - HtmlUtils.visualLength(emptyGraphText)) / 2)
+      .attr("y", (h - HtmlUtils.visualHeight(emptyGraphText)) / 2)
       .style("visibility", "hidden")
       .on("dblclick", (e) => {
         this.endEmptyState();
-        var p = getPointWithoutTransform(d3.pointer(e), this.svgGroup);
+        var p = Utils.getPointWithoutTransform(d3.pointer(e), this.svgGroup);
         this.initInitialState(p.x, p.y);
       });
 
@@ -565,19 +591,19 @@ class Graph extends EditorElement {
     var menu = document.createElement("div");
     menu.setAttribute("class", CONTEXT_MENU);
 
-    var a = createContextMenuButton(renameStateText);
+    var a = HtmlUtils.createContextMenuButton(renameStateText);
     a.addEventListener("click", () => this.renameStateHandler());
 
-    var b = createContextMenuButton(deleteStateText);
+    var b = HtmlUtils.createContextMenuButton(deleteStateText);
     b.addEventListener("click", () => this.deleteStateHandler());
 
-    var c = createContextMenuButton(setStateAsAcceptingText);
+    var c = HtmlUtils.createContextMenuButton(setStateAsAcceptingText);
     c.addEventListener("click", () => this.toggleAcceptingStateHandler());
 
-    var d = createContextMenuButton(setAsInitialText);
+    var d = HtmlUtils.createContextMenuButton(setAsInitialText);
     d.addEventListener("click", () => this.setStateAsInitialHandler());
 
-    appendChildren(menu, [a, b, c, d]);
+    HtmlUtils.appendChildren(menu, [a, b, c, d]);
 
     this.acceptingButton = c;
     this.initialButton = d;
@@ -590,13 +616,13 @@ class Graph extends EditorElement {
     let menu = document.createElement("div");
     menu.setAttribute("class", "context-menu");
 
-    let renameButton = createContextMenuButton(renameEdgeText);
+    let renameButton = HtmlUtils.createContextMenuButton(renameEdgeText);
     renameButton.addEventListener("click", () => this.renameEdgeHandler());
 
-    let deleteButton = createContextMenuButton(deleteEdgeText);
+    let deleteButton = HtmlUtils.createContextMenuButton(deleteEdgeText);
     deleteButton.addEventListener("click", () => this.deleteEdgeHandler());
 
-    appendChildren(menu, [renameButton, deleteButton]);
+    HtmlUtils.appendChildren(menu, [renameButton, deleteButton]);
 
     this.graphDiv.appendChild(menu);
     this.edgeContextMenuDiv = menu;
@@ -606,52 +632,57 @@ class Graph extends EditorElement {
     var menu = document.createElement("div");
     menu.setAttribute("class", CONTEXT_MENU);
 
-    var button = createContextMenuButton(addStateText);
+    var button = HtmlUtils.createContextMenuButton(addStateText);
     button.addEventListener("click", (e) => {
       var y = e.clientY - this.svg.node().getBoundingClientRect().y;
       var x = e.clientX - this.svg.node().getBoundingClientRect().x;
-      var coords = getPointWithoutTransform([x, y], this.svgGroup);
-
+      var coords = Utils.getPointWithoutTransform([x, y], this.svgGroup);
       this.createState(this.getNewStateData(null, coords.x, coords.y, false, false));
-      hideElem(menu);
+      HtmlUtils.hideElem(menu);
     });
+
     menu.appendChild(button);
     this.graphDiv.appendChild(menu);
     this.addStateContextMenu = menu;
   }
 
-  initRenameError() {
+  createRenameError() {
     var p = document.createElement("p");
     p.setAttribute("class", "rename-error-p");
-    hideElem(p);
+    HtmlUtils.hideElem(p);
     this.graphDiv.appendChild(p);
     this.renameError = p;
   }
 
   /* ------------------------------ event handlers ------------------------------ */
 
-  svgRectClick(e) {
+  canvasOnClick(e) {
     e.preventDefault();
-    var cl = e.srcElement.classList;
-    var isState = cl.contains(graphConsts.stateElem);
-    var isEdge = cl.contains(graphConsts.edgeElem) || cl.contains("edge-path");
-    var state = this.getCurrentState();
+    var classes = e.target.classList;
+    var isState = classes.contains(graphConsts.stateElem);
+    var isEdge = classes.contains(graphConsts.edgeElem) || classes.contains("edge-path");
+    var graphState = this.getCurrentState();
 
-    if (state == graphStateEnum.initial) return;
-    if (isEdge && state == graphStateEnum.default) return; //so we can select edge
+    if (graphState == graphStateEnum.initial) return;
+    //so we can select edge
+    if (isEdge && graphState == graphStateEnum.default) return;
     if (isState && (
-      state == graphStateEnum.creatingEdge ||
-      state == graphStateEnum.renamingState || //so we can click into input when renaming state
-      state == graphStateEnum.namingEdge || //when naming new edge and merging edges, we click on the second state, and we dont want to cancel the state's selection
-      state == graphStateEnum.mergingEdge)) {
+      graphState == graphStateEnum.creatingEdge ||
+       //so we can click into input when renaming state
+      graphState == graphStateEnum.renamingState ||
+
+      //when naming new edge and merging edges, we click on the second state, 
+      //and we dont want to cancel the state's selection
+      graphState == graphStateEnum.namingEdge || 
+      graphState == graphStateEnum.mergingEdge)) {
       return;
     }
     EditorManager.deselectAll();
   }
 
-  svgRectDblclick(e) {
-    if (e.srcElement.tagName == "rect") {
-      var p = getPointWithoutTransform(d3.pointer(e), this.svgGroup);
+  canvasOnDblclick(e) {
+    if (e.target.tagName == "rect") {
+      var p = Utils.getPointWithoutTransform(d3.pointer(e), this.svgGroup);
       if (this.graphState.currentState != graphStateEnum.initial) {
         this.createState(this.getNewStateData(null, p.x, p.y, false, false));
       }
@@ -662,11 +693,11 @@ class Graph extends EditorElement {
     }
   }
 
-  svgRectContextmenu(event) {
+  canvasOnContextmenu(event) {
     event.preventDefault();
-    var cl = event.srcElement.classList;
-    var isState = cl.contains(graphConsts.stateElem);
-    var isEdge = cl.contains(graphConsts.edgeElem);
+    var classes = event.target.classList;
+    var isState = classes.contains(graphConsts.stateElem);
+    var isEdge = classes.contains(graphConsts.edgeElem);
     var state = this.getCurrentState();
     var elem;
 
@@ -688,16 +719,21 @@ class Graph extends EditorElement {
       EditorManager.deselectAll();
       elem = this.addStateContextMenu;
     }
-    setElemPosition(elem, d3.pointer(event)[1], d3.pointer(event)[0]);
-    showElem(elem);
+    HtmlUtils.setElemPosition(elem, d3.pointer(event)[1], d3.pointer(event)[0]);
+    HtmlUtils.showElem(elem);
   }
 
-  svgMousemove(e) {
+  canvasOnMousemove(e) {
     if (this.graphState.currentState == graphStateEnum.creatingEdge) {
       this.initCreatingTransition(e);
     }
   }
 
+  /**
+   * According to where mouse is pointing decides the shape of the new edge.
+   * @param {MouseEvent} e 
+   * @param {Boolean} hide 
+   */
   initCreatingTransition(e, hide = false) {
     var path = this.temporaryEdgeG.select("." + graphConsts.edgePath);
     if (!hide) path.classed("hidden", false);
@@ -710,11 +746,11 @@ class Graph extends EditorElement {
     //if mouse is hovering over some state
     if (this.graphState.mouseOverState) {
       if (targetState.id == sourceState.id) {
-        toggleFullnameVisibitity(this.svgGroup.stateFullnameRect);
-        path.attr("d", getNewSelfloopDefinition(sourceState.x, sourceState.y, mouseX, mouseY, path.node()));
+        StateUtils.toggleFullNameVisibitity(this.svgGroup.stateFullnameRect);
+        path.attr("d", EdgeUtils.getSelfloopDef(sourceState.x, sourceState.y, mouseX, mouseY, path.node()));
       }
       else { // snap to state
-        path.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, targetState.x, targetState.y));
+        path.attr("d", EdgeUtils.getStraightPathDef(sourceState.x, sourceState.y, targetState.x, targetState.y));
       }
       if (!hide) this.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", false);
       this.repositionMarker(this.temporaryEdgeG);
@@ -722,40 +758,40 @@ class Graph extends EditorElement {
     //mouse is not hovering above any state
     else {
       this.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
-      path.attr("d", getStraightPathDefinition(sourceState.x, sourceState.y, mouseX, mouseY));
+      path.attr("d", EdgeUtils.getStraightPathDef(sourceState.x, sourceState.y, mouseX, mouseY));
     }
     this.disableAllDragging();
   }
 
   renameStateHandler() {
-    hideElem(this.stateContextMenuDiv);
-    this.initRenaming(graphStateEnum.renamingState, this.graphState.selectedState.id);
+    HtmlUtils.hideElem(this.stateContextMenuDiv);
+    this.startRenaming(graphStateEnum.renamingState, this.graphState.selectedState.id);
   }
 
   deleteStateHandler() {
     this.deleteState(this.graphState.selectedState);
-    hideElem(this.stateContextMenuDiv);
+    HtmlUtils.hideElem(this.stateContextMenuDiv);
   }
 
   setStateAsInitialHandler() {
     this.setNewStateAsInitial(this.graphState.selectedState);
-    hideElem(this.stateContextMenuDiv);
+    HtmlUtils.hideElem(this.stateContextMenuDiv);
   }
 
   toggleAcceptingStateHandler() {
     var d = this.graphState.selectedState;
     this.toggleAcceptingState(d, this.getStateGroupById(d.id));
-    hideElem(this.stateContextMenuDiv);
+    HtmlUtils.hideElem(this.stateContextMenuDiv);
   }
 
   deleteEdgeHandler() {
     this.deleteEdge(this.graphState.selectedEdge);
-    hideElem(this.edgeContextMenuDiv);
+    HtmlUtils.hideElem(this.edgeContextMenuDiv);
   }
 
   renameEdgeHandler() {
-    hideElem(this.edgeContextMenuDiv);
-    this.initRenaming(graphStateEnum.renamingEdge, this.graphState.selectedEdge.symbols);
+    HtmlUtils.hideElem(this.edgeContextMenuDiv);
+    this.startRenaming(graphStateEnum.renamingEdge, this.graphState.selectedEdge.symbols);
   }
 
   /* ------------------------------ pan & zoom ------------------------------ */
@@ -771,12 +807,23 @@ class Graph extends EditorElement {
 
   svgZoomEnd() {
     if (!jeProhlizeciStranka_new()) {
-      EditorManager.getEditor(this.editorId).generateTextFromData();
+      this.updateText();
     }
   }
 
   setViewToMiddle() {
     this.setTransform(1, params.width / 2, params.height / 2);
+  }
+
+  //currently unused
+  setViewToState(div, x, y) {
+    div.graphDiv.svg.transition().duration(1).call(
+      div.zoom.transform,
+      d3.zoomIdentity.translate(params.width / 2, params.height / 2)
+        .scale(1)
+        .translate(-x - (div.graphDiv.offsetWidth / 3), -y - (div.graphDiv.offsetHeight / 3))
+    );
+    generateQuestionResult(div);
   }
 
   setTransform(k, x, y) {
@@ -786,8 +833,12 @@ class Graph extends EditorElement {
     );
   }
 
-  /* ------------------------------ methods for manipulating whole graph ------------------------------ */
 
+  /* ------------------------------ methods for manipulating the whole graph ------------------------------ */
+
+  /**
+   * Sets graph into empty (initial) state.
+   */
   initEmptyState() {
     this.svg.select(".initial-text").style("visibility", "visible");
     this.svg.rect.classed("empty", true);
@@ -796,11 +847,13 @@ class Graph extends EditorElement {
     this.disableAllDragging();
   }
 
+  /**
+   * Ends graph's empty (initial) state.
+   */
   endEmptyState() {
     this.svg.select(".initial-text").style("visibility", "hidden");
     this.svg.rect.classed("empty", false);
     this.graphState.currentState = graphStateEnum.default;
-    //enableAllDragging(div);
   }
 
   hideInitArrow() {
@@ -813,20 +866,30 @@ class Graph extends EditorElement {
     return this.graphState.currentState;
   }
 
+  isRenamingState(state) {
+    return state == graphStateEnum.renamingState ||
+      state == graphStateEnum.renamingEdge ||
+      state == graphStateEnum.namingEdge ||
+      state == graphStateEnum.mergingEdge;
+  }
+
   setCurrentState(state) {
     this.graphState.currentState = state;
   }
 
   hideAllContextMenus() {
-    hideElem(this.stateContextMenuDiv);
-    hideElem(this.edgeContextMenuDiv);
-    hideElem(this.addStateContextMenu);
+    HtmlUtils.hideElem(this.stateContextMenuDiv);
+    HtmlUtils.hideElem(this.edgeContextMenuDiv);
+    HtmlUtils.hideElem(this.addStateContextMenu);
   }
 
+  /**
+   * Hides all context menus, the rename error message or an unfinished edge (while creating).
+   */
   hideAllExtras() {
     this.hideAllContextMenus();
-    hideElem(this.renameError);
-    hideEdge(this.temporaryEdgeG);
+    HtmlUtils.hideElem(this.renameError);
+    EdgeUtils.hide(this.temporaryEdgeG);
   }
 
   enableAllDragging() {
@@ -847,9 +910,15 @@ class Graph extends EditorElement {
     this.svg.on(".zoom", null);
   }
 
-  initRenaming(state, stateId, errMsg = null) {
+  /**
+   * Defines graph's behaviour when starting the renaming of state or edge.
+   * @param {Number} graphState Graph state (type of graphStateEnum).
+   * @param {String} stateId    State ID (when renaming a state).
+   * @param {String} errMsg 
+   */
+  startRenaming(graphState, stateId, errMsg = null) {
     var input, elemG, isState;
-    if (state == graphStateEnum.renamingState) {
+    if (graphState == graphStateEnum.renamingState) {
       elemG = this.getStateGroupById(stateId);
       elemG.select("input").node().value = elemG.datum().id;
       isState = true;
@@ -860,7 +929,7 @@ class Graph extends EditorElement {
 
     elemG.node().classList.add("activeRenaming");
     input = elemG.select("input").node();
-    removeReadonly(input);
+    HtmlUtils.removeReadonly(input);
 
     input.focus();
 
@@ -868,39 +937,11 @@ class Graph extends EditorElement {
     this.disableAllDragging();
     this.svgGroup.selectAll("." + graphConsts.stateGroup).on(".drag", null);
 
-    this.setCurrentState(state);
+    this.setCurrentState(graphState);
     if (isState) this.selectState(elemG);
 
-    this.setRenameErrorPosition(state, elemG);
-    errMsg != null ? this.showRenameError(errMsg) : hideElem(this.renameError);
-  }
-
-  setRenameErrorPosition(state, activeElemG) {
-    var x, y;
-    if (state == graphStateEnum.renamingState) {
-      var p = applyTransformationToPoint([activeElemG.datum().x, activeElemG.datum().y + 13], activeElemG);
-      x = p.x;
-      y = p.y;
-    }
-    else {
-      var input = activeElemG.select("input");
-      var inputWidth = parseInt((input.node().style.width).substring(0, input.node().style.width.length - 2));
-
-      var t = getEdgeInputPosition(
-        activeElemG.select("." + graphConsts.edgePath).attr("d"),
-        activeElemG.datum().source == activeElemG.datum().target);
-
-      var p = applyTransformationToPoint([t.tx - inputWidth / 2, t.ty + 16], activeElemG);
-      x = p.x;
-      y = p.y;
-    }
-    setElemPosition(this.renameError, y, x);
-  }
-
-  showRenameError(msg) {
-    var p = this.renameError;
-    p.innerHTML = msg;
-    showElem(p);
+    this.setRenameErrorPosition(graphState, elemG);
+    errMsg != null ? this.showRenameError(errMsg) : HtmlUtils.hideElem(this.renameError);
   }
 
   endRenaming() {
@@ -908,9 +949,38 @@ class Graph extends EditorElement {
       SELECTED_ELEM_GROUP.select("input").node().blur();
     }
     this.setCurrentState(graphStateEnum.default);
-    hideElem(this.renameError);
+    HtmlUtils.hideElem(this.renameError);
     this.enableAllDragging();
   }
+
+  setRenameErrorPosition(graphState, activeElemG) {
+    var x, y;
+    if (graphState == graphStateEnum.renamingState) {
+      var p = Utils.applyTransformationToPoint([activeElemG.datum().x, activeElemG.datum().y + 13], activeElemG);
+      x = p.x;
+      y = p.y;
+    }
+    else {
+      var input = activeElemG.select("input");
+      var inputWidth = parseInt((input.node().style.width).substring(0, input.node().style.width.length - 2));
+
+      var t = EdgeUtils.getInputPosition(
+        activeElemG.select("." + graphConsts.edgePath).attr("d"),
+        activeElemG.datum().source == activeElemG.datum().target);
+
+      var p = Utils.applyTransformationToPoint([t.tx - inputWidth / 2, t.ty + 16], activeElemG);
+      x = p.x;
+      y = p.y;
+    }
+    HtmlUtils.setElemPosition(this.renameError, y, x);
+  }
+
+  showRenameError(msg) {
+    var p = this.renameError;
+    p.innerHTML = msg;
+    HtmlUtils.showElem(p);
+  }
+  
 
   /* ------------------------------ STATE ------------------------------ */
   createState(stateData, origin = elemOrigin.default) {
@@ -960,13 +1030,13 @@ class Graph extends EditorElement {
       .classed("stateInput", true)
       .classed(graphConsts.stateElem, true);
 
-    makeReadonly(input.node());
+    HtmlUtils.makeReadonly(input.node());
     input.node().correct = false;
     if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
       input.node().correct = true;
     }
     input.node().realValue = state.datum().id;
-    setStateInputValue(input.node(), state.datum().id);
+    StateUtils.setInputValue(input.node(), state.datum().id);
   }
 
   addStateEvents(state) {
@@ -978,11 +1048,11 @@ class Graph extends EditorElement {
         d3.select(this).classed(graphConsts.mouseOver, true);
 
         if (d.id != d3.select(this).select("input").node().value) {
-          showFullname(g.svgGroup.stateFullnameRect, d);
+          StateUtils.showFullName(g.svgGroup.stateFullnameRect, d);
         }
       })
       .on("mouseout", function () {
-        toggleFullnameVisibitity(g.svgGroup.stateFullnameRect);
+        StateUtils.toggleFullNameVisibitity(g.svgGroup.stateFullnameRect);
         g.graphState.mouseOverState = null;
         d3.select(this).classed(graphConsts.mouseOver, false);
       })
@@ -992,7 +1062,8 @@ class Graph extends EditorElement {
           && g.graphState.selectedState == data) {
           return;
         }
-        if (graphIsInRenamingState(g.getCurrentState())) {
+        
+        if (g.isRenamingState(g.getCurrentState())) {
           g.endRenaming();
           return;
         }
@@ -1004,10 +1075,10 @@ class Graph extends EditorElement {
 
         //TODO separate function
         if (data.initial) {
-          hideElem(g.initialButton);
+          HtmlUtils.hideElem(g.initialButton);
         }
         else {
-          showElem(g.initialButton, true);
+          HtmlUtils.showElem(g.initialButton, true);
         }
         if (data.accepting) {
           g.acceptingButton.value = setStateAsNonAcceptingText;
@@ -1023,7 +1094,7 @@ class Graph extends EditorElement {
         g.hideAllExtras();
         g.selectState(g.getStateGroupById(d.id));
         g.dblclickedState = true;
-        g.initRenaming(graphStateEnum.renamingState, d.id);
+        g.startRenaming(graphStateEnum.renamingState, d.id);
       })
       .on("keyup", function (e, d) {
         if (d3.select(this).node().getAttribute("readonly") == "readonly") {
@@ -1052,14 +1123,14 @@ class Graph extends EditorElement {
         }
         if (input.correct == false) {
           if (g.getCurrentState() == graphStateEnum.renamingState) {
-            setStateInputValue(input, d.id);
+            StateUtils.setInputValue(input, d.id);
           }
         }
         else {
           g.renameState(d, input.value);
         }
-        makeReadonly(input);
-        hideElem(g.renameError);
+        HtmlUtils.makeReadonly(input);
+        HtmlUtils.hideElem(g.renameError);
         g.setCurrentState(graphStateEnum.default);
         g.dblclickedState = false;
         g.enableAllDragging();
@@ -1119,7 +1190,7 @@ class Graph extends EditorElement {
       .filter(function (d) { return d.id == stateData.id; })
       .map(function (d) { d.id = newId; });
 
-    setStateInputValue(this.getStateGroupById(stateData.id).select(".stateInput").node(), newId);
+    StateUtils.setInputValue(this.getStateGroupById(stateData.id).select(".stateInput").node(), newId);
 
     if (!jeProhlizeciStranka_new()) {
       this.updateText();
@@ -1246,9 +1317,9 @@ class Graph extends EditorElement {
 
     g.hideAllContextMenus();
 
-    if (graphIsInRenamingState(g.getCurrentState())) {
+    if (g.isRenamingState(g.getCurrentState())) {
       g.endRenaming();
-      hideEdge(g.temporaryEdgeG);
+      EdgeUtils.hide(g.temporaryEdgeG);
     }
 
     g.selectState(d3.select(this));
@@ -1256,9 +1327,9 @@ class Graph extends EditorElement {
 
   stateDragmove(event, d) {
     var g = d3.select(this).node().parentGraph;
-    toggleFullnameVisibitity(g.svgGroup.stateFullnameRect);
+    StateUtils.toggleFullNameVisibitity(g.svgGroup.stateFullnameRect);
 
-    var p = applyTransformationToPoint([event.x, event.y], g.svgGroup);
+    var p = Utils.applyTransformationToPoint([event.x, event.y], g.svgGroup);
     if (p.x < (params.width - graphConsts.nodeRadius) && p.x >= graphConsts.nodeRadius) {
       d.x = event.x;
     }
@@ -1282,7 +1353,7 @@ class Graph extends EditorElement {
     var groupNode = d3.select(this).node();
     var g = groupNode.parentGraph;
     var graphState = g.graphState;
-    var distance = distBetween(groupNode.startX, groupNode.startY, e.x, e.y);
+    var distance = MathUtils.distBetween(groupNode.startX, groupNode.startY, e.x, e.y);
     var diff = e.sourceEvent.timeStamp - groupNode.clickTimer;
 
     if (graphState.currentState == graphStateEnum.creatingEdge && diff < 400 && distance < 2) {
@@ -1290,17 +1361,17 @@ class Graph extends EditorElement {
         var edge = g.getEdgeDataByStates(graphState.lastSourceState.id, graphState.mouseOverState.id);
         graphState.lastTargetState = graphState.mouseOverState;
 
-        hideEdge(g.temporaryEdgeG);
+        EdgeUtils.hide(g.temporaryEdgeG);
         if (edge != null) { //edge already exists between the two states
           g.selectEdge(g.getEdgeGroupById(edge.id));
-          g.initRenaming(graphStateEnum.mergingEdge, edge.symbols);
+          g.startRenaming(graphStateEnum.mergingEdge, edge.symbols);
         }
         else { //adding new edge
           g.removeSelectionFromState();
           var data = g.getNewEdgeData(graphState.lastSourceState.id, graphState.lastTargetState.id, "");
           var edgeG = g.createEdge(data);
           g.selectEdge(edgeG);
-          g.initRenaming(graphStateEnum.namingEdge, "");
+          g.startRenaming(graphStateEnum.namingEdge, "");
         }
       }
     }
@@ -1326,7 +1397,7 @@ class Graph extends EditorElement {
         var tx, ty, newDef;
         if (ed.source == ed.target) {
           var def = "M " + stateData.x + " " + stateData.y + " C "
-            + cubicControlPoints(stateData.x, stateData.y, ed.angle)
+            + MathUtils.cubicControlPoints(stateData.x, stateData.y, ed.angle)
             + " " + stateData.x + " " + stateData.y;
           var s = def.split(" ");
           var tx = (+s[4] + +s[6] + +s[1]) / 3;
@@ -1347,7 +1418,7 @@ class Graph extends EditorElement {
           newDef = str.join(" ");
         }
         d3.select(this).select("." + graphConsts.edgePath).attr("d", newDef);
-        repositionEdgeInput(d3.select(this).select("foreignObject"), tx, ty);
+        EdgeUtils.repositionInputTo(d3.select(this).select("foreignObject"), tx, ty);
         g.repositionMarker(d3.select(this));
       });
   }
@@ -1372,7 +1443,7 @@ class Graph extends EditorElement {
 
         d3.select(this).select("." + graphConsts.edgePath).attr("d", str.join(" "));
 
-        repositionEdgeInput(d3.select(this).select("foreignObject"), tx, ty);
+        EdgeUtils.repositionInputTo(d3.select(this).select("foreignObject"), tx, ty);
         g.repositionMarker(d3.select(this));
       });
 
@@ -1385,15 +1456,15 @@ class Graph extends EditorElement {
     var g = d3.select(this).node().parentGraph;
     EditorManager.deselectAll(g.editorId);
 
-    if (graphIsInRenamingState(g.getCurrentState()) && !d3.select(this).classed("activeRenaming")) {
+    if (g.isRenamingState(g.getCurrentState()) && !d3.select(this).classed("activeRenaming")) {
       g.endRenaming();
     }
 
     g.selectEdge(d3.select(this));
-    toggleFullnameVisibitity(g.svgGroup.stateFullnameRect);
+    StateUtils.toggleFullNameVisibitity(g.svgGroup.stateFullnameRect);
 
     g.hideAllContextMenus();
-    hideElem(g.renameError);
+    HtmlUtils.hideElem(g.renameError);
   }
 
   edgeDragmove(e, d) {
@@ -1403,10 +1474,10 @@ class Graph extends EditorElement {
 
     edgeG
       .select("." + graphConsts.edgePath)
-      .attr("d", repositionPathCurve(d, e.x, e.y, oldPathDefinition));
+      .attr("d", EdgeUtils.updatePathCurve(d, e.x, e.y, oldPathDefinition));
 
-    var coords = getEdgeInputPosition(edgeG.select("." + graphConsts.edgePath).attr("d"), d.source == d.target);
-    repositionEdgeInput(edgeG.select("foreignObject"), coords.tx, coords.ty);
+    var coords = EdgeUtils.getInputPosition(edgeG.select("." + graphConsts.edgePath).attr("d"), d.source == d.target);
+    EdgeUtils.repositionInputTo(edgeG.select("foreignObject"), coords.tx, coords.ty);
     g.repositionMarker(edgeG);
   }
 
@@ -1438,7 +1509,7 @@ class Graph extends EditorElement {
 
     this.repositionMarker(newEdge);
     //TODO
-    updateEdgeInputPosition(newEdge);
+    EdgeUtils.updateInputPosition(newEdge);
     this.updateEdgeGroups();
 
     if (!jeProhlizeciStranka_new()) {
@@ -1457,16 +1528,16 @@ class Graph extends EditorElement {
       .classed(graphConsts.edgeElem, true)
       .attr("d", function (d) {
         if (origin == elemOrigin.fromExisting) {
-          return d.source != d.target ? reverseCalculateEdge(d.source, d.target, d.dx, d.dy) : calculateSelfloop(d.source.x, d.source.y, d.angle);
+          return d.source != d.target ? EdgeUtils.reverseCalculate(d.source, d.target, d.dx, d.dy) : MathUtils.calculateSelfloop(d.source.x, d.source.y, d.angle);
         }
         if (d.source == d.target) {
           if (origin == elemOrigin.fromTable) {
             d.angle = 1.55;
-            return calculateSelfloop(d.source.x, d.source.y, d.angle);
+            return MathUtils.calculateSelfloop(d.source.x, d.source.y, d.angle);
           }
           return tempEdgeDef;
         }
-        return getStraightPathDefinition(d.source.x, d.source.y, d.target.x, d.target.y);
+        return EdgeUtils.getStraightPathDef(d.source.x, d.source.y, d.target.x, d.target.y);
       });
 
     edge
@@ -1489,15 +1560,15 @@ class Graph extends EditorElement {
     input.node().correct = false;
     input.node().parentGraph = this;
 
-    setEdgeInput(input.node(), edge.datum().symbols);
+    EdgeUtils.setInputValue(input.node(), edge.datum().symbols);
     if (origin == elemOrigin.default && this.getEditor().type == "EFA") {
-      setEdgeInput(input.node(), epsSymbol);
+      EdgeUtils.setInputValue(input.node(), epsSymbol);
       input.node().correct = true;
     }
-    setEdgeInputWidth(input.node(), 50);
+    EdgeUtils.setInputWidth(input.node(), 50);
     if (origin == elemOrigin.fromExisting || origin == elemOrigin.fromTable) {
-      setEdgeInputWidth(input.node());
-      makeReadonly(input.node());
+      EdgeUtils.setInputWidth(input.node());
+      HtmlUtils.makeReadonly(input.node());
       input.node().correct = true;
     }
   }
@@ -1514,7 +1585,7 @@ class Graph extends EditorElement {
       })
       .on("dblclick", function (_, d) {
         if (g.graphState.selectedEdge == d) {
-          g.initRenaming(graphStateEnum.renamingEdge, g.graphState.selectedEdge.symbols);
+          g.startRenaming(graphStateEnum.renamingEdge, g.graphState.selectedEdge.symbols);
         }
       })
       .on("contextmenu", function (e) {
@@ -1560,14 +1631,14 @@ class Graph extends EditorElement {
     var g = input.parentGraph;
     g.getEdgeGroupById(d.id).classed("activeRenaming", false);
     input.correct = g.getEditor().checkEdgeSymbolsValidity(d.id, d.source, input.value).result;
-    makeReadonly(input);
+    HtmlUtils.makeReadonly(input);
 
     if (input.correct == false) {
       if (g.getCurrentState() == graphStateEnum.mergingEdge
         || g.getCurrentState() == graphStateEnum.renamingEdge) {
-        setEdgeInput(input, d.symbols);
-        setEdgeInputWidth(input);
-        updateEdgeInputPosition(g.getEdgeGroupById(d.id));
+        EdgeUtils.setInputValue(input, d.symbols);
+        EdgeUtils.setInputWidth(input);
+        EdgeUtils.updateInputPosition(g.getEdgeGroupById(d.id));
       }
       else {
         g.deleteEdge(d);
@@ -1583,7 +1654,7 @@ class Graph extends EditorElement {
       g.deleteEdge(d);
     }
     g.setCurrentState(graphStateEnum.default);
-    hideElem(g.renameError);
+    HtmlUtils.hideElem(g.renameError);
     g.enableAllDragging();
   }
 
@@ -1591,11 +1662,11 @@ class Graph extends EditorElement {
     if (input.getAttribute("readonly") == "readonly") return;
     var g = input.parentGraph;
 
-    var len = visualLength(input.value);
+    var len = HtmlUtils.visualLength(input.value);
     var w = parseInt((input.style.width).substring(0, input.style.width.length - 2));
     if (w && (w - len) < 20) {
-      setEdgeInputWidth(input, len + 50);
-      updateEdgeInputPosition(g.getEdgeGroupById(d.id));
+      EdgeUtils.setInputWidth(input, len + 50);
+      EdgeUtils.updateInputPosition(g.getEdgeGroupById(d.id));
     }
 
     if (e.key.toLowerCase() == "enter") {
@@ -1611,7 +1682,7 @@ class Graph extends EditorElement {
       this.showRenameError(prompt);
     }
 
-    newSymbols = replaceEpsilon(removeDuplicates(newSymbols.split(",")));
+    newSymbols = Utils.replaceEpsilon(Utils.removeDuplicates(newSymbols.split(",")));
     if (this.getEditor().type == "EFA" && newSymbols == "") {
       newSymbols = epsSymbol;
     }
@@ -1637,9 +1708,9 @@ class Graph extends EditorElement {
 
     var edgeGroup = this.getEdgeGroupById(edgeData.id);
     var input = edgeGroup.select("input").node();
-    setEdgeInput(input, symbols);
-    setEdgeInputWidth(input);
-    updateEdgeInputPosition(edgeGroup);
+    EdgeUtils.setInputValue(input, symbols);
+    EdgeUtils.setInputWidth(input);
+    EdgeUtils.updateInputPosition(edgeGroup);
     if (!jeProhlizeciStranka_new()) {
       this.updateText();
     }
@@ -1721,7 +1792,7 @@ class Graph extends EditorElement {
       .classed("hidden", false) //if it was hidden after deleting previous initial state, show it
       .attr("d",
         "M " + stateData.x + " " + stateData.y
-        + " C " + cubicControlPoints(stateData.x, stateData.y, angle, 90, 2000)
+        + " C " + MathUtils.cubicControlPoints(stateData.x, stateData.y, angle, 90, 2000)
         + " " + stateData.x + " " + stateData.y
       );
 
@@ -1772,9 +1843,6 @@ class Graph extends EditorElement {
       baseY = top.y;
     }
 
-    //var app = applyTransformationToPoint([baseX, baseY], div.graphDiv.svg.svgGroup);
-    //var x = graphConsts.nodeRadius + 10 - transform.x;
-    //var y = graphConsts.nodeRadius + 10 - transform.y;
     var x = baseX;
     var y = baseY;
     newStateData.x = x;
@@ -1816,6 +1884,9 @@ class Graph extends EditorElement {
   }
 }
 
+/**
+ * Represents Table mode of Automata Editor.
+ */
 class Table extends EditorElement {
   constructor(editorId, statesData, edgesData) {
     super(editorId, statesData, edgesData);
@@ -1836,13 +1907,13 @@ class Table extends EditorElement {
   }
 
   createSyntaxHint() {
-    var syntaxButton = createButton(syntaxLabel, "hintButton");
+    var syntaxButton = HtmlUtils.createButton(syntaxLabel, "hintButton");
     syntaxButton.style.marginBottom = "7px";
     $(syntaxButton).prop("title", syntaxTitle);
     var syntaxContentDiv = this.initHintContent(tableSyntaxHints);
 
     syntaxButton.addEventListener("click", () => this.clickHintButton(syntaxContentDiv));
-    appendChildren(this.tableDiv, [syntaxButton, syntaxContentDiv]);
+    HtmlUtils.appendChildren(this.tableDiv, [syntaxButton, syntaxContentDiv]);
   }
 
   createErrorAlert() {
@@ -1850,7 +1921,7 @@ class Table extends EditorElement {
     alertP.setAttribute("class", "alert alert-danger");
 
     this.tableDiv.appendChild(alertP);
-    hideElem(alertP);
+    HtmlUtils.hideElem(alertP);
     this.alertText = alertP;
   }
 
@@ -1880,7 +1951,7 @@ class Table extends EditorElement {
     //table.states.sort();
     table.symbols.sort();
 
-    MIN_STATE_WIDTH = findLongestElem(table.states) + "px";
+    minStateWidth = Utils.findLongestElem(table.states) + 10 + "px";
     //create first row = consisting of 3 inactive cells
     var row1 = table.insertRow(table.rows.length); // -1 ?
     this.insertInactiveCell(row1, 0);
@@ -1893,10 +1964,10 @@ class Table extends EditorElement {
     this.insertInactiveCell(row2, 1);
     var cell = this.insertInactiveCell(row2, 2);
 
-    cell.style.width = MIN_STATE_WIDTH;
+    cell.style.width = minStateWidth;
     this.addResizable(cell);
 
-    var maxColWidth = findLongestElem(table.symbols) - 10;
+    var maxColWidth = Utils.findLongestElem(table.symbols);
 
     // filling out columns' headers from symbols and delete buttons above them
     table.symbols.forEach(symb => {
@@ -1912,7 +1983,7 @@ class Table extends EditorElement {
 
       var arrCell = this.insertArrows(row, row.cells.length);
 
-      this.insertRowHeader(row, stateTitle, MIN_STATE_WIDTH);
+      this.insertRowHeader(row, stateTitle, minStateWidth);
 
       if (table.initState == stateTitle) {
         $(arrCell.initArrow).addClass("selected-arrow");
@@ -1938,7 +2009,7 @@ class Table extends EditorElement {
         if (this.getEditor().type == "DFA") {
           cell.myDiv.value = ed.target.id;
         }
-        else if (typeIsNondeterministic(this.getEditor().type)) {
+        else if (Utils.typeIsNondeterministic(this.getEditor().type)) {
           var result = cell.myDiv.value.replace(/{|}/g, "");
           if (result == "") {
             result = ed.target.id
@@ -1951,7 +2022,7 @@ class Table extends EditorElement {
         }
         cell.myDiv.prevValue = cell.myDiv.value;
 
-        maxColWidth = Math.max(maxColWidth, tableVisualLength(cell.myDiv.value));
+        maxColWidth = Math.max(maxColWidth, HtmlUtils.tableVisualLength(cell.myDiv.value));
       });
     });
 
@@ -1961,7 +2032,7 @@ class Table extends EditorElement {
     //re-append error
     this.tableDiv.removeChild(this.alertText);
     this.tableDiv.appendChild(this.alertText);
-    hideElem(this.alertText);
+    HtmlUtils.hideElem(this.alertText);
 
     if (jeProhlizeciStranka_new()) {
       $(table).find("input").prop("disabled", true).addClass("mydisabled");
@@ -1972,10 +2043,9 @@ class Table extends EditorElement {
     var table = document.createElement("table");
     table.setAttribute("class", tableClasses.myTable);
     table.style.width = "0";
-
+    
     this.selectedCellInput = null;
     this.selectedInitDiv = null;
-    //this.alertText = this.alertText;
     this.table = table;
     this.tableDiv.appendChild(table);
     this.locked = false;
@@ -2052,7 +2122,7 @@ class Table extends EditorElement {
 
   insertInnerCell(row) {
     var cell = this.insertCell(row, row.cells.length, [tableClasses.myCell]);
-    var value = typeIsNondeterministic(this.getEditor().type) ? "{}" : "";
+    var value = Utils.typeIsNondeterministic(this.getEditor().type) ? "{}" : "";
     var input = this.createInput([tableClasses.inputCellDiv], value,
       this.table.rows[1].cells[cell.cellIndex].style.minWidth);
 
@@ -2060,8 +2130,7 @@ class Table extends EditorElement {
     $(input).on("input", () => this.innerCellOnInput(input));
     $(input).focusout(() => this.innerCellOnFocusout(input));
 
-    var regex = typeIsNondeterministic(this.getEditor().type) ? /[a-zA-Z0-9{},]/ : /[a-zA-Z0-9\-]/;
-    $(input).keypress((e) => this.cellKeypressHandler(e, regex));
+    $(input).keypress((e) => this.cellKeypressHandler(e));
 
     cell.myDiv = input;
     cell.appendChild(input);
@@ -2075,7 +2144,7 @@ class Table extends EditorElement {
     $(input).click(() => this.tableHeaderCellClick(input));
     $(input).on("input", (e) => this.rowHeaderOnInput(e));
     $(input).focusout(() => this.rowHeaderOnFocusout(input));
-    $(input).keypress((e) => this.cellKeypressHandler(e, stateSyntax()));
+    $(input).keypress((e) => this.cellKeypressHandler(e));
 
     cell.myDiv = input;
     cell.appendChild(input);
@@ -2092,10 +2161,7 @@ class Table extends EditorElement {
     $(input).click(() => this.innerCellOnClick());
     $(input).on("input", () => this.columnHeaderOnInput(input));
     $(input).focusout(() => this.columnHeaderOnFocusout(input));
-
-    var regex = this.getEditor().type == "EFA" ? graphEFATransitionSyntax() : graphTransitionsSyntax();
-
-    $(input).keypress((e) => this.cellKeypressHandler(e, regex));
+    $(input).keypress((e) => this.cellKeypressHandler(e));
   }
 
   insertRow(title) {
@@ -2140,7 +2206,7 @@ class Table extends EditorElement {
     this.insertColumnAddButton(this.table.rows[0]);
 
     if (!symb) {
-      symb = findNextAlphabetSymbol(this.table);
+      symb = Utils.findNextAlphabetSymbol(this.table);
     }
     this.table.symbols.push(symb);
     this.insertColumnHeader(this.table.rows[1], symb);
@@ -2164,7 +2230,7 @@ class Table extends EditorElement {
     for (let i = STATE_INDEX, rows = this.table.rows.length - 1; i < rows; i++) {
       for (let j = 3, cols = this.table.rows[i].cells.length; j < cols; j++) {
         var value = this.table.rows[i].cells[j].myDiv.value;
-        if (typeIsNondeterministic(editor.type)) {
+        if (Utils.typeIsNondeterministic(editor.type)) {
           value = value.replace(/{|}/g, "");
           var stateIds = value.split(",");
           var index = stateIds.indexOf(stateId);
@@ -2482,7 +2548,7 @@ class Table extends EditorElement {
    */
   activateAlertMode(errorMsg, exc) {
     this.setAlertMsg(errorMsg, true);
-    showElem(this.alertText);
+    HtmlUtils.showElem(this.alertText);
     this.lockTable(exc);
   }
 
@@ -2508,7 +2574,7 @@ class Table extends EditorElement {
       $(input).removeClass(tableClasses.incorrectCell);
     });
     this.incorrectInputs = new Set();
-    hideElem(this.alertText);
+    HtmlUtils.hideElem(this.alertText);
     if (this.locked) {
       this.unlockTable();
     }
@@ -2541,7 +2607,7 @@ class Table extends EditorElement {
     this.incorrectInputs.delete(input);
     if (this.locked) {
       this.unlockTable();
-      hideElem(this.alertText);
+      HtmlUtils.hideElem(this.alertText);
     }
   }
 
@@ -2578,7 +2644,7 @@ class Table extends EditorElement {
     else {
       var prevName = input.prevValue;
       var newName = input.value;
-      if (typeIsNondeterministic(type)) { // odstranenie {}
+      if (Utils.typeIsNondeterministic(type)) { // odstranenie {}
         prevName = prevName.substring(1, prevName.length - 1);
         newName = newName.substring(1, newName.length - 1);
       }
@@ -2586,7 +2652,7 @@ class Table extends EditorElement {
       var symbol = this.table.rows[1].cells[input.parentNode.cellIndex].myDiv.prevValue;
       var prevStates = prevName.split(",");
       var newStates = newName.split(",");
-      newStates = removeDuplicates(newStates);
+      newStates = Utils.removeDuplicates(newStates);
 
       //vymaze edges ktore uz nemaju pismenko, pripadne vymaze pismeno z transition
       for (let i = 0; i < prevStates.length; i++) {
@@ -2646,7 +2712,7 @@ class Table extends EditorElement {
       //vytvaranie novych transitions
       //pripadne pridavanie pismiek do existujucich
       var val = newStates.toString();
-      if (typeIsNondeterministic(type)) {
+      if (Utils.typeIsNondeterministic(type)) {
         val = "{" + val + "}";
       }
       input.value = input.prevValue = val;
@@ -2667,7 +2733,6 @@ class Table extends EditorElement {
     if (input.value == "\\e") {
       input.value = epsSymbol;
     }
-
     if (incorrectTableColumnHeaderSyntax(this.getEditor().type, input.value)) {
       this.setIncorrectInput(errors.incorrectTransitionSymbol, input);
     }
@@ -2748,7 +2813,7 @@ class Table extends EditorElement {
           if (index != -1) {
             vals[index] = newName;
             val = vals.toString();
-            if (typeIsNondeterministic(editor.type)) {
+            if (Utils.typeIsNondeterministic(editor.type)) {
               this.table.rows[i].cells[j].myDiv.value = "{" + val + "}";
             }
             else if (editor.type == "DFA") {
@@ -2762,42 +2827,19 @@ class Table extends EditorElement {
     }
   }
 
-  cellKeypressHandler(event, regex) {
+  cellKeypressHandler(event) {
     var code = event.keyCode || event.which;
     if (code == 13) {
       event.preventDefault();
       event.target.blur();
       return false;
     }
-    /*     var kc = event.charCode;
-        if (kc == 0) {
-          return true;
-        }
-        var txt = String.fromCharCode(kc);
-        if (!regex.test(txt)) {
-          return false;
-        } */
   }
-
-  cellKeyupHandler(e, regex) {
-    var code = e.keyCode || e.which;
-    var value = e.target.value;
-    if (code == 13) {
-      e.preventDefault();
-      e.target.blur();
-      return false;
-    }
-    var kc = e.charCode;
-    if (kc == 0) {
-      return true;
-    }
-    if (!regex.test(value)) {
-      return false;
-    }
-  }
-
 }
 
+/**
+ * Represents Text mode of Automata Editor.
+ */
 class TextElem extends EditorElement {
   constructor(editorId, statesData, edgesData, txa) {
     super(editorId, statesData, edgesData);
@@ -2817,15 +2859,15 @@ class TextElem extends EditorElement {
   }
 }
 
+/**
+ * Editor base class.
+ */
 class Editor {
   constructor(id, type, textArea) {
     this.id = id;
     this.type = type;
-    this.statesData = [];
-    this.edgesData = [];
     this.div = document.getElementById(id);
     this.TextClass = new TextElem(this.id, this.statesData, this.edgesData, textArea);
-    //this.addParser();
     EditorManager.addEditor(this);
   }
 
@@ -2849,7 +2891,7 @@ class Editor {
     this.syntaxCheckDiv = errDiv;
 
     if (jeProhlizeciStranka_new()) {
-      hideElem(errDiv);
+      HtmlUtils.hideElem(errDiv);
     }
 
     //call the funtion that links parser function to textarea
@@ -2858,16 +2900,12 @@ class Editor {
     return errDiv;
   }
 
-  /*   addParser() {
-      //let path = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
-      let path = "Parsers/";
-      if ($(`script[src=\"${path}${this.type}Parser.js\"]`).length === 0) {
-        console.log("adding parser "+ this.type);
-        document.write(`\<script src=\"${path}${this.type}Parser.js\"><\/script>`);
-      }
-    } */
+
 }
 
+/**
+ * Editor for regular grammars/expressions.
+ */
 class TextEditor extends Editor {
   constructor(id, type, textArea) {
     super(id, type, textArea);
@@ -2880,9 +2918,14 @@ class TextEditor extends Editor {
   }
 }
 
+/**
+ * Editor for finite automata.
+ */
 class AutomataEditor extends Editor {
   constructor(id, type, textArea) {
     super(id, type, textArea);
+    this.statesData = [];
+    this.edgesData = [];
     this.stateIdCounter = 0;
     this.edgeIdCounter = 0;
     this.initialise();
@@ -2907,23 +2950,23 @@ class AutomataEditor extends Editor {
     this.div.parentNode.insertBefore(tableRuler, this.div.nextSibling);
 
     //create menu buttons
-    var graphButton = createButton(graphMenuButton, MENU_BUTTON);
-    graphButton.addEventListener("click", () => this.clickGraph());
+    var graphButton = HtmlUtils.createButton(graphMenuButton, MENU_BUTTON);
+    graphButton.addEventListener("click", () => this.showGraphMode());
 
-    var textButton = createButton(textMenuButton, MENU_BUTTON);
-    textButton.addEventListener("click", () => this.clickText());
+    var textButton = HtmlUtils.createButton(textMenuButton, MENU_BUTTON);
+    textButton.addEventListener("click", () => this.showTextMode());
 
-    var tableButton = createButton(tableMenuButton, MENU_BUTTON);
-    tableButton.addEventListener("click", () => this.clickTable());
+    var tableButton = HtmlUtils.createButton(tableMenuButton, MENU_BUTTON);
+    tableButton.addEventListener("click", () => this.showTableMode());
 
-    appendChildren(this.div, [graphButton, tableButton, textButton]);
+    HtmlUtils.appendChildren(this.div, [graphButton, tableButton, textButton]);
 
     this.Graph = new Graph(this.id, this.statesData, this.edgesData);
     this.Table = new Table(this.id, this.statesData, this.edgesData);
 
-    appendChildren(this.div, [this.Graph.graphDiv, this.Table.tableDiv, this.TextClass.textDiv]);
+    HtmlUtils.appendChildren(this.div, [this.Graph.graphDiv, this.Table.tableDiv, this.TextClass.textDiv]);
 
-    hideElem(this.TextClass.textDiv);
+    HtmlUtils.hideElem(this.TextClass.textDiv);
 
     this.Graph.graphDiv.lastHeight = this.Graph.graphDiv.offsetHeight;
     this.Graph.graphDiv.lastWidth = this.Graph.graphDiv.offsetWidth;
@@ -2936,15 +2979,15 @@ class AutomataEditor extends Editor {
     $(this.TextClass.textArea).prop('readonly', true);
   }
 
-  clickGraph() {
-    hideElem(this.TextClass.textDiv);
-    hideElem(this.Table.tableDiv);
+  showGraphMode() {
+    HtmlUtils.hideElem(this.TextClass.textDiv);
+    HtmlUtils.hideElem(this.Table.tableDiv);
     if (this.lastEdited == "table") {
       //this.Table.rollback();
     }
 
-    showElem(this.Graph.hintDiv);
-    showElem(this.Graph.graphDiv);
+    HtmlUtils.showElem(this.Graph.hintDiv);
+    HtmlUtils.showElem(this.Graph.graphDiv);
 
     if (!jeProhlizeciStranka_new()) {
       EditorManager.deselectAll();
@@ -2952,22 +2995,22 @@ class AutomataEditor extends Editor {
     this.lastEdited = "graph";
   }
 
-  clickText() {
+  showTextMode() {
     if (!jeProhlizeciStranka_new()) {
       EditorManager.deselectAll();
     }
     if (this.lastEdited == "table") {
       this.Table.rollback();
     }
-    hideElem(this.Graph.hintDiv);
-    hideElem(this.Graph.graphDiv);
-    hideElem(this.Table.tableDiv);
+    HtmlUtils.hideElem(this.Graph.hintDiv);
+    HtmlUtils.hideElem(this.Graph.graphDiv);
+    HtmlUtils.hideElem(this.Table.tableDiv);
 
-    showElem(this.TextClass.textDiv);
+    HtmlUtils.showElem(this.TextClass.textDiv);
     this.lastEdited = "text";
   }
 
-  clickTable() {
+  showTableMode() {
     if (!jeProhlizeciStranka_new()) {
       EditorManager.deselectAll();
     }
@@ -2978,39 +3021,36 @@ class AutomataEditor extends Editor {
     if (this.lastEdited == "graph") {
       //updateSvgDimensions(this.div);
     }
-    hideElem(this.Graph.hintDiv);
-    hideElem(this.Graph.graphDiv);
-    hideElem(this.TextClass.textDiv);
+    HtmlUtils.hideElem(this.Graph.hintDiv);
+    HtmlUtils.hideElem(this.Graph.graphDiv);
+    HtmlUtils.hideElem(this.TextClass.textDiv);
 
     this.Table.createTableFromData();
-    showElem(this.Table.tableDiv);
+    HtmlUtils.showElem(this.Table.tableDiv);
     this.lastEdited = "table";
   }
 
-  /**
- * Lock or unlock editor menu buttons.
- * @param {boolean} val If 'null' unlocks, if 'true' locks all menu buttons.
- */
   lockMenuButtons(val = null) {
     d3.select(this.div).selectAll("." + MENU_BUTTON).attr("disabled", val);
   }
 
+  //TODO presunut funkcionalitu sem, aby to nebolo v grafe
   addState(stateData) {
     this.Graph.createState(stateData);
   }
 
+  /**
+   * Updates textarea based on current states and edges.
+   */
   generateTextFromData() {
-    var result;
-    if (this.isEmpty()) {
-      result = "";
-    }
-    else {
-      result = this.generateQuestionResult();
-    }
-
+    var result = this.isEmpty() ? "" : this.generateQuestionResult();
     this.TextClass.updateValue(result);
   }
 
+  /**
+   * Gets text representation of the automaton based on current states and edges.
+   * @returns Automaton as text in the syntax of the evaluation service.
+   */
   generateQuestionResult() {
     var result = "";
     var initState;
@@ -3039,7 +3079,7 @@ class AutomataEditor extends Editor {
         });
       }
     }
-    else if (typeIsNondeterministic(this.type)) {
+    else if (Utils.typeIsNondeterministic(this.type)) {
       var transitions = new Map();
 
       for (let i = 0; i < this.edgesData.length; i++) {
@@ -3093,9 +3133,9 @@ class AutomataEditor extends Editor {
         + d.source.id
         + ";" + d.target.id
         + ";" + d.symbols
-        + ";" + shorten(d.dx)
-        + ";" + shorten(d.dy)
-        + ";" + shorten(d.angle);
+        + ";" + EdgeUtils.shorten(d.dx)
+        + ";" + EdgeUtils.shorten(d.dy)
+        + ";" + EdgeUtils.shorten(d.angle);
     });
     if (initState) {
       result += "@initAngle:" + this.Graph.svgGroup.initArrow.node().angle.toFixed(3);
@@ -3110,6 +3150,10 @@ class AutomataEditor extends Editor {
     return this.statesData.length === 0 && this.edgesData.length === 0;
   }
 
+  /**
+   * Generates new state ID.
+   * @returns {String} state ID.
+   */
   generateStateId() {
     this.stateIdCounter++;
     var id = "s" + this.stateIdCounter;
@@ -3121,14 +3165,20 @@ class AutomataEditor extends Editor {
     return id;
   }
 
+  /**
+   * Generates new edge ID.
+   * @returns {Number} edge ID.
+   */
   generateEdgeId() {
     return ++this.edgeIdCounter;
   }
 
-  resetStateIds() {
-    this.stateIdCounter = 0;
-  }
-
+  /**
+   * Checks if @param newId is unique.
+   * @param   {Object}  stateData 
+   * @param   {String}  newId 
+   * @returns {Boolean} True if id is unique, false otherwise.
+   */
   stateIdIsUnique(stateData, newId) {
     for (var i = 0, j = this.statesData.length; i < j; i++) {
       if (this.statesData[i].id == newId) {
@@ -3143,9 +3193,14 @@ class AutomataEditor extends Editor {
     return true;
   }
 
+  /**
+   * Checks the validity of @param newId, e.g. while renaming a state.
+   * @param {Object} stateData  state data.
+   * @param {String} newId      The ID to check.
+   * @returns The result and the appropriate error message if newId was not valid.
+   */
   checkStateNameValidity(stateData, newId) {
     var err = "";
-    var valid = false;
 
     if (!newId) {
       err = errors.emptyState;
@@ -3159,47 +3214,50 @@ class AutomataEditor extends Editor {
     else if (newId.length > 50) {
       err = errors.stateNameTooLong;
     }
-    else {
-      valid = true;
-    }
-    return {
-      result: valid,
-      errMessage: err
-    };
+    return { result: err == "",  errMessage: err };
   }
 
+  /**
+   * Checks the validity of transition's input symbols.
+   * @param {Number} edgeId 
+   * @param {Object} sourceStateData 
+   * @param {String} symbols 
+   * @returns The result and the appropriate error message if symbols were not valid.
+   */
   checkEdgeSymbolsValidity(edgeId, sourceStateData, symbols) {
-    var err = "", valid = true;
-    //var expectedSyntax = this.type == "EFA" ? expectedEFASyntax : expectedDFASyntax;
+    var err = "";
 
     if (symbols == null || symbols == "") {
       err = errors.emptyTransition;
-      valid = false;
     }
     else if (incorrectGraphTransitionsSyntax(this.type, symbols)) {
-      //err = INVALID_SYNTAX_ERROR + "<br>" + expectedSyntax;
       err = INVALID_SYNTAX_ERROR;
-      valid = false;
     }
     else if (this.type == "DFA") {
       if (edgeId != null && this.transitionWithSymbolExists(edgeId, sourceStateData.id, symbols)
         || edgeId == null && this.transitionWithSymbolExists(null, sourceStateData.id, symbols)) {
         err = DFAInvalidTransition;
-        valid = false;
       }
     }
     else if (symbols.length > 300) {
       err = errors.transitionSymbolsTooLong;
-      valid = false;
     }
-    return { result: valid, errMessage: err };
+    return { result: err == "", errMessage: err };
   }
 
+  /**
+   * Checks if a state already has another outgoing edge with at least one symbol from @param symbols.
+   * Used when checking if the determinism of the automaton is kept when editing edge's symbols.
+   * @param {Number} edgeId   ID of edge we are editing.
+   * @param {String} stateId  Source state id.
+   * @param {String} symbols  Input symbols.
+   * @returns True if another edge with symbol exists, false otherwise.
+   */
   transitionWithSymbolExists(edgeId, stateId, symbols) {
     for (let i = 0, j = this.edgesData.length; i < j; i++) {
       const ed = this.edgesData[i];
       if (ed.source.id === stateId && (edgeId == null || (edgeId != null && edgeId != ed.id))) {
-        if (intersects(ed.symbols.split(","), symbols.split(","))) {
+        if (Utils.intersects(ed.symbols.split(","), symbols.split(","))) {
           return true;
         }
       }
@@ -3209,7 +3267,7 @@ class AutomataEditor extends Editor {
 }
 
 /**
- * Sets editor language based on actual IS language and loads correct language file.
+ * Sets editor's language based on actual IS language and loads correct language file.
  */
 function setupLanguage() {
   var lang = document.documentElement.lang;
@@ -3229,16 +3287,16 @@ function setupLanguage() {
 }
 
 /**
- * Initialises editor based on question type.
+ * Creates an editor based on question type.
  * @param {HTMLElement} div       HTML div element where the editor will be placed.
- * @param {HTMLElement} textArea  HTML textarea element which was created automatically by IS.
+ * @param {HTMLElement} textArea  HTML textarea element (created automatically by IS).
  */
-function initialise(div, textArea) {
+function createEditor(div, textArea) {
   div.setAttribute("class", QUESTION_DIV);
   var type = div.getAttribute("id").substring(0, 3);
   var editor;
 
-  if (typeIsRegOrGram(type)) {
+  if (Utils.typeIsRegOrGram(type)) {
     editor = new TextEditor(div.id, type, textArea);
     if (jeProhlizeciStranka_new()) {
       $(textArea).prop('readonly', true);
@@ -3302,530 +3360,570 @@ function windowKeyUp(event) {
 }
 
 
-/* ------------------------------ zoom & dragging ------------------------------ */
-
-//currently unused
-function setViewToState(div, x, y) {
-  div.graphDiv.svg.transition().duration(1).call(
-    div.zoom.transform,
-    d3.zoomIdentity.translate(params.width / 2, params.height / 2)
-      .scale(1)
-      .translate(-x - (div.graphDiv.offsetWidth / 3), -y - (div.graphDiv.offsetHeight / 3))
-  );
-  generateQuestionResult(div);
-}
-
 /**
- * Returns the k, x, y parameters as a d3.transform object.
- * @param   {Number} k  Zoom level.
- * @param   {Number} x  X coordinate.
- * @param   {Number} y  Y coordinate.
- * @returns {Object}    { k: k, x: x, y: y } transform object.
+ * Helper methods concerning HTML elements.
  */
-function convertStringToTransform(k, x, y) {
-  k = parseFloat(k);
-  if (!k) k = 1;
-  x = parseFloat(x);
-  if (!x) x = params.width / 2;
-  y = parseFloat(y);
-  if (!y) y = params.height / 2;
-  return { k: k, x: x, y: y };
-}
-
-/* ------------------------------ edge path calculators ------------------------------ */
-
-
-function repositionPathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
-  if (edgeData.source.id == edgeData.target.id) {
-    var str = oldPathDefinition.split(" ");
-    return getNewSelfloopDefinition(str[1], str[2], mouseX, mouseY, edgeData);
+class HtmlUtils {
+  static hideElem(element) {
+    if (!element) return;
+    element.style.display = "none";
   }
-  else {
-    return getNewPathDefinition(mouseX, mouseY, oldPathDefinition, edgeData);
-  }
-}
-
-/**
- * Based on mouse and transition's source and target states' positions calculates new edge path.
- * @param   {Number}  mouseX    Mouse x coordinate.
- * @param   {Number}  mouseY    Mouse y coordinate.
- * @param   {String}  pathDef   Previous edge path definition.
- * @param   {Object}  edgeData  Edge data object.
- * @return  {String}            New edge path definition.
- */
-function getNewPathDefinition(mouseX, mouseY, pathDef, edgeData) {
-  var str = pathDef.split(" ");
-
-  var dx = 2 * (mouseX - ((+str[1] + (+str[6])) / 2));
-  var dy = 2 * (mouseY - ((+str[2] + (+str[7])) / 2));
-  str[4] = ((+str[1] + (+str[6])) / 2) + dx;
-  str[5] = ((+str[2] + (+str[7])) / 2) + dy;
-
-  edgeData.dx = dx;
-  edgeData.dy = dy;
-
-  //snap into straight line if edge curve is small enough
-  if (Math.abs(dy) <= 17 && Math.abs(dx) <= 17) {
-    edgeData.dx = edgeData.dy = 0;
-    return getStraightPathDefinition(edgeData.source.x, edgeData.source.y, edgeData.target.x, edgeData.target.y);
-  }
-  return str.join(" ");
-}
-
-/**
- * Calculates a new (self-loop) path definition based on the mouse and transition's source and target states' positions.
- * @param {Number} x1 The original x coordinate.
- * @param {Number} y1 The original y coordinate.
- * @param {Number} x2 The new x coordinate.
- * @param {Number} y2 The new y coordinate.
- * @param {Object}    edgeData Edge data object.
- * @returns {String} New path definition.
- */
-function getNewSelfloopDefinition(x1, y1, x2, y2, edgeData) {
-  if (edgeData != null) {
-    edgeData.angle = calculateAngle(x1, y1, x2, y2);
-    return `M ${x1} ${y1} C ${cubicControlPoints(x1, y1, edgeData.angle)} ${x1} ${y1}`;
-  }
-  return calculateSelfloop(x1, y1, calculateAngle(x1, y1, x2, y2));
-}
-
-function calculateAngle(x1, y1, x2, y2) {
-  var distance = distBetween(x1, y1, x2, y2), angle;
-  if (distance == 0) {
-    dist = 0.001;
+  
+  static showElem(element, inline = false) {
+    if (!element) return;
+    if (inline) {
+      element.style.display = "inline-block";
+    }
+    else {
+      element.style.display = "block";
+    }
   }
 
-  if (x1 == x2 && y1 == y2) {
-    angle = 1.57;
-  } else {
-    angle = Math.acos((x2 - x1) / distance);
+  static createHintParagraph(string) {
+    var p = document.createElement("P");
+    p.setAttribute("class", "hint-paragraph");
+    p.innerHTML = `${hintSymbol} ${string}`;
+    return p;
   }
 
-  if (y1 < y2) {
-    angle = -angle;
+  static createButton(text, className) {
+    var b = document.createElement('input');
+    b.type = 'button';
+    b.value = text;
+    b.style.marginLeft = "0px";
+    b.style.minHeight = "36px";
+    b.style.minWidth = "60px"
+    b.style.marginRight = "5px";
+    b.style.marginTop = "7px";
+    b.setAttribute("class", className);
+    return b;
   }
-  return angle;
-}
 
-function getStraightPathDefinition(x1, y1, x2, y2) {
-  return `M ${x1} ${y1} Q ${midpoint(x1, x2)} ${midpoint(y1, y2)} ${x2} ${y2}`;
-}
+  static createContextMenuButton(innerText) {
+    var b = HtmlUtils.createButton(innerText, "context-menu-button");
+    b.style.width = "100%";
+    b.style.marginTop = "3px";
+    b.style.marginBottom = "3px";
+    b.style.marginLeft = "0px";
+    b.style.marginRight = "0px";
+    return b;
+  }
 
-/**
- * Repositions edge input into the middle of edge curve.
- * @param {d3 selection} edge 
- */
-function updateEdgeInputPosition(edge) {
-  edge
-    .each(function (ed) {
-      var fo = d3.select(this).select("foreignObject");
-      var dAttr = d3.select(this).select("." + graphConsts.edgePath).attr("d");
-      var coords = getEdgeInputPosition(dAttr, ed.source == ed.target);
-
-      repositionEdgeInput(fo, coords.tx, coords.ty);
+  static appendChildren(parentElement, childrenArray) {
+    childrenArray.forEach(e => {
+      parentElement.appendChild(e);
     });
-}
-
-function repositionEdgeInput(foreignObject, x, y) {
-  var input = foreignObject.select("input");
-  if (x != -1) {
-    var w = parseInt((input.node().style.width).substring(0, input.node().style.width.length - 2));
-    foreignObject.attr("x", x - (w / 2));
-    input.attr("x", x - (w / 2));
   }
-  if (y != -1) {
-    var h = 27;
-    foreignObject.attr("y", y - (h / 2));
-    input.attr("y", y - (h / 2));
+
+  static makeReadonly(input) {
+    input.setAttribute("readonly", "readonly");
+  }
+  
+  static removeReadonly(input) {
+    input.removeAttribute("readonly");
+  }
+  
+  static visualLength(val) {
+    var ruler = document.getElementById("ruler");
+    ruler.innerHTML = val;
+    return ruler.offsetWidth;
+  }
+  
+  static visualHeight(val) {
+    var ruler = document.getElementById("ruler");
+    ruler.innerHTML = val;
+    return ruler.offsetHeight;
+  }
+  
+  static tableVisualLength(val) {
+    var ruler = document.getElementById("table-ruler");
+    ruler.innerHTML = val;
+    return ruler.offsetWidth;
+  }
+  
+  static setElemPosition(elem, top, left) {
+    elem.style.top = top + "px";
+    elem.style.left = left + "px";
+  }
+
+}
+
+/**
+ * Helper state methods for Automata Editor.
+ */
+class StateUtils {
+  static setInputValue(input, value) {
+    input.realValue = value;
+    var cropped = StateUtils.getCroppedTitle(input);
+    input.setAttribute("value", cropped);
+    input.value = cropped;
+  }
+
+  static getCroppedTitle(input) {
+    var title = input.realValue;
+    var shortened = false;
+    var padding = 10;
+  
+    while (HtmlUtils.visualLength(title) >= (graphConsts.nodeRadius * 2) - padding) {
+      title = title.substring(0, title.length - 1); //orezanie o 1 pismenko
+      shortened = true;
+    }
+    if (shortened) {
+      title = title.substring(0, title.length - 1).concat("..");
+    }
+    return title;
+  }
+
+  static showFullName(invisibleRect, d) {
+    StateUtils.toggleFullNameVisibitity(invisibleRect, true);
+    invisibleRect.FullnameText.text(d.id);
+    var w = invisibleRect.FullnameText.node().getComputedTextLength() + 8;
+    invisibleRect.attr("width", w);
+    invisibleRect.FullnameText
+      .attr("x", d.x - w / 2 + 3.5)
+      .attr("y", d.y + graphConsts.nodeRadius + 19.5);
+    invisibleRect
+      .attr("x", d.x - w / 2)
+      .attr("y", d.y + (graphConsts.nodeRadius + 2));
+  }
+
+  static toggleFullNameVisibitity(rect, visible = false) {
+    rect.style("visibility", function () {
+      return visible == true ? "visible" : "hidden";
+    });
+    rect.FullnameText.style("visibility", function () {
+      return visible == true ? "visible" : "hidden";
+    });
+  }
+
+}
+
+/**
+ * Helper edge methods for Automata Editor.
+ */
+class EdgeUtils {
+  static setInputValue(input, value) {
+    input.setAttribute("value", value);
+    input.value = value;
+  }
+
+  static setInputWidth(input, len = null) {
+    if (len == null) {
+      len = HtmlUtils.visualLength(input.value);
+      len += 0; //padding
+    }
+    if (len < 15) len = 15;
+  
+    d3.select(input.parentNode).attr("width", len + 8);
+    input.style.width = (len) + "px";
+  }
+ 
+  static getInputPosition(pathDefinitinAttribute, isSelfloop) {
+    var str = pathDefinitinAttribute.split(" "), tx, ty;
+  
+    if (isSelfloop) {
+      tx = (+str[4] + +str[6] + +str[1]) / 3;
+      ty = (+str[5] + +str[7] + +str[2]) / 3;
+    }
+    else {
+      tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
+      ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
+    }
+    return { tx, ty };
+  }
+
+  static shorten(num) {
+    if (num == 0) {
+      return "";
+    }
+    return num.toFixed(2);
+  }
+
+  static checkPathData(data) {
+    if (!data.dx) data.dx = 0;
+    if (!data.dy) data.dy = 0;
+    if (data.angle != 0 && !data.angle) {
+      data.angle = data.source == data.target ? 1.55 : 0;
+    }
+    return data;
+  }
+
+  static reverseCalculate(source, target, dx, dy) {
+    var s1 = source;
+    var s2 = target;
+  
+    var c1 = ((s1.x + s2.x) / 2) + dx;
+    var c2 = ((s1.y + s2.y) / 2) + dy;
+  
+    return `M ${s1.x} ${s1.y} Q ${c1} ${c2} ${s2.x} ${s2.y}`;
+  }
+
+  static hide(edgeG) {
+    edgeG.select("." + graphConsts.edgePath).classed("hidden", true);
+    edgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
+  }
+
+  static updatePathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
+    if (edgeData.source.id == edgeData.target.id) {
+      var str = oldPathDefinition.split(" ");
+      return EdgeUtils.getSelfloopDef(str[1], str[2], mouseX, mouseY, edgeData);
+    }
+    else {
+      return EdgeUtils.getPathDef(mouseX, mouseY, oldPathDefinition, edgeData);
+    }
+  }
+  
+  /**
+   * Based on mouse and transition's source and target states' positions calculates new edge path.
+   * @param   {Number}  mouseX    Mouse x coordinate.
+   * @param   {Number}  mouseY    Mouse y coordinate.
+   * @param   {String}  pathDef   Previous edge path definition.
+   * @param   {Object}  edgeData  Edge data object.
+   * @return  {String}            New edge path definition.
+   */
+  static getPathDef(mouseX, mouseY, pathDef, edgeData) {
+    var str = pathDef.split(" ");
+  
+    var dx = 2 * (mouseX - ((+str[1] + (+str[6])) / 2));
+    var dy = 2 * (mouseY - ((+str[2] + (+str[7])) / 2));
+    str[4] = ((+str[1] + (+str[6])) / 2) + dx;
+    str[5] = ((+str[2] + (+str[7])) / 2) + dy;
+  
+    edgeData.dx = dx;
+    edgeData.dy = dy;
+  
+    //snap into straight line if edge curve is small enough
+    if (Math.abs(dy) <= 17 && Math.abs(dx) <= 17) {
+      edgeData.dx = edgeData.dy = 0;
+      return EdgeUtils.getStraightPathDef(edgeData.source.x, edgeData.source.y, edgeData.target.x, edgeData.target.y);
+    }
+    return str.join(" ");
+  }
+  
+  /**
+   * Calculates a new (self-loop) path definition based on the mouse and transition's source and target states' positions.
+   * @param {Number} x1 The original x coordinate.
+   * @param {Number} y1 The original y coordinate.
+   * @param {Number} x2 The new x coordinate.
+   * @param {Number} y2 The new y coordinate.
+   * @param {Object}    edgeData Edge data object.
+   * @returns {String} New path definition.
+   */
+  static getSelfloopDef(x1, y1, x2, y2, edgeData) {
+    if (edgeData != null) {
+      edgeData.angle = EdgeUtils.calculateAngle(x1, y1, x2, y2);
+      return `M ${x1} ${y1} C ${MathUtils.cubicControlPoints(x1, y1, edgeData.angle)} ${x1} ${y1}`;
+    }
+    return MathUtils.calculateSelfloop(x1, y1, EdgeUtils.calculateAngle(x1, y1, x2, y2));
+  }
+  
+  static calculateAngle(x1, y1, x2, y2) {
+    var distance = MathUtils.distBetween(x1, y1, x2, y2), angle;
+    if (distance == 0) {
+      distance = 0.001;
+    }
+  
+    if (x1 == x2 && y1 == y2) {
+      angle = 1.57;
+    } else {
+      angle = Math.acos((x2 - x1) / distance);
+    }
+  
+    if (y1 < y2) {
+      angle = -angle;
+    }
+    return angle;
+  }
+  
+  static getStraightPathDef(x1, y1, x2, y2) {
+    return `M ${x1} ${y1} Q ${MathUtils.midpoint(x1, x2)} ${MathUtils.midpoint(y1, y2)} ${x2} ${y2}`;
+  }
+  
+  /**
+   * Repositions edge input into the middle of edge curve.
+   * @param {d3 selection} edge 
+   */
+  static updateInputPosition(edge) {
+    edge
+      .each(function (ed) {
+        var fo = d3.select(this).select("foreignObject");
+        var dAttr = d3.select(this).select("." + graphConsts.edgePath).attr("d");
+        var coords = EdgeUtils.getInputPosition(dAttr, ed.source == ed.target);
+  
+        EdgeUtils.repositionInputTo(fo, coords.tx, coords.ty);
+      });
+  }
+  
+  /**
+   * Sets the edge input's position according to coordinates x,y.
+   * @param {Object} foreignObject Object housing the edge input.
+   * @param {Number} x 
+   * @param {Number} y 
+   */
+  static repositionInputTo(foreignObject, x, y) {
+    var input = foreignObject.select("input");
+    if (x != -1) {
+      var w = parseInt((input.node().style.width).substring(0, input.node().style.width.length - 2));
+      foreignObject.attr("x", x - (w / 2));
+      input.attr("x", x - (w / 2));
+    }
+    if (y != -1) {
+      var h = 27;
+      foreignObject.attr("y", y - (h / 2));
+      input.attr("y", y - (h / 2));
+    }
+  }
+  
+}
+
+class MathUtils {
+  static midpoint(x1, x2) {
+    return (x1 + x2) / 2;
+  }
+
+  static distBetween(x1, y1, x2, y2) {
+    return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+  }
+
+  /**
+  * 
+  * @param {*} x 
+  * @param {*} y 
+  * @param {*} d 
+  * @param {*} mult  how long the self loop will be
+  * @param {*} div   wideness of loop - the lesser the wider
+  */
+  static cubicControlPoints(x, y, d, mult = 110, div = 6) {
+    var x1 = (+x + (Math.cos(d + Math.PI / div) * mult)).toFixed(3);
+    var y1 = (+y - (Math.sin(d + Math.PI / div) * mult)).toFixed(3);
+    var x2 = (+x + (Math.cos(d - Math.PI / div) * mult)).toFixed(3);
+    var y2 = (+y - (Math.sin(d - Math.PI / div) * mult)).toFixed(3);
+
+    return `${x1} ${y1} ${x2} ${y2}`;
+  }
+
+  static calculateSelfloop (x, y, angle) {
+    return `M ${x} ${y} C ${MathUtils.cubicControlPoints(x, y, angle)} ${x} ${y}`;
   }
 }
 
-/* ------------------------------ HTML elements utils ------------------------------ */
-
-function hideElem(element) {
-  element.style.display = "none";
-}
-
-function showElem(element, inline = false) {
-  if (!element) return;
-
-  if (inline) {
-    element.style.display = "inline-block";
+/**
+ * Basic editor utils.
+ */
+class Utils {
+  /**
+   * Replaces '\e' with 'ε' and converts array into string, items are separated by commas.
+   * @param   {Array}  array 
+   * @returns {String} String with replaced epsilons.
+   */
+  static replaceEpsilon(array) {
+    return array.toString().replace(/\\e/g, epsSymbol);
   }
-  else {
-    element.style.display = "block";
-  }
-}
 
-function createParagraph(string) {
-  var p = document.createElement("P");
-  p.setAttribute("class", "hint-paragraph");
-  p.innerHTML = `${hintSymbol} ${string}`;
-  return p;
-}
-
-function createButton(text, className) {
-  var b = document.createElement('input');
-  b.type = 'button';
-  b.value = text;
-  b.style.marginLeft = "0px";
-  b.style.minHeight = "36px";
-  b.style.minWidth = "60px"
-  b.style.marginRight = "5px";
-  b.style.marginTop = "7px";
-  b.setAttribute("class", className);
-  return b;
-}
-
-function createContextMenuButton(innerText) {
-  var b = createButton(innerText, "context-menu-button");
-  b.style.width = "100%";
-  b.style.marginTop = "3px";
-  b.style.marginBottom = "3px";
-  b.style.marginLeft = "0px";
-  b.style.marginRight = "0px";
-  return b;
-}
-
-/* function findParentWithClass(childNode, parentClass) {
-  var parent = null, found = 0;
-  try {
-    parent = childNode.parentNode;
-    while (found == 0 && (parent != null || parent.nodeName != "body")) {
-      if (parent.classList.contains(parentClass)) {
-        found = 1;
-      } else {
-        parent = parent.parentNode;
+  /**
+   * Decides if two arrays have at least one common element.
+   * @param   {array}     array1 
+   * @param   {array}     array2 
+   * @returns {boolean}   True if arrays intersects, false otherwise.
+   */
+  static intersects(array1, array2) {
+    for (let i = 0, len = array1.length; i < len; i++) {
+      if (array2.includes(array1[i])) {
+        return true;
       }
     }
+    return false;
   }
-  catch (e) { }
-  return parent;
-} */
 
-function appendChildren(parentElement, childrenArray) {
-  childrenArray.forEach(e => {
-    parentElement.appendChild(e);
-  });
-}
-
-function makeReadonly(input) {
-  input.setAttribute("readonly", "readonly");
-}
-
-function removeReadonly(input) {
-  input.removeAttribute("readonly");
-}
-
-function visualLength(val) {
-  var ruler = document.getElementById("ruler");
-  ruler.innerHTML = val;
-  return ruler.offsetWidth;
-}
-
-function visualHeight(val) {
-  var ruler = document.getElementById("ruler");
-  ruler.innerHTML = val;
-  return ruler.offsetHeight;
-}
-
-function tableVisualLength(val) {
-  var ruler = document.getElementById("table-ruler");
-  ruler.innerHTML = val;
-  return ruler.offsetWidth;
-}
-
-function setElemPosition(elem, top, left) {
-  elem.style.top = top + "px";
-  elem.style.left = left + "px";
-}
-
-
-/* ------------------------------ Graph - Edge utils ------------------------------ */
-
-function setEdgeInput(input, value) {
-  input.setAttribute("value", value);
-  input.value = value;
-}
-
-function setEdgeInputWidth(input, len = null) {
-  if (len == null) {
-    len = visualLength(input.value);
-    len += 0; //padding
+  /**
+   * Deletes duplicate items from array.
+   * @param   {Array} array 
+   * @returns {Array} Array without duplicates.
+   */
+  static removeDuplicates(array) {
+    return array.filter(function (item, pos) {
+      return item != '' && array.indexOf(item) == pos;
+    });
   }
-  if (len < 15) len = 15;
 
-  d3.select(input.parentNode).attr("width", len + 8);
-  input.style.width = (len) + "px";
-}
-
-function getEdgeInputPosition(pathDefinitinAttribute, isSelfloop) {
-  var str = pathDefinitinAttribute.split(" "), tx, ty;
-
-  if (isSelfloop) {
-    tx = (+str[4] + +str[6] + +str[1]) / 3;
-    ty = (+str[5] + +str[7] + +str[2]) / 3;
-  }
-  else {
-    tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
-    ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
-  }
-  return { tx, ty };
-}
-
-function reverseCalculateEdge(source, target, dx, dy) {
-  var s1 = source;
-  var s2 = target;
-
-  var c1 = ((s1.x + s2.x) / 2) + dx;
-  var c2 = ((s1.y + s2.y) / 2) + dy;
-
-  return `M ${s1.x} ${s1.y} Q ${c1} ${c2} ${s2.x} ${s2.y}`;
-}
-
-function hideEdge(edgeG) {
-  edgeG.select("." + graphConsts.edgePath).classed("hidden", true);
-  edgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
-}
-
-function repositionTemporaryEdgeToState(stateData) {
-  temporaryEdgePath
-    .classed("hidden", false)
-    .attr("d", "M" + stateData.x + "," + stateData.y + "L" + stateData.x + "," + stateData.y);
-}
-
-function checkEdgePathData(data) {
-  if (!data.dx) data.dx = 0;
-  if (!data.dy) data.dy = 0;
-  if (data.angle != 0 && !data.angle) {
-    data.angle = data.source == data.target ? 1.55 : 0;
-  }
-  return data;
-}
-
-function shorten(num) {
-  if (num == 0) {
-    return "";
-  }
-  return num.toFixed(2);
-}
-
-/* ------------------------------ Graph - State utils ------------------------------ */
-
-function setStateInputValue(input, value) {
-  input.realValue = value;
-  var cropped = getCroppedTitle(input);
-  input.setAttribute("value", cropped);
-  input.value = cropped;
-}
-
-function getCroppedTitle(input) {
-  var title = input.realValue;
-  var shortened = false;
-  var padding = 10;
-
-  while (visualLength(title) >= (graphConsts.nodeRadius * 2) - padding) {
-    title = title.substring(0, title.length - 1); //orezanie o 1 pismenko
-    shortened = true;
-  }
-  if (shortened) {
-    title = title.substring(0, title.length - 1).concat("..");
-  }
-  return title;
-}
-
-function toggleFullnameVisibitity(rect, visible = false) {
-  rect.style("visibility", function () {
-    return visible == true ? "visible" : "hidden";
-  }
-  );
-  rect.FullnameText.style("visibility", function () {
-    return visible == true ? "visible" : "hidden";
-  });
-}
-
-function showFullname(invisibleRect, d) {
-  toggleFullnameVisibitity(invisibleRect, true);
-  invisibleRect.FullnameText.text(d.id);
-  var w = invisibleRect.FullnameText.node().getComputedTextLength() + 8;
-  invisibleRect.attr("width", w);
-  invisibleRect.FullnameText
-    .attr("x", d.x - w / 2 + 3.5)
-    .attr("y", d.y + graphConsts.nodeRadius + 19.5);
-  invisibleRect
-    .attr("x", d.x - w / 2)
-    .attr("y", d.y + (graphConsts.nodeRadius + 2));
-}
-
-/* ------------------------------ General Graph related utils ------------------------------ */
-
-function typeIsNondeterministic(type) {
-  return type == "NFA" || type == "EFA";
-}
-
-function typeIsRegOrGram(type) {
-  return type == "GRA" || type == "REG";
-}
-
-function graphIsInRenamingState(state) {
-  return state == graphStateEnum.renamingState ||
-    state == graphStateEnum.renamingEdge ||
-    state == graphStateEnum.namingEdge ||
-    state == graphStateEnum.mergingEdge;
-}
-
-//unnecessary?
-function updateSvgDimensions(questionDiv) {
-  questionDiv.graphDiv.lastHeight = questionDiv.graphDiv.offsetHeight;
-  questionDiv.graphDiv.lastWidth = questionDiv.graphDiv.offsetWidth;
-}
-
-
-/* ------------------------------ Math utils ------------------------------ */
-
-function calculateSelfloop(x, y, angle) {
-  return `M ${x} ${y} C ${cubicControlPoints(x, y, angle)} ${x} ${y}`;
-}
-
-function closestPointOnCircle(x, y, circleX, circleY) {
-  var dx = x - circleX;
-  var dy = y - circleY;
-  var scale = Math.sqrt(dx * dx + dy * dy);
-  return {
-    x: (circleX + dx * (graphConsts.nodeRadius + 4) / scale),
-    y: (circleY + dy * (graphConsts.nodeRadius + 4) / scale),
-  };
-}
-
-/**
-* 
-* @param {*} x 
-* @param {*} y 
-* @param {*} d 
-* @param {*} mult  how long the self loop will be
-* @param {*} div   wideness of loop - the lesser the wider
-*/
-function cubicControlPoints(x, y, d, mult = 110, div = 6) {
-  var x1 = (+x + (Math.cos(d + Math.PI / div) * mult)).toFixed(3);
-  var y1 = (+y - (Math.sin(d + Math.PI / div) * mult)).toFixed(3);
-  var x2 = (+x + (Math.cos(d - Math.PI / div) * mult)).toFixed(3);
-  var y2 = (+y - (Math.sin(d - Math.PI / div) * mult)).toFixed(3);
-
-  return `${x1} ${y1} ${x2} ${y2}`;
-}
-
-function midpoint(x1, x2) {
-  return (x1 + x2) / 2;
-}
-
-function distBetween(x1, y1, x2, y2) {
-  return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
-}
-
-function getPointWithoutTransform(oldXy, selection) {
-  var transform = d3.zoomTransform(selection.node());
-  var res = transform.invert(oldXy);
-
-  return {
-    x: res[0],
-    y: res[1],
-  };
-}
-
-function applyTransformationToPoint(point, selection) {
-  var transform = d3.zoomTransform(selection.node());
-  var res = transform.apply(point);
-
-  return {
-    x: res[0],
-    y: res[1],
-  };
-}
-
-
-/* ------------------------------ Basic utils ------------------------------ */
-
-function replaceEpsilon(array) {
-  return array.toString().replace(/\\e/g, epsSymbol);
-}
-
-/**
- * Decides if two arrays have at least one common element.
- * @param   {array}     array1 
- * @param   {array}     array2 
- * @returns {boolean}   True if arrays intersects, false otherwise.
- */
-function intersects(array1, array2) {
-  for (let i = 0, len = array1.length; i < len; i++) {
-    if (array2.includes(array1[i])) {
-      return true;
+  /**
+   * Finds next alphabet symbol to be added as column value. Original author is Matej Poklemba.
+   * @param  {table elem} table 
+   * @return {string}     symbol
+   */
+  static findNextAlphabetSymbol(table) {
+    var symbol, symbprefix = "";
+    var k = 'a'.charCodeAt(0);
+    do {
+      if (k > 'z'.charCodeAt(0)) {
+        symbprefix += "a";
+        k = 'a'.charCodeAt(0);
+      }
+      symbol = symbprefix + String.fromCharCode(k);
+      k++;
     }
+    while (table.symbols.indexOf(symbol) != -1)
+
+    return symbol;
   }
-  return false;
-}
 
-function removeDuplicates(array) {
-  return array.filter(function (item, pos) {
-    return item != '' && array.indexOf(item) == pos;
-  });
-}
+  /**
+   * Finds the longest string from array.
+   * @param   {Array<String>}   array 
+   * @returns {Number}  Length of the longest string.
+   */
+  static findLongestElem(array) {
+    var max = 0;
+    array.forEach(title => {
+      max = Math.max(max, HtmlUtils.tableVisualLength(title));
+    });
+    return max;
+  }
 
-/**
- * Finds next alphabet symbol to be added as column value. Original author is Matej Poklemba.
- * @param  {table elem} table 
- * @return {string}     symbol
- */
-function findNextAlphabetSymbol(table) {
-  var symbol, symbprefix = "";
-  var k = 'a'.charCodeAt(0);
-  do {
-    if (k > 'z'.charCodeAt(0)) {
-      symbprefix += "a";
-      k = 'a'.charCodeAt(0);
+  static generateEditorId(type) {
+    var result = `${type}-`;
+    var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    var len = symbols.length;
+
+    for (let i = 0; i < 6; i++) {
+      result += symbols.charAt(Math.floor(Math.random() * len));
     }
-    symbol = symbprefix + String.fromCharCode(k);
-    k++;
-  }
-  while (table.symbols.indexOf(symbol) != -1)
 
-  return symbol;
-}
-
-function findLongestElem(array) {
-  var max = 0;
-  var padding = 10;
-
-  array.forEach(title => {
-    max = Math.max(max, tableVisualLength(title));
-  });
-  return max + padding;
-}
-
-function generateEditorId(type) {
-  var result = `${type}-`;
-  var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  var len = symbols.length;
-
-  for (let i = 0; i < 6; i++) {
-    result += symbols.charAt(Math.floor(Math.random() * len));
+    result += `-${editorIdCount++}`;
+    return result;
   }
 
-  result += `-${editorIdCount++}`;
-  return result;
+  static typeIsRegOrGram(type) {
+    return type == "GRA" || type == "REG";
+  }
+
+  static typeIsNondeterministic(type) {
+    return type == "NFA" || type == "EFA";
+  }
+  
+  /**
+   * Returns the k, x, y parameters as a d3.transform object.
+   * @param   {Number} k  Zoom level.
+   * @param   {Number} x  X coordinate.
+   * @param   {Number} y  Y coordinate.
+   * @returns {Object}    { k: k, x: x, y: y } transform object.
+   */
+  static convertStringToTransform(k, x, y) {
+    k = parseFloat(k);
+    if (!k) k = 1;
+    x = parseFloat(x);
+    if (!x) x = params.width / 2;
+    y = parseFloat(y);
+    if (!y) y = params.height / 2;
+    return { k: k, x: x, y: y };
+  }
+
+  /**
+   * Returns a point [x,y] with applied transform of @param selection.
+   * @param   {[Number,Number]}     point       Original point.
+   * @param   {Object}              selection   Selection with desired transform.
+   * @returns {{x:Number, y:Number}}            New point.
+   */
+  static applyTransformationToPoint(point, selection) {
+    var transform = d3.zoomTransform(selection.node());
+    var res = transform.apply(point);
+    return { x: res[0], y: res[1], };
+  }
+
+  /**
+   * Returns a point [x,y] without d3 transform.
+   * @param   {[Number,Number]}     oldXy      Original point.
+   * @param   {Object}              selection  Selection to calculate inverse transform from.
+   * @returns {{x:Number, y:Number}}           New point.
+   */
+  static getPointWithoutTransform(oldXy, selection) {
+    var transform = d3.zoomTransform(selection.node());
+    var res = transform.invert(oldXy);
+    return {
+      x: res[0],
+      y: res[1],
+    };
+  }
 }
 
 /* ------------------------------ Syntax functions ------------------------------ */
 
-var stateNameSyntax = "[a-zA-Z0-9]+";
-//defines any nonempty sequence of symbols that are not white space or "", enclosed in ""; eg. "aaa", "79878"
-var quotSeq = "\"[^\\s\"]+\"";
+/**
+ * non-empty sequence of a-Z and 0-9 characters
+ */
+const STATE_ID_SYNTAX = "[a-zA-Z0-9]+";
 
 /**
- * Defines syntax for automaton states' names.
+ * defines any non-empty sequence of symbols that are not white space or "", enclosed in ""; eg. "aaa", "79878"
+ */
+const QUOT_SEQ = "\"[^\\s\"]+\"";
+
+/**
+ * Syntax of automaton's state names.
  * @return {RegExp} Regular expression.
  */
 function stateSyntax() {
-  return new RegExp(`^${stateNameSyntax}$`);
+  return new RegExp(`^${STATE_ID_SYNTAX}$`);
+}
+
+/**
+ * Holds regular expressions that define syntax of elements in Graph mode.
+ */
+const graphSyntax = {
+  /**
+   * Syntax of DFA and NFA transitions (allows more input symbols divided by commas).
+   * @return {RegExp} Regular expression.
+   */
+  transition: function () {
+    return new RegExp(`^(([a-zA-Z0-9])|(${QUOT_SEQ}))(,((${QUOT_SEQ})|([a-zA-Z0-9])))*$`);
+  },
+
+  /**
+   * Syntax of EFA transitions (allows more input symbols divided by commas).
+   * @return {RegExp} Regular expression.
+   */
+  transition_EFA: function() {
+    return new RegExp(`^(([a-zA-Z0-9])|(${QUOT_SEQ})|(${epsSymbol})|(\\e))(,(([a-zA-Z0-9])|(${QUOT_SEQ})|(${epsSymbol})|(\\e)))*$`);
+  },
+  
+}
+
+/**
+ * Holds regular expressions that define syntax of elements in Table mode.
+ */
+const tableSyntax = {
+  /**
+   * Syntax of one input symbol - table column header (DFA and NFA).
+   * @returns {RegExp} Regular expression.
+   */
+  transition: function () {
+    return new RegExp(`^[a-zA-Z0-9]$|^${QUOT_SEQ}$`);
+  },
+
+  /**
+   * Syntax of one input symbol - table column header (EFA).
+   * @returns {RegExp} Regular expression.
+   */
+  transition_EFA: function () {
+    return new RegExp(`^${epsSymbol}$|^\\e$|^[a-zA-Z0-9]$|^${QUOT_SEQ}$`);
+  },
+
+  /**
+   * Syntax of result of transition function (= one state name).
+   * @returns {RegExp} Regular expression.
+   */
+  innerCell_DFA: function() {
+    return new RegExp(`^$|^${STATE_ID_SYNTAX}$`);
+  },
+
+  /**
+   * Syntax of result of transition function (= set of state names).
+   * @returns {RegExp} Regular expression.
+   */
+  innerCell_Nondeterm: function() {
+    return new RegExp(`^{}$|^{${STATE_ID_SYNTAX}(,${STATE_ID_SYNTAX})*}$`);
+  }
+
 }
 
 /**
@@ -3834,94 +3932,22 @@ function stateSyntax() {
  * @return  {boolean}       True if value is incorrect state name, false otherwise.
  */
 function incorrectStateSyntax(value) {
-  return !(stateSyntax().test(value));
-}
-
-/**
- * Defines syntax for DFA and NFA transitions.
- * @return {RegExp} Regular expression.
- */
-function graphTransitionsSyntax() {
-  return new RegExp(`^(([a-zA-Z0-9])|(${quotSeq}))(,((${quotSeq})|([a-zA-Z0-9])))*$`);
-}
-
-/**
- * Defines syntax for EFA transitions.
- * @return {RegExp} Regular expression.
- */
-function graphEFATransitionSyntax() {
-  return new RegExp(`^(([a-zA-Z0-9])|(${quotSeq})|(${epsSymbol})|(\\e))(,(([a-zA-Z0-9])|(${quotSeq})|(${epsSymbol})|(\\e)))*$`);
+  return !stateSyntax().test(value);
 }
 
 function incorrectGraphTransitionsSyntax(type, value) {
-  return ((type == "DFA" || type == "NFA") && !graphTransitionsSyntax().test(value)) ||
-    (type == "EFA" && !graphEFATransitionSyntax().test(value));
-}
-
-function tableEFATransitionSyntax() {
-  return new RegExp(`^[a-zA-Z0-9]$|^${quotSeq}$`);
-}
-
-
-
-/**
- * Decides if value is correct transition symbol.
- * Used for table column header cells containing transition symbols.
- * @param {string} value Transition symbol to check.
- */
-function correctTableEFATransitionSyntax(value) {
-  var regEx = new RegExp(`^${epsSymbol}$|^\\e$|^[a-zA-Z0-9]$|^${quotSeq}$`);
-  return regEx.test(value);
-}
-
-/**
- * Decides if value is correct transition symbol.
- * Used for table column header cells containing transition symbols.
- * @param {string} value Transition symbol to check.
- */
-function correctTableNFATransitionSyntax(value) {
-  var regEx = new RegExp(`^[a-zA-Z0-9]$|^${quotSeq}$`);
-  return regEx.test(value);
-}
-
-/**
- * Defines DFA transitions' syntax.
- * @return {RegExp} Regular expression.
- */
-function DFATableTransitionSymbolsSyntax() {
-  return new RegExp(`^[a-zA-Z0-9]$|^${quotSeq}$`);
-}
-
-function incorrectTableDFATransitionSymbolSyntax(val) {
-  return (!DFATableTransitionSymbolsSyntax().test(val))
-}
-
-function tableDFAInnerCellSyntax() {
-  return new RegExp(`^$|^${stateNameSyntax}$`);
-}
-
-function tableIncorrectDFAInnerCellSyntax(val) {
-  return (!tableDFAInnerCellSyntax().test(val))
-}
-
-function tableNfaEfaInnerCellSyntax() {
-  return new RegExp(`^{}$|^{${stateNameSyntax}(,${stateNameSyntax})*}$`);
-}
-
-function tableIncorrectNfaEfaInnerCellSyntax(val) {
-  return (!tableNfaEfaInnerCellSyntax().test(val))
+  return ((type == "DFA" || type == "NFA") && !graphSyntax.transition().test(value)) ||
+    (type == "EFA" && !graphSyntax.transition_EFA().test(value));
 }
 
 function incorrectTableInnerCellSyntax(type, value) {
-  return (type == "DFA" && tableIncorrectDFAInnerCellSyntax(value)) ||
-    (typeIsNondeterministic(type) && tableIncorrectNfaEfaInnerCellSyntax(value));
+  return (type == "DFA" && !tableSyntax.innerCell_DFA().test(value)) ||
+    (Utils.typeIsNondeterministic(type) && !tableSyntax.innerCell_Nondeterm().test(value));
 }
 
 function incorrectTableColumnHeaderSyntax(type, value) {
-  return (type == "DFA" && incorrectTableDFATransitionSymbolSyntax(value) ||
-    (type == "EFA" && !correctTableEFATransitionSyntax(value)) ||
-    (type == "NFA" && !correctTableNFATransitionSyntax(value))
-  );
+  return ((type == "DFA" || type == "NFA")  && !tableSyntax.transition().test(value)) ||
+    (type == "EFA" && !tableSyntax.transition_EFA().test(value));
 }
 
 
@@ -3988,10 +4014,9 @@ function registerElem(id, func, elem) {
 /**
  * Decides if the current IS page is in inspection (browse) mode or not.
  * Works for the *new version* of IS.
- * @return {boolean} True if page is in inspection mode, false otherwise.
+ * @return {Boolean} True if page is in inspection mode, false otherwise.
  */
 function jeProhlizeciStranka_new() {
-  //return true;
   var sp = document.getElementById("app_name");
   if (sp && sp.innerText.includes(browse)) {
     return true;
