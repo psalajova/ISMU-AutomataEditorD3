@@ -149,7 +149,7 @@ def addMy(content):
 @param strip    - boolean, True if we want to strip old editor or False if the questions are already "clean"
 """
 def convertOnefile(filePath, dirPath, ext, strip = True):
-    print("converting \t" + os.path.basename(filePath))
+    print("converting " + os.path.basename(filePath))
     with open(os.path.join(os.getcwd(), filePath), encoding="utf-8") as f:
         content = f.read()
         if strip:
