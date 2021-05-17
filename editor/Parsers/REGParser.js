@@ -1231,13 +1231,17 @@ var regexes = new Array(
   
   /* -FUNCTION------------------------------------------------------------------
   Function:   parse( src )
+  Params:     switchToEng - if true sets the output's language to english *added by Patricia Salajova*
   Usage:      parser of the src argument
   Returns:    object, with properties: error, error_string
               error = flag (0 - no errors, 1 - other input is expected, 2 - hard error)
               error_string = error message (can be not empty even when error == 0)         
   --------------------------------------------------------------------------- */
-  parse : function( src )
+  parse : function( src, switchToEng = false )
   {
+      if (switchToEng) {
+        LANG = LANG_EN;
+      }
       var     la;
       var   parseinfo     = new Function( "", "var offset; var src; var att;" );
       var     info      = new parseinfo();
