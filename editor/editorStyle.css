@@ -314,7 +314,11 @@ code {
 .myTable {
     margin-top: 5px;
     border-collapse:separate; 
-border-spacing:2px;
+    border-spacing:2px;
+}
+
+.myTable>tbody, .myTable>tbody>tr:nth-child(2n){
+    background-color: transparent;
 }
 
 .myCell {
@@ -322,7 +326,7 @@ border-spacing:2px;
     background-color: #f0f0f0;
 }
 
-.cell-input { /*input inside td*/
+.cell-input, .cell-input:disabled, .cell-input:read-only{
     font-size: 1.4em;
     font-family: Roboto, Open Sans, Arial, sans-serif;
     text-align: center;
@@ -341,7 +345,7 @@ border-spacing:2px;
     padding: 0;
 }
 
-.column-header-input { /*input inside td, set bg color here*/
+.column-header-input, .column-header-input:disabled, .column-header-input:read-only { 
     background-color: #d0d0d0;
     color: #002776;
 }
@@ -352,11 +356,7 @@ border-spacing:2px;
     margin: 0em;
 }
 
-/* .row-header-cell:hover{
-    background-color: #bababa;
-} */
-
-.row-header-cell>.row-header-input { /*input inside td*/
+.row-header-cell>.row-header-input {
     background-color:#d0d0d0;
     text-align: left;
     cursor: pointer;
@@ -365,7 +365,6 @@ border-spacing:2px;
 }
 
 .row-header-cell>.row-header-input:hover {
-    /* background-color: #bababa; */
     color: #00123a;
     cursor: pointer;
 }
@@ -374,17 +373,9 @@ border-spacing:2px;
     user-select: none;
 }
 
-/*selected row header input*/
-.row-header-cell>.selected-header-input {
-    background-color: #d0d0d0;
-    text-align: left;
-    cursor: text;
-    border-radius: 0px;
-}
-
 .inactive-cell { /*td, topleft corner of table*/
-    background-color: white;
-    border: 1px solid white;
+    background-color: transparent;
+    border: 1px solid transparent;
     cursor: default;
 }
 
