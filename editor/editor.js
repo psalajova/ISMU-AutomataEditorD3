@@ -1,42 +1,3 @@
-const MENU_BUTTON = "menu-button";
-const CONTEXT_MENU = "context-menu";
-const GRAPH_DIV = "graphDiv";
-const QUESTION_DIV = "editor-content";
-const STATE_INDEX = 2;
-const MIN_TABLE_CELL_WIDTH = "50px";
-
-const graphConsts = {
-  selected: "selected",
-  mouseOver: "mouse-over-node",
-  stateGroup: "state-group",
-  stateMainCircle: "state-main-circle",
-  stateAccCircle: "accepting-circle",
-  stateElem: "stateEl",
-  edgeElem: "edgeEl",
-  edgeGroup: "edge-group",
-  edgePath: "edge-path",
-  edgeMarker: "edge-marker-path",
-  emptyGraph: "empty-graph",
-  nodeRadius: 30
-};
-
-const tableClasses = {
-  myTable: "myTable",
-  myCell: "myCell",
-  columnHeader: "column-header-cell",
-  rowHeader: "row-header-input",
-  innerCell: "inner-cell",
-  inputCellDiv: "cell-input",
-  inputColumnHeaderDiv: "column-header-input",
-  noselectCell: "noselect",
-  inactiveCell: "inactive-cell",
-  selectedHeaderInput: "selected-header-input",
-  incorrectCell: "incorrect-cell",
-  deleteButton: "delete-button-cell",
-  addButton: "add-button-cell",
-  controlButton: "control-button"
-}
-
 /**
  * Width and height of editor canvas.
  */
@@ -49,22 +10,22 @@ const params = {
  * States of editor in graph mode.
  */
 const graphStateEnum = Object.freeze({
-  "default": 0,
-  "creatingEdge": 1,
-  "namingEdge": 2,
-  "renamingEdge": 3,
-  "renamingState": 4,
-  "mergingEdge": 5,
-  "initial": 6 //when editor contains no states, is empty
+  "default":        0,
+  "creatingEdge":   1,
+  "namingEdge":     2,
+  "renamingEdge":   3,
+  "renamingState":  4,
+  "mergingEdge":    5,
+  "initial":        6 //when editor contains no states (= is empty)
 });
 
 /**
  * Enum to specify state and edge data origin.
  */
 const elemOrigin = Object.freeze({
-  "default": 0,     //created in graph mode
-  "fromTable": 1,   //created in table mode
-  "fromExisting": 2 //when recreating editor from existing data
+  "default":      0, //created in graph mode
+  "fromTable":    1, //created in table mode
+  "fromExisting": 2  //when recreating editor from existing data
 });
 
 var editor_init, upload, editorIdCount = 0;
@@ -168,7 +129,7 @@ class AutomataEditorMode {
   }
 
   updateText() {
-    this.getEditor().generateTextFromData();
+    this.getEditor().generateAnswer();
   }
 
   getStateDataById(id) {
@@ -263,6 +224,26 @@ class GraphMode extends AutomataEditorMode {
     this.initialise();
   }
 
+  /**
+ * Constants for classes of HTML elements in GraphMode.
+ */
+  static get CONSTS() {
+    return {
+      selected: "selected",
+      mouseOver: "mouse-over-node",
+      stateGroup: "state-group",
+      stateMainCircle: "state-main-circle",
+      stateAccCircle: "accepting-circle",
+      stateElem: "stateEl",
+      edgeElem: "edgeEl",
+      edgeGroup: "edge-group",
+      edgePath: "edge-path",
+      edgeMarker: "edge-marker-path",
+      emptyGraph: "empty-graph",
+      nodeRadius: 30
+    };
+  }
+
   initHints() {
     var hintDiv = document.createElement("div");
     hintDiv.setAttribute("class", "hintDiv");
@@ -289,10 +270,10 @@ class GraphMode extends AutomataEditorMode {
   }
 
   /**
-   * Creates all HTML elements of Graph mode.
+   * Creates all elements of Graph mode.
    */
   initialise() {
-    this.graphDiv.setAttribute("class", GRAPH_DIV);
+    this.graphDiv.setAttribute("class", "graph-div");
 
     this.graphState = {
       selectedState: null,
@@ -410,19 +391,19 @@ class GraphMode extends AutomataEditorMode {
 
     temporaryEdgeG
       .append("svg:path")
-      .attr("class", graphConsts.edgePath + " dragline hidden")
+      .attr("class", GraphMode.CONSTS.edgePath + " dragline hidden")
       .attr("d", "M0,0L0,0")
       .style("marker-end", "url(#temporary-arrow-end" + this.editorId + ")");
 
     temporaryEdgeG
       .append("svg:path")
-      .classed(graphConsts.edgeMarker, true)
+      .classed(GraphMode.CONSTS.edgeMarker, true)
       .attr("marker-end", "url(#end-arrow" + this.editorId + ")");
 
     //init-arrow
     var initArrow = svgGroup
       .append("svg:path")
-      .attr("class", graphConsts.edgePath + " init-arrow")
+      .attr("class", GraphMode.CONSTS.edgePath + " init-arrow")
       .style("marker-end", "url(#init-arrow-end" + this.editorId + ")");
 
     svgGroup.initArrow = initArrow;
@@ -437,7 +418,7 @@ class GraphMode extends AutomataEditorMode {
       .data(this.statesData)
       .enter()
       .append("g")
-      .classed(graphConsts.stateGroup, true);
+      .classed(GraphMode.CONSTS.stateGroup, true);
 
     this.stateGroups = svgGroup.stateGroups;
 
@@ -447,7 +428,7 @@ class GraphMode extends AutomataEditorMode {
       .data(this.edgesData)
       .enter()
       .append("g")
-      .classed(graphConsts.edgeGroup, true);
+      .classed(GraphMode.CONSTS.edgeGroup, true);
 
     this.edgeGroups = svgGroup.edgeGroups;
 
@@ -488,7 +469,7 @@ class GraphMode extends AutomataEditorMode {
 
   /**
    * Recreates automaton based on @param answer.
-   * @param {String} answer String representing a finite automaton in syntax of IS evaluation service.
+   * @param {String} answer String representing a finite automaton in syntax of IS MUNI evaluation service.
    */
   reconstruct(answer) {
     if (!answer || answer == "") return;
@@ -504,6 +485,11 @@ class GraphMode extends AutomataEditorMode {
     }
 
     var splitted = answer.split("##states");
+
+    let final = /final={(([a-zA-Z0-9]+)|(${QUOT_SEQ}))(,((${QUOT_SEQ})|([a-zA-Z0-9]+)))*}/;
+    let matches = splitted[0].match(final);
+    var finalStates = matches ? matches[0].substring(7, matches[0].length-1).split(',') : [] ;
+
     var data = splitted[1].split("edges");
     var states = data[0];
     var rest = data[1];
@@ -514,19 +500,20 @@ class GraphMode extends AutomataEditorMode {
       for (var d of states) {
         var stateParts = d.split(';');
         if (stateParts.length != 5) continue;
-        var id = stateParts[0];
-        var x = parseInt(stateParts[1]);
-        var y = parseInt(stateParts[2]);
-        var initial = stateParts[3] == "1";
-        var accepting = stateParts[4] == "1";
-        var data = this.getNewStateData(id, x, y, initial, accepting);
+        let id = stateParts[0];
+        let x = parseInt(stateParts[1]);
+        let y = parseInt(stateParts[2]);
+        let initial = stateParts[3] == "1";
+        //var accepting = stateParts[4] == "1";
+        var data = this.getNewStateData(id, x, y, initial, false);
         this.createState(data);
 
         if (initial) {
           this.setNewStateAsInitial(data);
         }
-        if (accepting) {
-          this.addAcceptingCircle(this.getStateGroupById(data.id));
+        if (finalStates.includes(id)) {
+          this.toggleAcceptingState(data, this.getStateGroupById(data.id));
+          //this.addAcceptingCircle(this.getStateGroupById(data.id));
         }
       }
     }
@@ -551,7 +538,7 @@ class GraphMode extends AutomataEditorMode {
       }
     }
 
-    editor.TextClass.textArea.innerText = answer;
+    editor.Text.textArea.innerText = answer;
 
     /**
      * TODO:
@@ -589,7 +576,7 @@ class GraphMode extends AutomataEditorMode {
 
   createStateContextMenu() {
     var menu = document.createElement("div");
-    menu.setAttribute("class", CONTEXT_MENU);
+    menu.setAttribute("class", AutomataEditor.CONSTS.CONTEXT_MENU);
 
     var a = HtmlUtils.createContextMenuButton(renameStateText);
     a.addEventListener("click", () => this.renameStateHandler());
@@ -630,7 +617,7 @@ class GraphMode extends AutomataEditorMode {
 
   createAddStateMenu() {
     var menu = document.createElement("div");
-    menu.setAttribute("class", CONTEXT_MENU);
+    menu.setAttribute("class", AutomataEditor.CONSTS.CONTEXT_MENU);
 
     var button = HtmlUtils.createContextMenuButton(addStateText);
     button.addEventListener("click", (e) => {
@@ -659,8 +646,8 @@ class GraphMode extends AutomataEditorMode {
   canvasOnClick(e) {
     e.preventDefault();
     var classes = e.target.classList;
-    var isState = classes.contains(graphConsts.stateElem);
-    var isEdge = classes.contains(graphConsts.edgeElem) || classes.contains("edge-path");
+    var isState = classes.contains(GraphMode.CONSTS.stateElem);
+    var isEdge = classes.contains(GraphMode.CONSTS.edgeElem) || classes.contains("edge-path");
     var graphState = this.getCurrentState();
 
     if (graphState == graphStateEnum.initial) return;
@@ -696,8 +683,8 @@ class GraphMode extends AutomataEditorMode {
   canvasOnContextmenu(event) {
     event.preventDefault();
     var classes = event.target.classList;
-    var isState = classes.contains(graphConsts.stateElem);
-    var isEdge = classes.contains(graphConsts.edgeElem);
+    var isState = classes.contains(GraphMode.CONSTS.stateElem);
+    var isEdge = classes.contains(GraphMode.CONSTS.edgeElem);
     var state = this.getCurrentState();
     var elem;
 
@@ -735,7 +722,7 @@ class GraphMode extends AutomataEditorMode {
    * @param {Boolean} hide 
    */
   initCreatingTransition(e, hide = false) {
-    var path = this.temporaryEdgeG.select("." + graphConsts.edgePath);
+    var path = this.temporaryEdgeG.select("." + GraphMode.CONSTS.edgePath);
     if (!hide) path.classed("hidden", false);
 
     var targetState = this.graphState.mouseOverState;
@@ -752,12 +739,12 @@ class GraphMode extends AutomataEditorMode {
       else { // snap to state
         path.attr("d", EdgeUtils.getStraightPathDef(sourceState.x, sourceState.y, targetState.x, targetState.y));
       }
-      if (!hide) this.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", false);
+      if (!hide) this.temporaryEdgeG.select("." + GraphMode.CONSTS.edgeMarker).classed("hidden", false);
       this.repositionMarker(this.temporaryEdgeG);
     }
     //mouse is not hovering above any state
     else {
-      this.temporaryEdgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
+      this.temporaryEdgeG.select("." + GraphMode.CONSTS.edgeMarker).classed("hidden", true);
       path.attr("d", EdgeUtils.getStraightPathDef(sourceState.x, sourceState.y, mouseX, mouseY));
     }
     this.disableAllDragging();
@@ -893,8 +880,8 @@ class GraphMode extends AutomataEditorMode {
 
   enableAllDragging() {
     if (!jeProhlizeciStranka_new()) {
-      this.svgGroup.selectAll("." + graphConsts.stateGroup).call(this.dragState);
-      this.svgGroup.selectAll("." + graphConsts.edgeGroup).call(this.dragEdge);
+      this.svgGroup.selectAll("." + GraphMode.CONSTS.stateGroup).call(this.dragState);
+      this.svgGroup.selectAll("." + GraphMode.CONSTS.edgeGroup).call(this.dragEdge);
       this.svg.call(this.zoom).on("dblclick.zoom", null);
     }
   }
@@ -904,8 +891,8 @@ class GraphMode extends AutomataEditorMode {
       .on("start", this.stateDragstart)
       .on("end", this.stateDragend);
 
-    this.svgGroup.selectAll("." + graphConsts.stateGroup).call(limitedDrag);
-    this.svgGroup.selectAll("." + graphConsts.edgeGroup).on(".drag", null);
+    this.svgGroup.selectAll("." + GraphMode.CONSTS.stateGroup).call(limitedDrag);
+    this.svgGroup.selectAll("." + GraphMode.CONSTS.edgeGroup).on(".drag", null);
     this.svg.on(".zoom", null);
   }
 
@@ -934,7 +921,7 @@ class GraphMode extends AutomataEditorMode {
 
     input.selectionStart = input.selectionEnd = 10000; //set caret position to end
     this.disableAllDragging();
-    this.svgGroup.selectAll("." + graphConsts.stateGroup).on(".drag", null);
+    this.svgGroup.selectAll("." + GraphMode.CONSTS.stateGroup).on(".drag", null);
 
     this.setCurrentState(graphState);
     if (isState) this.selectState(elemG);
@@ -964,7 +951,7 @@ class GraphMode extends AutomataEditorMode {
       var inputWidth = parseInt((input.node().style.width).substring(0, input.node().style.width.length - 2));
 
       var t = EdgeUtils.getInputPosition(
-        activeElemG.select("." + graphConsts.edgePath).attr("d"),
+        activeElemG.select("." + GraphMode.CONSTS.edgePath).attr("d"),
         activeElemG.datum().source == activeElemG.datum().target);
 
       var p = EditorUtils.applyTransformationToPoint([t.tx - inputWidth / 2, t.ty + 16], activeElemG);
@@ -1005,29 +992,29 @@ class GraphMode extends AutomataEditorMode {
 
   addStateSvg(state, origin = elemOrigin.default) {
     state
-      .classed(graphConsts.stateGroup, true)
-      .classed(graphConsts.stateElem, true)
+      .classed(GraphMode.CONSTS.stateGroup, true)
+      .classed(GraphMode.CONSTS.stateElem, true)
       .attr("transform", function (d) {
         return "translate(" + d.x + "," + d.y + ")";
       });
 
     state
       .append("circle")
-      .classed(graphConsts.stateMainCircle, true)
-      .classed(graphConsts.stateElem, true)
-      .attr("r", graphConsts.nodeRadius);
+      .classed(GraphMode.CONSTS.stateMainCircle, true)
+      .classed(GraphMode.CONSTS.stateElem, true)
+      .attr("r", GraphMode.CONSTS.nodeRadius);
 
     var g = this;
     var input = state
       .append("foreignObject")
-      .classed(graphConsts.stateElem, true)
+      .classed(GraphMode.CONSTS.stateElem, true)
       .attr("x", -24)
       .attr("y", -12)
       .attr("height", 23)
       .attr("width", 50)
       .append("xhtml:input")
       .classed("stateInput", true)
-      .classed(graphConsts.stateElem, true);
+      .classed(GraphMode.CONSTS.stateElem, true);
 
     HtmlUtils.makeReadonly(input.node());
     input.node().correct = false;
@@ -1044,7 +1031,7 @@ class GraphMode extends AutomataEditorMode {
       .call(g.dragState)
       .on("mouseover", function (_, d) {
         g.graphState.mouseOverState = d;
-        d3.select(this).classed(graphConsts.mouseOver, true);
+        d3.select(this).classed(GraphMode.CONSTS.mouseOver, true);
 
         if (d.id != d3.select(this).select("input").node().value) {
           StateUtils.showFullName(g.svgGroup.stateFullnameRect, d);
@@ -1053,7 +1040,7 @@ class GraphMode extends AutomataEditorMode {
       .on("mouseout", function () {
         StateUtils.toggleFullNameVisibitity(g.svgGroup.stateFullnameRect);
         g.graphState.mouseOverState = null;
-        d3.select(this).classed(graphConsts.mouseOver, false);
+        d3.select(this).classed(GraphMode.CONSTS.mouseOver, false);
       })
       .on("contextmenu", function (_, data) {
         //renaming this => do nothing
@@ -1258,7 +1245,7 @@ class GraphMode extends AutomataEditorMode {
 
   toggleAcceptingState(stateData, stateG) {
     if (stateData.accepting) {
-      stateG.select("." + graphConsts.stateAccCircle).remove();
+      stateG.select("." + GraphMode.CONSTS.stateAccCircle).remove();
     } else {
       this.addAcceptingCircle(stateG);
     }
@@ -1272,9 +1259,9 @@ class GraphMode extends AutomataEditorMode {
   addAcceptingCircle(stateG) {
     stateG
       .append("circle")
-      .classed(graphConsts.stateAccCircle, true)
-      .classed(graphConsts.stateElem, true)
-      .attr("r", graphConsts.nodeRadius - 3.5);
+      .classed(GraphMode.CONSTS.stateAccCircle, true)
+      .classed(GraphMode.CONSTS.stateElem, true)
+      .attr("r", GraphMode.CONSTS.nodeRadius - 3.5);
     stateG.select("foreignObject").raise();
   }
 
@@ -1285,7 +1272,7 @@ class GraphMode extends AutomataEditorMode {
       this.removeSelectionFromState();
       this.graphState.selectedState = stateGroup.datum();
       SELECTED_ELEM_GROUP = stateGroup;
-      stateGroup.classed(graphConsts.selected, true);
+      stateGroup.classed(GraphMode.CONSTS.selected, true);
     }
   }
 
@@ -1298,7 +1285,7 @@ class GraphMode extends AutomataEditorMode {
       .filter(function (d) {
         return d.id === s.id;
       })
-      .classed(graphConsts.selected, false);
+      .classed(GraphMode.CONSTS.selected, false);
     this.graphState.selectedState = null;
   }
 
@@ -1306,7 +1293,7 @@ class GraphMode extends AutomataEditorMode {
     var node = d3.select(this).node();
     var g = node.parentGraph;
     EditorManager.deselectAll(g.editorId);
-    g.temporaryEdgeG.classed(graphConsts.selected, false);
+    g.temporaryEdgeG.classed(GraphMode.CONSTS.selected, false);
 
 
     node.clickTimer = e.sourceEvent.timeStamp;
@@ -1328,10 +1315,10 @@ class GraphMode extends AutomataEditorMode {
     StateUtils.toggleFullNameVisibitity(g.svgGroup.stateFullnameRect);
 
     var p = EditorUtils.applyTransformationToPoint([event.x, event.y], g.svgGroup);
-    if (p.x < (params.width - graphConsts.nodeRadius) && p.x >= graphConsts.nodeRadius) {
+    if (p.x < (params.width - GraphMode.CONSTS.nodeRadius) && p.x >= GraphMode.CONSTS.nodeRadius) {
       d.x = event.x;
     }
-    if (p.y < (params.height - graphConsts.nodeRadius) && p.y >= graphConsts.nodeRadius) {
+    if (p.y < (params.height - GraphMode.CONSTS.nodeRadius) && p.y >= GraphMode.CONSTS.nodeRadius) {
       d.y = event.y;
     }
 
@@ -1381,7 +1368,7 @@ class GraphMode extends AutomataEditorMode {
     }
 
     if (!jeProhlizeciStranka_new()) {
-      EditorManager.getEditor(g.editorId).generateTextFromData();
+      EditorManager.getEditor(g.editorId).generateAnswer();
     }
   }
 
@@ -1403,7 +1390,7 @@ class GraphMode extends AutomataEditorMode {
           newDef = def;
         }
         else {
-          var str = d3.select(this).select("." + graphConsts.edgePath).attr("d").split(" ");
+          var str = d3.select(this).select("." + GraphMode.CONSTS.edgePath).attr("d").split(" ");
           str[1] = stateData.x;
           str[2] = stateData.y;
 
@@ -1415,7 +1402,7 @@ class GraphMode extends AutomataEditorMode {
 
           newDef = str.join(" ");
         }
-        d3.select(this).select("." + graphConsts.edgePath).attr("d", newDef);
+        d3.select(this).select("." + GraphMode.CONSTS.edgePath).attr("d", newDef);
         EdgeUtils.repositionInputTo(d3.select(this).select("foreignObject"), tx, ty);
         g.repositionMarker(d3.select(this));
       });
@@ -1428,7 +1415,7 @@ class GraphMode extends AutomataEditorMode {
         return ed.target.id === stateData.id && ed.source != ed.target;
       })
       .each(function (ed) {
-        var str = d3.select(this).select("." + graphConsts.edgePath).attr("d").split(" ");
+        var str = d3.select(this).select("." + GraphMode.CONSTS.edgePath).attr("d").split(" ");
 
         str[6] = stateData.x;
         str[7] = stateData.y;
@@ -1439,7 +1426,7 @@ class GraphMode extends AutomataEditorMode {
         var tx = (+str[4] + (+((+str[1] + (+str[6])) / 2))) / 2;
         var ty = (+str[5] + (+((+str[2] + (+str[7])) / 2))) / 2;
 
-        d3.select(this).select("." + graphConsts.edgePath).attr("d", str.join(" "));
+        d3.select(this).select("." + GraphMode.CONSTS.edgePath).attr("d", str.join(" "));
 
         EdgeUtils.repositionInputTo(d3.select(this).select("foreignObject"), tx, ty);
         g.repositionMarker(d3.select(this));
@@ -1468,13 +1455,13 @@ class GraphMode extends AutomataEditorMode {
   edgeDragmove(e, d) {
     var edgeG = d3.select(this);
     var g = edgeG.node().parentGraph;
-    var oldPathDefinition = edgeG.select("." + graphConsts.edgePath).attr("d");
+    var oldPathDefinition = edgeG.select("." + GraphMode.CONSTS.edgePath).attr("d");
 
     edgeG
-      .select("." + graphConsts.edgePath)
+      .select("." + GraphMode.CONSTS.edgePath)
       .attr("d", EdgeUtils.updatePathCurve(d, e.x, e.y, oldPathDefinition));
 
-    var coords = EdgeUtils.getInputPosition(edgeG.select("." + graphConsts.edgePath).attr("d"), d.source == d.target);
+    var coords = EdgeUtils.getInputPosition(edgeG.select("." + GraphMode.CONSTS.edgePath).attr("d"), d.source == d.target);
     EdgeUtils.repositionInputTo(edgeG.select("foreignObject"), coords.tx, coords.ty);
     g.repositionMarker(edgeG);
   }
@@ -1486,7 +1473,7 @@ class GraphMode extends AutomataEditorMode {
   }
 
   createEdge(data, origin = elemOrigin.default) {
-    var temporaryEdgePath = this.temporaryEdgeG.select("." + graphConsts.edgePath);
+    var temporaryEdgePath = this.temporaryEdgeG.select("." + GraphMode.CONSTS.edgePath);
 
     if (data.source == data.target && origin == elemOrigin.default) {
       if (temporaryEdgePath.node().angle) {
@@ -1499,7 +1486,7 @@ class GraphMode extends AutomataEditorMode {
     this.edgesData.push(data);
 
     var newEdge = this.edgeGroups
-      .data(this.edgesData).enter().append("g").classed(graphConsts.edgeGroup, true);
+      .data(this.edgesData).enter().append("g").classed(GraphMode.CONSTS.edgeGroup, true);
 
     newEdge.node().parentGraph = this;
 
@@ -1522,16 +1509,16 @@ class GraphMode extends AutomataEditorMode {
   addEdgeSvg(edge, origin, tempEdgeDef) {
     edge
       .append("svg:path")
-      .classed(graphConsts.edgePath, true)
-      .classed(graphConsts.edgeElem, true)
+      .classed(GraphMode.CONSTS.edgePath, true)
+      .classed(GraphMode.CONSTS.edgeElem, true)
       .attr("d", function (d) {
         if (origin == elemOrigin.fromExisting) {
-          return d.source != d.target ? EdgeUtils.reverseCalculate(d.source, d.target, d.dx, d.dy) : MathUtils.calculateSelfloop(d.source.x, d.source.y, d.angle);
+          return d.source != d.target ? EdgeUtils.reverseCalculate(d.source, d.target, d.dx, d.dy) : EdgeUtils.calculateSelfloop(d.source.x, d.source.y, d.angle);
         }
         if (d.source == d.target) {
           if (origin == elemOrigin.fromTable) {
             d.angle = 1.55;
-            return MathUtils.calculateSelfloop(d.source.x, d.source.y, d.angle);
+            return EdgeUtils.calculateSelfloop(d.source.x, d.source.y, d.angle);
           }
           return tempEdgeDef;
         }
@@ -1540,20 +1527,20 @@ class GraphMode extends AutomataEditorMode {
 
     edge
       .append("svg:path")
-      .classed(graphConsts.edgeMarker, true)
-      .classed(graphConsts.edgeElem, true)
+      .classed(GraphMode.CONSTS.edgeMarker, true)
+      .classed(GraphMode.CONSTS.edgeElem, true)
       .attr("marker-end", "url(#end-arrow" + this.editorId + ")");
 
     var fo = edge
       .append("foreignObject")
-      .classed(graphConsts.edgeElem, true)
+      .classed(GraphMode.CONSTS.edgeElem, true)
       .attr("height", 29)
       .attr("width", 50);
 
     var input = fo
       .append("xhtml:input")
       .classed("edgeInput", true)
-      .classed(graphConsts.edgeElem, true);
+      .classed(GraphMode.CONSTS.edgeElem, true);
 
     input.node().correct = false;
     input.node().parentGraph = this;
@@ -1576,10 +1563,10 @@ class GraphMode extends AutomataEditorMode {
     edge
       .call(g.dragEdge)
       .on("mouseover", function () {
-        d3.select(this).classed(graphConsts.mouseOver, true);
+        d3.select(this).classed(GraphMode.CONSTS.mouseOver, true);
       })
       .on("mouseout", function () {
-        d3.select(this).classed(graphConsts.mouseOver, false);
+        d3.select(this).classed(GraphMode.CONSTS.mouseOver, false);
       })
       .on("dblclick", function (_, d) {
         if (g.graphState.selectedEdge == d) {
@@ -1746,7 +1733,7 @@ class GraphMode extends AutomataEditorMode {
       this.removeSelectionFromEdge();
       this.graphState.selectedEdge = edgeGroup.datum();
       SELECTED_ELEM_GROUP = edgeGroup;
-      edgeGroup.classed(graphConsts.selected, true);
+      edgeGroup.classed(GraphMode.CONSTS.selected, true);
     }
   }
 
@@ -1759,7 +1746,7 @@ class GraphMode extends AutomataEditorMode {
       .filter(function (d) {
         return d.id === g.graphState.selectedEdge.id;
       })
-      .classed(graphConsts.selected, false);
+      .classed(GraphMode.CONSTS.selected, false);
     this.graphState.selectedEdge = null;
   }
 
@@ -1771,9 +1758,9 @@ class GraphMode extends AutomataEditorMode {
 
   repositionMarker(edgeGroup) {
     this.repositionMarkerTo(
-      edgeGroup.select("." + graphConsts.edgePath),
-      edgeGroup.select("." + graphConsts.edgeMarker),
-      graphConsts.nodeRadius + 11); // distance
+      edgeGroup.select("." + GraphMode.CONSTS.edgePath),
+      edgeGroup.select("." + GraphMode.CONSTS.edgeMarker),
+      GraphMode.CONSTS.nodeRadius + 11); // distance
   }
 
   repositionMarkerTo(path, markerPath, distance) {
@@ -1850,13 +1837,13 @@ class GraphMode extends AutomataEditorMode {
     var transform = d3.zoomTransform(this.svgGroup.node());
 
     while (this.invalidStatePosition(newStateData)) {
-      x += graphConsts.nodeRadius * mult;
+      x += GraphMode.CONSTS.nodeRadius * mult;
       if (x > this.graphDiv.lastWidth - transform.x) {
         x = baseX; // posunutie x na zaciatok riadku
-        y += graphConsts.nodeRadius * mult; //posunutie dolu
+        y += GraphMode.CONSTS.nodeRadius * mult; //posunutie dolu
       }
-      if (y + graphConsts.nodeRadius + 100 > this.graphDiv.lastHeight) {
-        this.graphDiv.style.height = y + graphConsts.nodeRadius + 100;
+      if (y + GraphMode.CONSTS.nodeRadius + 100 > this.graphDiv.lastHeight) {
+        this.graphDiv.style.height = y + GraphMode.CONSTS.nodeRadius + 100;
 
       }
 
@@ -1873,8 +1860,8 @@ class GraphMode extends AutomataEditorMode {
       if (state.id == d.id) {
         continue;
       }
-      if ((Math.abs(d.x - state.x) < graphConsts.nodeRadius * 2)
-        && (Math.abs(d.y - state.y) < graphConsts.nodeRadius * 2)) {
+      if ((Math.abs(d.x - state.x) < GraphMode.CONSTS.nodeRadius * 2)
+        && (Math.abs(d.y - state.y) < GraphMode.CONSTS.nodeRadius * 2)) {
         return true;
       }
     }
@@ -1890,6 +1877,30 @@ class TableMode extends AutomataEditorMode {
     super(editorId, statesData, edgesData);
     this.initialise();
     this.incorrectInputs = new Set();
+  }
+
+  /**
+   * Constants of TableMode.
+   */
+  static get CONSTS() {
+    return {
+      myTable: "myTable",
+      myCell: "myCell",
+      columnHeader: "column-header-cell",
+      rowHeader: "row-header-input",
+      innerCell: "inner-cell",
+      inputCellDiv: "cell-input",
+      inputColumnHeaderDiv: "column-header-input",
+      noselectCell: "noselect",
+      inactiveCell: "inactive-cell",
+      selectedHeaderInput: "selected-header-input",
+      incorrectCell: "incorrect-cell",
+      deleteButton: "delete-button-cell",
+      addButton: "add-button-cell",
+      controlButton: "control-button",
+      STATE_INDEX : 2,
+      MIN_CELL_WIDTH : "50px",
+    };
   }
 
   initialise() {
@@ -2039,7 +2050,7 @@ class TableMode extends AutomataEditorMode {
 
   createEmptyTable() {
     var table = document.createElement("table");
-    table.setAttribute("class", tableClasses.myTable);
+    table.setAttribute("class", TableMode.CONSTS.myTable);
     table.style.width = "0";
 
     this.selectedCellInput = null;
@@ -2080,7 +2091,7 @@ class TableMode extends AutomataEditorMode {
   }
 
   insertColumnAddButton(row) {
-    var cell = this.insertCellWithDiv(row, null, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
+    var cell = this.insertCellWithDiv(row, null, [TableMode.CONSTS.addButton, TableMode.CONSTS.noselectCell], null, addSymbol);
     if (!jeProhlizeciStranka_new()) {
       $(cell).prop("title", tableAddSymbolHover);
       cell.addEventListener("click", () => this.insertColumn());
@@ -2089,7 +2100,7 @@ class TableMode extends AutomataEditorMode {
 
   insertColumnDeleteButton(row) {
     var cell = this.insertCellWithDiv(row, null,
-      [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
+      [TableMode.CONSTS.deleteButton, TableMode.CONSTS.noselectCell], null, delSymbol);
 
 
     if (!jeProhlizeciStranka_new()) {
@@ -2100,7 +2111,7 @@ class TableMode extends AutomataEditorMode {
 
   insertRowAddButton() {
     var newRow = this.table.insertRow(this.table.rows.length);
-    var cell = this.insertCellWithDiv(newRow, 0, [tableClasses.addButton, tableClasses.noselectCell], null, addSymbol);
+    var cell = this.insertCellWithDiv(newRow, 0, [TableMode.CONSTS.addButton, TableMode.CONSTS.noselectCell], null, addSymbol);
 
     if (!jeProhlizeciStranka_new()) {
       $(cell).prop("title", tableAddRowHover);
@@ -2110,7 +2121,7 @@ class TableMode extends AutomataEditorMode {
 
   insertRowDeleteButton(row) {
     var cell = this.insertCellWithDiv(row, 0,
-      [tableClasses.deleteButton, tableClasses.noselectCell], null, delSymbol);
+      [TableMode.CONSTS.deleteButton, TableMode.CONSTS.noselectCell], null, delSymbol);
 
     if (!jeProhlizeciStranka_new()) {
       $(cell).prop("title", tableDelRowHover);
@@ -2119,9 +2130,9 @@ class TableMode extends AutomataEditorMode {
   }
 
   insertInnerCell(row) {
-    var cell = this.insertCell(row, row.cells.length, [tableClasses.myCell]);
+    var cell = this.insertCell(row, row.cells.length, [TableMode.CONSTS.myCell]);
     var value = EditorUtils.typeIsNondeterministic(this.getEditor().type) ? "{}" : "";
-    var input = this.createInput([tableClasses.inputCellDiv], value,
+    var input = this.createInput([TableMode.CONSTS.inputCellDiv], value,
       this.table.rows[1].cells[cell.cellIndex].style.minWidth);
 
     $(input).click(() => this.innerCellOnClick());
@@ -2136,8 +2147,8 @@ class TableMode extends AutomataEditorMode {
 
   insertRowHeader(row, name, width) {
     var cell = this.insertCell(row, row.cells.length, ["row-header-cell"], width);
-    var input = this.createInput([tableClasses.inputCellDiv, tableClasses.rowHeader], name, width);
-    input.defaultClass = tableClasses.rowHeader;
+    var input = this.createInput([TableMode.CONSTS.inputCellDiv, TableMode.CONSTS.rowHeader], name, width);
+    input.defaultClass = TableMode.CONSTS.rowHeader;
 
     $(input).click(() => this.tableHeaderCellClick(input));
     $(input).on("input", (e) => this.rowHeaderOnInput(e));
@@ -2150,8 +2161,8 @@ class TableMode extends AutomataEditorMode {
   }
 
   insertColumnHeader(row, symbol, width) {
-    var cell = this.insertCell(row, row.cells.length, [tableClasses.columnHeader], width);
-    var input = this.createInput([tableClasses.inputColumnHeaderDiv, tableClasses.inputCellDiv], symbol, width);
+    var cell = this.insertCell(row, row.cells.length, [TableMode.CONSTS.columnHeader], width);
+    var input = this.createInput([TableMode.CONSTS.inputColumnHeaderDiv, TableMode.CONSTS.inputCellDiv], symbol, width);
     cell.myDiv = input;
     this.addResizable(cell);
     cell.appendChild(input);
@@ -2178,9 +2189,9 @@ class TableMode extends AutomataEditorMode {
     this.table.rows[this.table.rows.length - 1].deleteCell(0);
     this.insertRowDeleteButton(this.table.rows[this.table.rows.length - 1]);
     this.insertArrows(this.table.rows[this.table.rows.length - 1], 1);
-    this.insertRowHeader(this.table.rows[this.table.rows.length - 1], title, this.table.rows[1].cells[STATE_INDEX].style.width);
+    this.insertRowHeader(this.table.rows[this.table.rows.length - 1], title, this.table.rows[1].cells[TableMode.CONSTS.STATE_INDEX].style.width);
 
-    for (let i = STATE_INDEX + 1, j = this.table.rows[0].cells.length - 1; i < j; i++) {
+    for (let i = TableMode.CONSTS.STATE_INDEX + 1, j = this.table.rows[0].cells.length - 1; i < j; i++) {
       this.insertInnerCell(this.table.rows[this.table.rows.length - 1]);
     }
     this.insertRowAddButton();
@@ -2217,7 +2228,7 @@ class TableMode extends AutomataEditorMode {
   deleteRow(rowIndex) {
     if (this.locked) return;
 
-    var stateId = this.table.rows[rowIndex].cells[STATE_INDEX].myDiv.value;
+    var stateId = this.table.rows[rowIndex].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value;
     this.table.states.splice(this.table.states.indexOf(stateId), 1);
 
     var editor = this.getEditor();
@@ -2225,7 +2236,7 @@ class TableMode extends AutomataEditorMode {
     var data = this.getStateDataById(stateId);
     editor.Graph.deleteState(data);
 
-    for (let i = STATE_INDEX, rows = this.table.rows.length - 1; i < rows; i++) {
+    for (let i = TableMode.CONSTS.STATE_INDEX, rows = this.table.rows.length - 1; i < rows; i++) {
       for (let j = 3, cols = this.table.rows[i].cells.length; j < cols; j++) {
         var value = this.table.rows[i].cells[j].myDiv.value;
         if (EditorUtils.typeIsNondeterministic(editor.type)) {
@@ -2278,7 +2289,7 @@ class TableMode extends AutomataEditorMode {
     this.selectedInitDiv = initDiv;
 
     //edit state in graph
-    var stateId = this.table.rows[initDiv.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
+    var stateId = this.table.rows[initDiv.parentNode.parentNode.rowIndex].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value;
     var data = this.getStateDataById(stateId);
     this.getEditor().Graph.setNewStateAsInitial(data);
   }
@@ -2294,7 +2305,7 @@ class TableMode extends AutomataEditorMode {
     }
     $(acceptDiv).toggleClass("selected-arrow");
 
-    var stateId = this.table.rows[acceptDiv.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
+    var stateId = this.table.rows[acceptDiv.parentNode.parentNode.rowIndex].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value;
 
     //edit state in graph
     var stateG = this.getEditor().Graph.getStateGroupById(stateId);
@@ -2310,7 +2321,7 @@ class TableMode extends AutomataEditorMode {
     $(cell).resizable({
       handles: 'e',
       resize: function () {
-        var minSize = MIN_TABLE_CELL_WIDTH.substring(0, 2);
+        var minSize = TableMode.CONSTS.MIN_CELL_WIDTH.substring(0, 2);
         if (parseInt(this.style.width) >= parseInt(minSize)) {
           this.style.minWidth = this.style.width;
           var ci = this.cellIndex;
@@ -2323,7 +2334,7 @@ class TableMode extends AutomataEditorMode {
         }
       },
     });
-    cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
+    cell.style.minWidth = TableMode.CONSTS.MIN_CELL_WIDTH;
   }
 
   setInnerCellSizes(maxCellWidth) {
@@ -2404,17 +2415,17 @@ class TableMode extends AutomataEditorMode {
 
     if (width != null) {
       cell.style.width = width;
-      cell.style.minWidth = MIN_TABLE_CELL_WIDTH;
+      cell.style.minWidth = TableMode.CONSTS.MIN_CELL_WIDTH;
     }
     return cell;
   }
 
-  createInput(classlist, value, width = MIN_TABLE_CELL_WIDTH) {
+  createInput(classlist, value, width = TableMode.CONSTS.MIN_CELL_WIDTH) {
     var input = document.createElement("input");
     input.value = input.prevValue = value;
 
     if (width != null) {
-      input.style.minWidth = MIN_TABLE_CELL_WIDTH;
+      input.style.minWidth = TableMode.CONSTS.MIN_CELL_WIDTH;
       input.style.width = width;
     }
     input.style.margin = "0em";
@@ -2445,9 +2456,9 @@ class TableMode extends AutomataEditorMode {
 
   insertInactiveCell(row, index) {
     var classes = [
-      tableClasses.myCell,
-      tableClasses.inactiveCell,
-      tableClasses.noselectCell
+      TableMode.CONSTS.myCell,
+      TableMode.CONSTS.inactiveCell,
+      TableMode.CONSTS.noselectCell
     ];
     return this.insertCellWithDiv(row, index, classes, []);
   }
@@ -2458,8 +2469,8 @@ class TableMode extends AutomataEditorMode {
   //is it necessary to have???
   deselectSelectedCell() {
     if (this.selectedCellInput != null) {
-      $(this.selectedCellInput).removeClass(tableClasses.selectedHeaderInput);
-      $(this.selectedCellInput).addClass(tableClasses.rowHeader);
+      $(this.selectedCellInput).removeClass(TableMode.CONSTS.selectedHeaderInput);
+      $(this.selectedCellInput).addClass(TableMode.CONSTS.rowHeader);
       this.selectedCellInput = null;
     }
   }
@@ -2470,12 +2481,12 @@ class TableMode extends AutomataEditorMode {
       prev = d3.select(this.selectedCellInput);
     }
     if (prev != null) {
-      prev.classed(tableClasses.selectedHeaderInput, false);
-      prev.classed(tableClasses.rowHeader, true);
+      prev.classed(TableMode.CONSTS.selectedHeaderInput, false);
+      prev.classed(TableMode.CONSTS.rowHeader, true);
     }
     var next = d3.select(input);
-    next.classed(tableClasses.selectedHeaderInput, true);
-    next.classed(tableClasses.rowHeader, false);
+    next.classed(TableMode.CONSTS.selectedHeaderInput, true);
+    next.classed(TableMode.CONSTS.rowHeader, false);
 
     this.selectedCellInput = input;
   }
@@ -2516,7 +2527,7 @@ class TableMode extends AutomataEditorMode {
   tableStateAlreadyExists(input, stateName) {
     let ri = input.parentNode.parentNode.rowIndex;
     for (let i = 2, j = this.table.rows.length - 1; i < j; i++) {
-      if (i != ri && stateName == this.table.rows[i].cells[STATE_INDEX].myDiv.value) {
+      if (i != ri && stateName == this.table.rows[i].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value) {
         return true;
       }
     }
@@ -2569,7 +2580,7 @@ class TableMode extends AutomataEditorMode {
     console.log("rollback");
     this.incorrectInputs.forEach(input => {
       input.value = input.prevValue;
-      $(input).removeClass(tableClasses.incorrectCell);
+      $(input).removeClass(TableMode.CONSTS.incorrectCell);
     });
     this.incorrectInputs = new Set();
     HtmlUtils.hideElem(this.alertText);
@@ -2587,7 +2598,7 @@ class TableMode extends AutomataEditorMode {
    */
   setIncorrectInput(errMsg, input) {
     this.incorrectInputs.add(input);
-    $(input).addClass(tableClasses.incorrectCell);
+    $(input).addClass(TableMode.CONSTS.incorrectCell);
     if (this.incorrectInputs.size > 1) {
       this.rollback();
     }
@@ -2601,7 +2612,7 @@ class TableMode extends AutomataEditorMode {
    * @param {HTMLElement} input 
    */
   unblockInput(input) {
-    $(input).removeClass(tableClasses.incorrectCell);
+    $(input).removeClass(TableMode.CONSTS.incorrectCell);
     this.incorrectInputs.delete(input);
     if (this.locked) {
       this.unlockTable();
@@ -2646,7 +2657,7 @@ class TableMode extends AutomataEditorMode {
         prevName = prevName.substring(1, prevName.length - 1);
         newName = newName.substring(1, newName.length - 1);
       }
-      var sourceStateId = this.table.rows[input.parentNode.parentNode.rowIndex].cells[STATE_INDEX].myDiv.value;
+      var sourceStateId = this.table.rows[input.parentNode.parentNode.rowIndex].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value;
       var symbol = this.table.rows[1].cells[input.parentNode.cellIndex].myDiv.prevValue;
       var prevStates = prevName.split(",");
       var newStates = newName.split(",");
@@ -2680,7 +2691,7 @@ class TableMode extends AutomataEditorMode {
         if (this.getStateDataById(newStates[i]) == null) {
           var addRowBool = true;
           for (var j = 2, rows = this.table.rows.length - 1; j < rows; j++) { //skontrolovanie, ze sa nazov tohto stavu nenachadza v inom riadku tabulky
-            if (this.table.rows[j].cells[STATE_INDEX].myDiv.value == newStates[i]) {
+            if (this.table.rows[j].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value == newStates[i]) {
               addRowBool = false;
               break;
             }
@@ -2743,7 +2754,7 @@ class TableMode extends AutomataEditorMode {
   }
 
   columnHeaderOnFocusout(input) {
-    if ($(input).hasClass(tableClasses.incorrectCell) || this.locked) {
+    if ($(input).hasClass(TableMode.CONSTS.incorrectCell) || this.locked) {
       return;
     }
     var prevName = input.prevValue;
@@ -2788,7 +2799,7 @@ class TableMode extends AutomataEditorMode {
   }
 
   rowHeaderOnFocusout(input) {
-    if ($(input).hasClass(tableClasses.incorrectCell) == false && !this.locked) {
+    if ($(input).hasClass(TableMode.CONSTS.incorrectCell) == false && !this.locked) {
       if (input.prevValue == input.value) return;
 
       var prevName = input.prevValue;
@@ -2915,7 +2926,7 @@ class TextEditor extends Editor {
 }
 
 /**
- * Editor for finite automata.
+ * Editor for finite automata. Consists of Graph, Table and Text modes.
  */
 class AutomataEditor extends Editor {
   constructor(id, type, textArea) {
@@ -2927,6 +2938,19 @@ class AutomataEditor extends Editor {
     this.initialise();
   }
 
+  /**
+   * Constants used by AutomataEditor.
+   */
+  static get CONSTS() {
+    return {
+      MENU_BUTTON : "menu-button",
+      CONTEXT_MENU : "context-menu"
+    };
+  }
+
+  /**
+   * Creates all elements of editor.
+   */
   initialise() {
     this.lastEdited = "graph";
 
@@ -2946,13 +2970,13 @@ class AutomataEditor extends Editor {
     this.div.parentNode.insertBefore(tableRuler, this.div.nextSibling);
 
     //create menu buttons
-    var graphButton = HtmlUtils.createButton(graphMenuButton, MENU_BUTTON);
+    var graphButton = HtmlUtils.createButton(graphMenuButton, AutomataEditor.CONSTS.MENU_BUTTON);
     graphButton.addEventListener("click", () => this.showGraphMode());
 
-    var textButton = HtmlUtils.createButton(textMenuButton, MENU_BUTTON);
+    var textButton = HtmlUtils.createButton(textMenuButton, AutomataEditor.CONSTS.MENU_BUTTON);
     textButton.addEventListener("click", () => this.showTextMode());
 
-    var tableButton = HtmlUtils.createButton(tableMenuButton, MENU_BUTTON);
+    var tableButton = HtmlUtils.createButton(tableMenuButton, AutomataEditor.CONSTS.MENU_BUTTON);
     tableButton.addEventListener("click", () => this.showTableMode());
 
     HtmlUtils.appendChildren(this.div, [graphButton, tableButton, textButton]);
@@ -2978,9 +3002,6 @@ class AutomataEditor extends Editor {
   showGraphMode() {
     HtmlUtils.hideElem(this.Text.textDiv);
     HtmlUtils.hideElem(this.Table.tableDiv);
-    if (this.lastEdited == "table") {
-      //this.Table.rollback();
-    }
 
     HtmlUtils.showElem(this.Graph.hintDiv);
     HtmlUtils.showElem(this.Graph.graphDiv);
@@ -3014,9 +3035,6 @@ class AutomataEditor extends Editor {
       this.Table.rollback();
       return;
     }
-    if (this.lastEdited == "graph") {
-      //updateSvgDimensions(this.div);
-    }
     HtmlUtils.hideElem(this.Graph.hintDiv);
     HtmlUtils.hideElem(this.Graph.graphDiv);
     HtmlUtils.hideElem(this.Text.textDiv);
@@ -3026,11 +3044,10 @@ class AutomataEditor extends Editor {
     this.lastEdited = "table";
   }
 
-  lockMenuButtons(val = null) {
-    d3.select(this.div).selectAll("." + MENU_BUTTON).attr("disabled", val);
-  }
-
-  //TODO presunut funkcionalitu sem, aby to nebolo v grafe
+  /**
+   * Creates a new state in graph mode.
+   * @param {Object} stateData 
+   */
   addState(stateData) {
     this.Graph.createState(stateData);
   }
@@ -3142,6 +3159,9 @@ class AutomataEditor extends Editor {
     return result;
   }
 
+  /**
+   * @returns {Boolean} True if there are no states or transitions.
+   */
   isEmpty() {
     return this.statesData.length === 0 && this.edgesData.length === 0;
   }
@@ -3283,12 +3303,12 @@ function setupLanguage() {
 }
 
 /**
- * Creates an editor based on question type.
+ * Creates an editor based on question's type.
  * @param {HTMLElement} div       HTML div element where the editor will be placed.
  * @param {HTMLElement} textArea  HTML textarea element (created automatically by IS).
  */
 function createEditor(div, textArea) {
-  div.setAttribute("class", QUESTION_DIV);
+  div.setAttribute("class", "editor-content");
   var type = div.getAttribute("id").substring(0, 3);
   var editor;
 
@@ -3299,6 +3319,7 @@ function createEditor(div, textArea) {
     }
   }
   else {
+    textArea.innerText = "init=s1 (s1,a)={s2} (s2,a)={s3} (s3,a)={s3} (s3,b)={s3} final={s2} ##states@s1;-259.30;-154.44;1;0@s2;-109.30;-154.44;0;0@s3;40.70;-154.44;0;1edges@s1;s2;a;;;@s2;s3;a;;;@s3;s3;a,b;;;1.55@initAngle:3.140@t:1.320;477.870;346.506";
     editor = new AutomataEditor(div.id, type, textArea);
     editor.Graph.reconstruct(textArea.innerText);
 
@@ -3335,7 +3356,7 @@ function windowKeyUp(event) {
   if (event.key.toLowerCase() == "delete") {
     if (SELECTED_ELEM_GROUP.classed("activeRenaming")) return; //allow delete while renaming
 
-    if (SELECTED_ELEM_GROUP.node().classList.contains(graphConsts.stateElem)) { // if selected element is state
+    if (SELECTED_ELEM_GROUP.node().classList.contains(GraphMode.CONSTS.stateElem)) { // if selected element is state
       g.deleteState(data);
       g.graphState.selectedState = null;
     }
@@ -3448,28 +3469,42 @@ class HtmlUtils {
  * Helper state methods for Automata Editor.
  */
 class StateUtils {
+  /**
+   * Sets value of input housing state name.
+   * @param {HTMLElement} input 
+   * @param {String}      value 
+   */
   static setInputValue(input, value) {
     input.realValue = value;
-    var cropped = StateUtils.getCroppedTitle(input);
+    var cropped = StateUtils.getCroppedTitle(input.realValue);
     input.setAttribute("value", cropped);
     input.value = cropped;
   }
 
-  static getCroppedTitle(input) {
-    var title = input.realValue;
+  /**
+   * Cropps state name so it fits into state circle.
+   * @param   {String} name State name.
+   * @returns {String}      Cropped state name.
+   */
+  static getCroppedTitle(name) {
     var shortened = false;
     var padding = 10;
 
-    while (HtmlUtils.visualLength(title) >= (graphConsts.nodeRadius * 2) - padding) {
-      title = title.substring(0, title.length - 1); //orezanie o 1 pismenko
+    while (HtmlUtils.visualLength(name) >= (GraphMode.CONSTS.nodeRadius * 2) - padding) {
+      name = name.substring(0, name.length - 1); //orezanie o 1 pismenko
       shortened = true;
     }
     if (shortened) {
-      title = title.substring(0, title.length - 1).concat("..");
+      name = name.substring(0, name.length - 1).concat("..");
     }
-    return title;
+    return name;
   }
 
+  /**
+   * Shows rectangle housing the full name of a state and sets its position.
+   * @param {SVGElement} invisibleRect Svg rectangle.
+   * @param {Obejct} d State data.
+   */
   static showFullName(invisibleRect, d) {
     StateUtils.toggleFullNameVisibitity(invisibleRect, true);
     invisibleRect.FullnameText.text(d.id);
@@ -3477,12 +3512,16 @@ class StateUtils {
     invisibleRect.attr("width", w);
     invisibleRect.FullnameText
       .attr("x", d.x - w / 2 + 3.5)
-      .attr("y", d.y + graphConsts.nodeRadius + 19.5);
+      .attr("y", d.y + GraphMode.CONSTS.nodeRadius + 19.5);
     invisibleRect
       .attr("x", d.x - w / 2)
-      .attr("y", d.y + (graphConsts.nodeRadius + 2));
+      .attr("y", d.y + (GraphMode.CONSTS.nodeRadius + 2));
   }
 
+  /**
+   * Toggles visibility of the rectangle housing the full name of a state shown
+   * when it is too long to fit in the state's circle.
+   */
   static toggleFullNameVisibitity(rect, visible = false) {
     rect.style("visibility", function () {
       return visible == true ? "visible" : "hidden";
@@ -3498,11 +3537,21 @@ class StateUtils {
  * Helper edge methods for Automata Editor.
  */
 class EdgeUtils {
+  /**
+   * Sets the value of a input.
+   * @param {HTMLElement} input 
+   * @param {String} value 
+   */
   static setInputValue(input, value) {
     input.setAttribute("value", value);
     input.value = value;
   }
 
+  /**
+   * Sets the width of a input.
+   * @param {HTMLElement} input 
+   * @param {Number} len 
+   */
   static setInputWidth(input, len = null) {
     if (len == null) {
       len = HtmlUtils.visualLength(input.value);
@@ -3514,6 +3563,12 @@ class EdgeUtils {
     input.style.width = (len) + "px";
   }
 
+  /**
+   * Finds position for input based on the "peak" of the edge.
+   * @param {String} pathDefinitinAttribute 
+   * @param {Boolean} isSelfloop 
+   * @returns {Object} { tx: number, ty: number }
+   */
   static getInputPosition(pathDefinitinAttribute, isSelfloop) {
     var str = pathDefinitinAttribute.split(" "), tx, ty;
 
@@ -3528,6 +3583,11 @@ class EdgeUtils {
     return { tx, ty };
   }
 
+  /**
+   * Shortens a number into 2 decimal digits and returns it as string.
+   * @param {Number} num 
+   * @returns {String}
+   */
   static shorten(num) {
     if (num == 0) {
       return "";
@@ -3535,6 +3595,11 @@ class EdgeUtils {
     return num.toFixed(2);
   }
 
+  /**
+   * Verifies that edge path data are valid and sets them to default values if not.
+   * @param {Object} data Edge data.
+   * @returns {Object} Edge data.
+   */
   static checkPathData(data) {
     if (!data.dx) data.dx = 0;
     if (!data.dy) data.dy = 0;
@@ -3554,9 +3619,13 @@ class EdgeUtils {
     return `M ${s1.x} ${s1.y} Q ${c1} ${c2} ${s2.x} ${s2.y}`;
   }
 
+  /**
+   * Hides the edge.
+   * @param {Object} edgeG edge (svg group)
+   */
   static hide(edgeG) {
-    edgeG.select("." + graphConsts.edgePath).classed("hidden", true);
-    edgeG.select("." + graphConsts.edgeMarker).classed("hidden", true);
+    edgeG.select("." + GraphMode.CONSTS.edgePath).classed("hidden", true);
+    edgeG.select("." + GraphMode.CONSTS.edgeMarker).classed("hidden", true);
   }
 
   static updatePathCurve(edgeData, mouseX, mouseY, oldPathDefinition) {
@@ -3610,7 +3679,7 @@ class EdgeUtils {
       edgeData.angle = EdgeUtils.calculateAngle(x1, y1, x2, y2);
       return `M ${x1} ${y1} C ${MathUtils.cubicControlPoints(x1, y1, edgeData.angle)} ${x1} ${y1}`;
     }
-    return MathUtils.calculateSelfloop(x1, y1, EdgeUtils.calculateAngle(x1, y1, x2, y2));
+    return EdgeUtils.calculateSelfloop(x1, y1, EdgeUtils.calculateAngle(x1, y1, x2, y2));
   }
 
   static calculateAngle(x1, y1, x2, y2) {
@@ -3635,6 +3704,10 @@ class EdgeUtils {
     return `M ${x1} ${y1} Q ${MathUtils.midpoint(x1, x2)} ${MathUtils.midpoint(y1, y2)} ${x2} ${y2}`;
   }
 
+  static calculateSelfloop(x, y, angle) {
+    return `M ${x} ${y} C ${MathUtils.cubicControlPoints(x, y, angle)} ${x} ${y}`;
+  }
+
   /**
    * Repositions edge input into the middle of edge curve.
    * @param {d3 selection} edge 
@@ -3643,7 +3716,7 @@ class EdgeUtils {
     edge
       .each(function (ed) {
         var fo = d3.select(this).select("foreignObject");
-        var dAttr = d3.select(this).select("." + graphConsts.edgePath).attr("d");
+        var dAttr = d3.select(this).select("." + GraphMode.CONSTS.edgePath).attr("d");
         var coords = EdgeUtils.getInputPosition(dAttr, ed.source == ed.target);
 
         EdgeUtils.repositionInputTo(fo, coords.tx, coords.ty);
@@ -3672,11 +3745,28 @@ class EdgeUtils {
 
 }
 
+/**
+ * Math helper functions.
+ */
 class MathUtils {
-  static midpoint(x1, x2) {
-    return (x1 + x2) / 2;
+  /**
+   * Calculates a middle between two numbers.
+   * @param {Number} a 
+   * @param {Number} b 
+   * @returns {Number} Result.
+   */
+  static midpoint(a, b) {
+    return (a + b) / 2;
   }
 
+  /**
+   * Calculates distance between two points - [x1,y1] and [x2,y2].
+   * @param {Number} x1 
+   * @param {Number} y1 
+   * @param {Number} x2 
+   * @param {Number} y2
+   * @returns {Number} Distance.
+   */
   static distBetween(x1, y1, x2, y2) {
     return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
   }
@@ -3696,10 +3786,6 @@ class MathUtils {
     var y2 = (+y - (Math.sin(d - Math.PI / div) * mult)).toFixed(3);
 
     return `${x1} ${y1} ${x2} ${y2}`;
-  }
-
-  static calculateSelfloop(x, y, angle) {
-    return `M ${x} ${y} C ${MathUtils.cubicControlPoints(x, y, angle)} ${x} ${y}`;
   }
 }
 
@@ -3762,16 +3848,14 @@ class ArrayUtils {
     while (symbols.indexOf(symbol) != -1)
     return symbol;
   }
-
-
 }
 
 /**
- * 
+ * Helper functions for editor.
  */
 class EditorUtils {
   /**
-   * Finds the longest string from array.
+   * Finds the longest string in array.
    * @param   {Array<String>}   array 
    * @returns {Number}  Length of the longest string.
    */
@@ -3783,6 +3867,11 @@ class EditorUtils {
     return max;
   }
 
+  /**
+   * Generates new unique ID for editor.
+   * @param   {String} type 
+   * @returns {String} ID.
+   */
   static generateEditorId(type) {
     var result = `${type}-`;
     var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -3978,7 +4067,7 @@ function registerElem(id, func, elem) {
     if (!evt) var evt = window.event;
     var input = (evt.target) ? evt.target : evt.srcElement;
 
-    var result = func(input.value);
+    var result = func(input.value, document.documentElement.lang.toLowerCase() !== "cs");
     if (elem.value == "") {
       document.getElementById(id + "-error").className = "alert alert-info";
       document.getElementById(id + "-i").className = "";
