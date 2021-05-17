@@ -10,21 +10,21 @@ const params = {
  * States of editor in graph mode.
  */
 const graphStateEnum = Object.freeze({
-  "default":        0,
-  "creatingEdge":   1,
-  "namingEdge":     2,
-  "renamingEdge":   3,
-  "renamingState":  4,
-  "mergingEdge":    5,
-  "initial":        6 //when editor contains no states (= is empty)
+  "default": 0,
+  "creatingEdge": 1,
+  "namingEdge": 2,
+  "renamingEdge": 3,
+  "renamingState": 4,
+  "mergingEdge": 5,
+  "initial": 6 //when editor contains no states (= is empty)
 });
 
 /**
  * Enum to specify state and edge data origin.
  */
 const elemOrigin = Object.freeze({
-  "default":      0, //created in graph mode
-  "fromTable":    1, //created in table mode
+  "default": 0, //created in graph mode
+  "fromTable": 1, //created in table mode
   "fromExisting": 2  //when recreating editor from existing data
 });
 
@@ -484,13 +484,14 @@ class GraphMode extends AutomataEditorMode {
       }
     }
 
-    var splitted = answer.split("##states");
+    var splitted = answer.split("#states");
 
-    let final = /final={(([a-zA-Z0-9]+)|(${QUOT_SEQ}))(,((${QUOT_SEQ})|([a-zA-Z0-9]+)))*}/;
+    let final = new RegExp(`final={(${EditorSyntax.elems.stateId}|${EditorSyntax.elems.QUOT_SEQ})(,(${EditorSyntax.elems.QUOT_SEQ}|${EditorSyntax.elems.stateId}))*}`);
     let matches = splitted[0].match(final);
-    var finalStates = matches ? matches[0].substring(7, matches[0].length-1).split(',') : [] ;
+    var finalStates = matches ? matches[0].substring(7, matches[0].length - 1).split(',') : [];
 
-    var data = splitted[1].split("edges");
+    let initial = EditorUtils.getInitialStateFromText(answer);
+    var data = splitted[1].split(" edges");
     var states = data[0];
     var rest = data[1];
     var editor = this.getEditor();
@@ -499,21 +500,18 @@ class GraphMode extends AutomataEditorMode {
       states = states.split("@");
       for (var d of states) {
         var stateParts = d.split(';');
-        if (stateParts.length != 5) continue;
+        if (stateParts.length != 3) continue;
         let id = stateParts[0];
         let x = parseInt(stateParts[1]);
         let y = parseInt(stateParts[2]);
-        let initial = stateParts[3] == "1";
-        //var accepting = stateParts[4] == "1";
-        var data = this.getNewStateData(id, x, y, initial, false);
+        var data = this.getNewStateData(id, x, y);
         this.createState(data);
 
-        if (initial) {
+        if (initial != null && initial === data.id) {
           this.setNewStateAsInitial(data);
         }
         if (finalStates.includes(id)) {
           this.toggleAcceptingState(data, this.getStateGroupById(data.id));
-          //this.addAcceptingCircle(this.getStateGroupById(data.id));
         }
       }
     }
@@ -521,8 +519,8 @@ class GraphMode extends AutomataEditorMode {
       rest = rest.split('@');
       for (var d of rest) {
         var edgeData = d.split(';');
+        
         if (edgeData.length != 6) continue;
-
         var sourceId = edgeData[0];
         var targetId = edgeData[1];
         var symbols = edgeData[2];
@@ -1198,7 +1196,6 @@ class GraphMode extends AutomataEditorMode {
   }
 
   deleteStateEdges(stateData) {
-    //TODO prepisat pomocou state id??
     //delete edges' SVG
     this.edgeGroups
       .filter(function (ed) {
@@ -1806,6 +1803,11 @@ class GraphMode extends AutomataEditorMode {
 
   /* ------------------------------ Graph - State placement functions ------------------------------ */
 
+  /**
+   * Finds placement for new state created in Table mode.
+   * @param {Object} newStateData 
+   * @returns {Object} Modified state data.
+   */
   findStatePlacement(newStateData) {
     var baseX, baseY;
     if (this.getEditor().isEmpty()) {
@@ -1854,6 +1856,11 @@ class GraphMode extends AutomataEditorMode {
     return newStateData;
   }
 
+  /**
+   * Finds out if state has a valid position in graph or if it intersects with any other state.
+   * @param   {Object} state State data.
+   * @returns {Boolean}      True if state's position is invalid, false otherwise.
+   */
   invalidStatePosition(state) {
     for (var i = 0, j = this.statesData.length; i < j; i++) {
       const d = this.statesData[i];
@@ -1898,8 +1905,8 @@ class TableMode extends AutomataEditorMode {
       deleteButton: "delete-button-cell",
       addButton: "add-button-cell",
       controlButton: "control-button",
-      STATE_INDEX : 2,
-      MIN_CELL_WIDTH : "50px",
+      STATE_INDEX: 2,
+      MIN_CELL_WIDTH: "50px",
     };
   }
 
@@ -1910,11 +1917,17 @@ class TableMode extends AutomataEditorMode {
     this.createErrorAlert();
   }
 
+  /**
+   * Creates the div element where table will be placed.
+   */
   createTableDiv() {
     this.tableDiv = document.createElement("div");
     this.tableDiv.setAttribute("class", "tableDiv");
   }
 
+  /**
+   * Cretaes elements for syntax hint.
+   */
   createSyntaxHint() {
     var syntaxButton = HtmlUtils.createButton(syntaxLabel, "hintButton");
     syntaxButton.style.marginBottom = "7px";
@@ -1925,6 +1938,9 @@ class TableMode extends AutomataEditorMode {
     HtmlUtils.appendChildren(this.tableDiv, [syntaxButton, syntaxContentDiv]);
   }
 
+  /**
+ * Cretaes the error alert.
+ */
   createErrorAlert() {
     var alertP = document.createElement("p");
     alertP.setAttribute("class", "alert alert-danger");
@@ -1934,6 +1950,9 @@ class TableMode extends AutomataEditorMode {
     this.alertText = alertP;
   }
 
+  /**
+   * Creates new table from states and transitions.
+   */
   createTableFromData() {
     var oldTable = this.table;
     var table = this.createEmptyTable();
@@ -2048,6 +2067,10 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Creates an empty table.
+   * @returns {HTMLElement} Table.
+   */
   createEmptyTable() {
     var table = document.createElement("table");
     table.setAttribute("class", TableMode.CONSTS.myTable);
@@ -2062,6 +2085,12 @@ class TableMode extends AutomataEditorMode {
     return table;
   }
 
+  /**
+   * Inserts a pair of arrow buttons (init/accept) to the left of a state name.
+   * @param {HTMLElement} row 
+   * @param {Number} index 
+   * @returns {HTMLElement} A table cell containing the arrow buttons.
+   */
   insertArrows(row, index) {
     var cell = this.insertCell(row, index, ["arrow-td"], "40px");
     cell.style.minWidth = "40px";
@@ -2090,6 +2119,10 @@ class TableMode extends AutomataEditorMode {
     return cell;
   }
 
+  /**
+   * Inserts column add button into the table.
+   * @param {HTMLElement} row 
+   */
   insertColumnAddButton(row) {
     var cell = this.insertCellWithDiv(row, null, [TableMode.CONSTS.addButton, TableMode.CONSTS.noselectCell], null, addSymbol);
     if (!jeProhlizeciStranka_new()) {
@@ -2098,6 +2131,10 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Inserts delete button for column into the table.
+   * @param {HTMLElement} row 
+   */
   insertColumnDeleteButton(row) {
     var cell = this.insertCellWithDiv(row, null,
       [TableMode.CONSTS.deleteButton, TableMode.CONSTS.noselectCell], null, delSymbol);
@@ -2109,6 +2146,9 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Inserts row add button into the table.
+   */
   insertRowAddButton() {
     var newRow = this.table.insertRow(this.table.rows.length);
     var cell = this.insertCellWithDiv(newRow, 0, [TableMode.CONSTS.addButton, TableMode.CONSTS.noselectCell], null, addSymbol);
@@ -2119,6 +2159,10 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Inserts delete button for row into the table.
+   * @param {HTMLElement} row 
+   */
   insertRowDeleteButton(row) {
     var cell = this.insertCellWithDiv(row, 0,
       [TableMode.CONSTS.deleteButton, TableMode.CONSTS.noselectCell], null, delSymbol);
@@ -2129,28 +2173,36 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Inserts an empty inner cell - a result of the transition function - into the table.
+   * @param {HTMLElement} row 
+   */
   insertInnerCell(row) {
     var cell = this.insertCell(row, row.cells.length, [TableMode.CONSTS.myCell]);
     var value = EditorUtils.typeIsNondeterministic(this.getEditor().type) ? "{}" : "";
     var input = this.createInput([TableMode.CONSTS.inputCellDiv], value,
       this.table.rows[1].cells[cell.cellIndex].style.minWidth);
 
-    $(input).click(() => this.innerCellOnClick());
     $(input).on("input", () => this.innerCellOnInput(input));
     $(input).focusout(() => this.innerCellOnFocusout(input));
-
     $(input).keypress((e) => this.cellKeypressHandler(e));
 
     cell.myDiv = input;
     cell.appendChild(input);
   }
 
+  /**
+   * Inserts a row header cell - state name - into the table.
+   * @param {HTMLElement} row 
+   * @param {String} name 
+   * @param {Number} width 
+   * @returns 
+   */
   insertRowHeader(row, name, width) {
     var cell = this.insertCell(row, row.cells.length, ["row-header-cell"], width);
     var input = this.createInput([TableMode.CONSTS.inputCellDiv, TableMode.CONSTS.rowHeader], name, width);
     input.defaultClass = TableMode.CONSTS.rowHeader;
 
-    $(input).click(() => this.tableHeaderCellClick(input));
     $(input).on("input", (e) => this.rowHeaderOnInput(e));
     $(input).focusout(() => this.rowHeaderOnFocusout(input));
     $(input).keypress((e) => this.cellKeypressHandler(e));
@@ -2160,6 +2212,12 @@ class TableMode extends AutomataEditorMode {
     return cell;
   }
 
+  /**
+   * Inserts a culumn header cell - input symbol - into the table.
+   * @param {HTMLElement} row 
+   * @param {String} symbol 
+   * @param {Number} width 
+   */
   insertColumnHeader(row, symbol, width) {
     var cell = this.insertCell(row, row.cells.length, [TableMode.CONSTS.columnHeader], width);
     var input = this.createInput([TableMode.CONSTS.inputColumnHeaderDiv, TableMode.CONSTS.inputCellDiv], symbol, width);
@@ -2167,12 +2225,15 @@ class TableMode extends AutomataEditorMode {
     this.addResizable(cell);
     cell.appendChild(input);
 
-    $(input).click(() => this.innerCellOnClick());
     $(input).on("input", () => this.columnHeaderOnInput(input));
     $(input).focusout(() => this.columnHeaderOnFocusout(input));
     $(input).keypress((e) => this.cellKeypressHandler(e));
   }
 
+  /**
+   * Inserts a new row to the table.
+   * @param {String} title State name.
+   */
   insertRow(title) {
     if (this.locked) {
       return;
@@ -2185,7 +2246,6 @@ class TableMode extends AutomataEditorMode {
     if (title == null) {
       title = editor.generateStateId();
     }
-    this.deselectSelectedCell();
     this.table.rows[this.table.rows.length - 1].deleteCell(0);
     this.insertRowDeleteButton(this.table.rows[this.table.rows.length - 1]);
     this.insertArrows(this.table.rows[this.table.rows.length - 1], 1);
@@ -2205,11 +2265,15 @@ class TableMode extends AutomataEditorMode {
     editor.addState(data);
   }
 
+  /**
+   * Inserts a new column to the table with the appropriate input symbol.
+   * @param {String} symb Input symbol. If null, next one in alphabet 
+   *                      that is not present in table will be generated.
+   */
   insertColumn(symb = null) {
     if (this.locked) {
       return;
     }
-    this.deselectSelectedCell();
     this.table.rows[0].deleteCell(this.table.rows[0].cells.length - 1);
     this.insertColumnDeleteButton(this.table.rows[0]);
     this.insertColumnAddButton(this.table.rows[0]);
@@ -2225,10 +2289,14 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
-  deleteRow(rowIndex) {
+  /**
+  * Deletes table row with index.
+  * @param {Number} index 
+  */
+  deleteRow(index) {
     if (this.locked) return;
 
-    var stateId = this.table.rows[rowIndex].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value;
+    var stateId = this.table.rows[index].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value;
     this.table.states.splice(this.table.states.indexOf(stateId), 1);
 
     var editor = this.getEditor();
@@ -2258,9 +2326,13 @@ class TableMode extends AutomataEditorMode {
         }
       }
     }
-    this.table.deleteRow(rowIndex);
+    this.table.deleteRow(index);
   }
 
+  /**
+   * Deletes table column with index.
+   * @param {Number} index 
+   */
   deleteColumn(index) {
     if (this.locked) return;
     var symbol = this.table.rows[1].cells[index].myDiv.value;
@@ -2273,10 +2345,11 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Handles clicks on @param initDiv - selecting/deselecting state as initial.
+   * @param {HTMLelement} initDiv Div housing the ← arrow symbol next to state name in table.
+   */
   setInitDiv(initDiv) {
-    if (!this.locked) {
-      this.deselectSelectedCell();
-    }
     if (this.selectedInitDiv === initDiv) {
       this.unselectInitDiv();
       this.getEditor().Graph.setInitStateAsNotInitial();
@@ -2294,15 +2367,19 @@ class TableMode extends AutomataEditorMode {
     this.getEditor().Graph.setNewStateAsInitial(data);
   }
 
+  /**
+   * Deselects the div housing the → arrow symbol.
+   */
   unselectInitDiv() {
     $(this.selectedInitDiv).removeClass("selected-arrow");
     this.selectedInitDiv = null;
   }
 
+  /**
+   * Toggles state as accepting/not accepting.
+   * @param {HTMLElement} acceptDiv Div housing the ← arrow symbol next to state name in table.
+   */
   toggleAccArrow(acceptDiv) {
-    if (!this.locked) {
-      this.deselectSelectedCell();
-    }
     $(acceptDiv).toggleClass("selected-arrow");
 
     var stateId = this.table.rows[acceptDiv.parentNode.parentNode.rowIndex].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value;
@@ -2314,7 +2391,7 @@ class TableMode extends AutomataEditorMode {
 
   /**
    * Adds jQuery resizable handles for resizing columns'.
-   * @param {td}  cell  Table cell.
+   * @param {HTMLElement}  cell  HTML td element - a table cell.
    */
   addResizable(cell) {
     var table = this.table;
@@ -2337,11 +2414,15 @@ class TableMode extends AutomataEditorMode {
     cell.style.minWidth = TableMode.CONSTS.MIN_CELL_WIDTH;
   }
 
-  setInnerCellSizes(maxCellWidth) {
+  /**
+   * Sets width of all inner cells - transition function results.
+   * @param {Number} width 
+   */
+  setInnerCellSizes(width) {
     for (var i = 1, rows = this.table.rows.length - 1; i < rows; i++) {
       for (var j = 3, cols = this.table.rows[i].cells.length; j < cols; j++) {
-        this.table.rows[i].cells[j].style.width = maxCellWidth;
-        this.table.rows[i].cells[j].myDiv.style.width = maxCellWidth;
+        this.table.rows[i].cells[j].style.width = width;
+        this.table.rows[i].cells[j].myDiv.style.width = width;
       }
     }
   }
@@ -2407,6 +2488,14 @@ class TableMode extends AutomataEditorMode {
 
   /* ------------------------------ Table insert methods ------------------------------ */
 
+  /**
+   * Inserts a new cell into table.
+   * @param {HTMLElement} row
+   * @param {Number} index Index in row where to insert the cell.
+   * @param {Array<String>} classlist Array of classes for input to have.
+   * @param {Number} width 
+   * @returns 
+   */
   insertCell(row, index, classlist, width = null) {
     var cell = row.insertCell(index);
     classlist.forEach(c => {
@@ -2420,6 +2509,13 @@ class TableMode extends AutomataEditorMode {
     return cell;
   }
 
+  /**
+   * Creates a new input element.
+   * @param {Array<String>} classlist Array of classes for input to have.
+   * @param {String} value Default value of the input.
+   * @param {Number} width
+   * @returns 
+   */
   createInput(classlist, value, width = TableMode.CONSTS.MIN_CELL_WIDTH) {
     var input = document.createElement("input");
     input.value = input.prevValue = value;
@@ -2435,6 +2531,15 @@ class TableMode extends AutomataEditorMode {
     return input;
   }
 
+  /**
+   * Inserts a new cell containing a div into @param row.
+   * @param {HTMLElement} row 
+   * @param {Number} index Index in row where to insert the cell.
+   * @param {Array<String>} cellClasslist Array of classes for the cell.
+   * @param {Array<String>} divClasslist Array of classes for the div.
+   * @param {String} innerHtml Default value for the cell.
+   * @returns {HTMLElement} The new cell.
+   */
   insertCellWithDiv(row, index, cellClasslist, divClasslist, innerHtml = "") {
     var cell = index == null ? row.insertCell(row.cells.length) : row.insertCell(index);
     cell.innerHTML = innerHtml;
@@ -2454,6 +2559,12 @@ class TableMode extends AutomataEditorMode {
     return cell;
   }
 
+  /**
+   * Inserts a new cell into row.
+   * @param {HTMLElement} row 
+   * @param {Number} index Index where to insert the cell.
+   * @returns The new cell.
+   */
   insertInactiveCell(row, index) {
     var classes = [
       TableMode.CONSTS.myCell,
@@ -2465,32 +2576,6 @@ class TableMode extends AutomataEditorMode {
 
 
   /* ------------------------------ Table utils ------------------------------ */
-
-  //is it necessary to have???
-  deselectSelectedCell() {
-    if (this.selectedCellInput != null) {
-      $(this.selectedCellInput).removeClass(TableMode.CONSTS.selectedHeaderInput);
-      $(this.selectedCellInput).addClass(TableMode.CONSTS.rowHeader);
-      this.selectedCellInput = null;
-    }
-  }
-
-  selectDifferentRowHeaderCell(input) {
-    var prev;
-    if (this.selectedCellInput != null) {
-      prev = d3.select(this.selectedCellInput);
-    }
-    if (prev != null) {
-      prev.classed(TableMode.CONSTS.selectedHeaderInput, false);
-      prev.classed(TableMode.CONSTS.rowHeader, true);
-    }
-    var next = d3.select(input);
-    next.classed(TableMode.CONSTS.selectedHeaderInput, true);
-    next.classed(TableMode.CONSTS.rowHeader, false);
-
-    this.selectedCellInput = input;
-  }
-
   /**
    * Deletes symbol from all table and graph transitions.
    * If transition was containing only this symbol, it is deleted.
@@ -2574,7 +2659,7 @@ class TableMode extends AutomataEditorMode {
   }
 
   /**
-   * Resets all incorrect cells to their previous correct value and unblocks table.
+   * Resets all incorrect cells to their previous correct value and unblocks the table.
    */
   rollback() {
     console.log("rollback");
@@ -2622,20 +2707,11 @@ class TableMode extends AutomataEditorMode {
 
   /* ------------------------------ Table event handlers ------------------------------ */
   /**
-   * Handles the table's inner cells' behaviour on a click event.
-   */
-  innerCellOnClick() {
-    if (!this.locked) {
-      this.deselectSelectedCell();
-    }
-  }
-
-  /**
-   * Handles the @param input on input change.
-   * @param {HTMLElement} input 
+   * Handles table inner cell - result of transition function - on input change.
+   * @param {HTMLElement} input HTML input element containing a result of transition function.
    */
   innerCellOnInput(input) {
-    if (incorrectTableInnerCellSyntax(this.getEditor().type, input.value)) {
+    if (TableSyntax.incorrectInnerCell(this.getEditor().type, input.value)) {
       this.setIncorrectInput(errors.innerCellIncorrectSyntaxBase + " ", input);
     }
     else {
@@ -2643,11 +2719,15 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Handles table inner cell - result of transition function - on focuout.
+   * @param {HTMLElement} input HTML input element containing a result of transition function.
+   */
   innerCellOnFocusout(input) {
     var editor = this.getEditor();
     var type = editor.type;
 
-    if (incorrectTableInnerCellSyntax(type, input.value)) {
+    if (TableSyntax.incorrectInnerCell(type, input.value)) {
       this.setIncorrectInput(errors.innerCellIncorrectSyntaxBase + " ", input);
     }
     else {
@@ -2663,7 +2743,7 @@ class TableMode extends AutomataEditorMode {
       var newStates = newName.split(",");
       newStates = ArrayUtils.removeDuplicates(newStates);
 
-      //vymaze edges ktore uz nemaju pismenko, pripadne vymaze pismeno z transition
+      //deletes the input symbol from any transitions, or whole transitions if they contained only one symbol
       for (let i = 0; i < prevStates.length; i++) {
         if (newStates.indexOf(prevStates[i]) == -1) {
           var ed = this.getEdgeDataByStates(sourceStateId, prevStates[i]);
@@ -2684,10 +2764,10 @@ class TableMode extends AutomataEditorMode {
       }
 
       for (let i = 0, len = newStates.length; i < len; i++) {
-        //ak predtym stav s tymto nazvom bol v cell == nenastala v nom zmena
+        //if the cell already contained this state
         if (prevStates.indexOf(newStates[i]) != -1) continue;
 
-        //ak NEEXISTUJE v grafe stav s danym nazvom=
+        //if the state doesn't exist in graph
         if (this.getStateDataById(newStates[i]) == null) {
           var addRowBool = true;
           for (var j = 2, rows = this.table.rows.length - 1; j < rows; j++) { //skontrolovanie, ze sa nazov tohto stavu nenachadza v inom riadku tabulky
@@ -2718,8 +2798,6 @@ class TableMode extends AutomataEditorMode {
           }
         }
       }
-      //vytvaranie novych transitions
-      //pripadne pridavanie pismiek do existujucich
       var val = newStates.toString();
       if (EditorUtils.typeIsNondeterministic(type)) {
         val = "{" + val + "}";
@@ -2728,21 +2806,15 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
-  tableHeaderCellClick(input) {
-    if (!this.locked && this.selectedCellInput != input) {
-      this.selectDifferentRowHeaderCell(input);
-    }
-  }
-
   /**
-   * Handles table column header cell ("transition sybol" cell) on input change.
-   * @param {HTMLElement} input 
+   * Handles table column header - input symbol - cell on input change.
+   * @param {HTMLElement} input HTML input element containing an input symbol.
    */
   columnHeaderOnInput(input) {
     if (input.value == "\\e") {
       input.value = epsSymbol;
     }
-    if (incorrectTableColumnHeaderSyntax(this.getEditor().type, input.value)) {
+    if (TableSyntax.incorrectColumnHeader(this.getEditor().type, input.value)) {
       this.setIncorrectInput(errors.incorrectTransitionSymbol, input);
     }
     else if (this.tableColumnSymbolAlreadyExists(input, input.value)) {
@@ -2753,6 +2825,10 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Handles column header - input symbol - cell on focusout.
+   * @param {HTMLElement} input HTML input element containing an input symbol.
+   */
   columnHeaderOnFocusout(input) {
     if ($(input).hasClass(TableMode.CONSTS.incorrectCell) || this.locked) {
       return;
@@ -2784,10 +2860,14 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Handles row header - state name - on input change.
+   * @param {Event} e 
+   */
   rowHeaderOnInput(e) {
     var input = e.target;
 
-    if (incorrectStateSyntax(input.value)) {
+    if (EditorSyntax.incorrectStateSyntax(input.value)) {
       this.setIncorrectInput(errors.incorrectStateSyntax, input);
     }
     else if (this.tableStateAlreadyExists(input, input.value)) {
@@ -2798,6 +2878,10 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Handles row header - state name - cell on focusout.
+   * @param {HTMLElement} input Input with state name.
+   */
   rowHeaderOnFocusout(input) {
     if ($(input).hasClass(TableMode.CONSTS.incorrectCell) == false && !this.locked) {
       if (input.prevValue == input.value) return;
@@ -2812,7 +2896,7 @@ class TableMode extends AutomataEditorMode {
       //update state in graph
       editor.Graph.renameState(this.getStateDataById(prevName), newName);
 
-      // Traverse all transitions cells in table and change the name
+      //traverse all transitions cells in table and change the name
       for (let i = 2, rows = this.table.rows.length - 1; i < rows; i++) {
         for (let j = 2, cols = this.table.rows[i].cells.length; j < cols; j++) {
           var val = this.table.rows[i].cells[j].myDiv.value;
@@ -2836,6 +2920,10 @@ class TableMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Handles keypress events. Prevents form submission on ENTER.
+   * @param {KeyEvent} event 
+   */
   cellKeypressHandler(event) {
     var code = event.keyCode || event.which;
     if (code == 13) {
@@ -2862,9 +2950,19 @@ class TextMode extends AutomataEditorMode {
     this.textDiv.appendChild(this.textArea);
   }
 
+  /**
+   * Sets textArea's value to @param val.
+   * @param {String} val 
+   */
   updateValue(val) {
     this.textArea.innerText = val;
     $(this.textArea).trigger("change");
+  }
+
+  updateGraphFromText() {
+    let value = this.textArea.innerText;
+
+
   }
 }
 
@@ -2880,6 +2978,9 @@ class Editor {
     EditorManager.addEditor(this);
   }
 
+  /**
+   * Adds syntax checking for editor's textarea.
+   */
   appendSyntaxCheck() {
     var errDiv = document.createElement("div");
     errDiv.setAttribute("id", this.id + "-error");
@@ -2903,7 +3004,7 @@ class Editor {
       HtmlUtils.hideElem(errDiv);
     }
 
-    //call the funtion that links parser function to textarea
+    //call the funtion registerElem which links parser function to textarea
     eval("registerElem(this.id, " + this.type + "Parser.parse" + ", this.Text.textArea)");
 
     return errDiv;
@@ -2943,8 +3044,8 @@ class AutomataEditor extends Editor {
    */
   static get CONSTS() {
     return {
-      MENU_BUTTON : "menu-button",
-      CONTEXT_MENU : "context-menu"
+      MENU_BUTTON: "menu-button",
+      CONTEXT_MENU: "context-menu"
     };
   }
 
@@ -3130,17 +3231,15 @@ class AutomataEditor extends Editor {
     result += "}";
 
     //position data
-    result += " ##";
+    result += " #";
     result += "states";
     this.statesData.forEach(function (d) {
       result += "@" + d.id
         + ";" + d.x.toFixed(2)
-        + ";" + d.y.toFixed(2)
-        + ";" + (d.initial ? 1 : 0)
-        + ";" + (d.accepting ? 1 : 0);
+        + ";" + d.y.toFixed(2);
 
     });
-    result += "edges";
+    result += " edges";
     this.edgesData.forEach(function (d) {
       result += "@" //+ d.id
         + d.source.id
@@ -3224,7 +3323,7 @@ class AutomataEditor extends Editor {
     else if (!this.stateIdIsUnique(stateData, newId)) {
       err = stateNameAlreadyExists;
     }
-    else if (incorrectStateSyntax(newId)) {
+    else if (EditorSyntax.incorrectStateSyntax(newId)) {
       err = errors.incorrectStateSyntax;
     }
     else if (newId.length > 50) {
@@ -3243,10 +3342,13 @@ class AutomataEditor extends Editor {
   checkEdgeSymbolsValidity(edgeId, sourceStateData, symbols) {
     var err = "";
 
-    if (symbols == null || symbols == "") {
+    if (sourceStateData == null || typeof sourceStateData == undefined) {
+      err = "invalid source state";
+    }
+    else if (symbols == null || symbols == "") {
       err = errors.emptyTransition;
     }
-    else if (incorrectGraphTransitionsSyntax(this.type, symbols)) {
+    else if (GraphSyntax.incorrectTransition(this.type, symbols)) {
       err = INVALID_SYNTAX_ERROR;
     }
     else if (this.type == "DFA") {
@@ -3319,7 +3421,9 @@ function createEditor(div, textArea) {
     }
   }
   else {
-    textArea.innerText = "init=s1 (s1,a)={s2} (s2,a)={s3} (s3,a)={s3} (s3,b)={s3} final={s2} ##states@s1;-259.30;-154.44;1;0@s2;-109.30;-154.44;0;0@s3;40.70;-154.44;0;1edges@s1;s2;a;;;@s2;s3;a;;;@s3;s3;a,b;;;1.55@initAngle:3.140@t:1.320;477.870;346.506";
+    if (type == "DFA") {
+      textArea.innerText = "(s1,a)=s2 (s2,a)=s3 (s3,a)=s3 (s2,b)=s2 final={s444,s2} #states@s1;-307.98;-157.00@s2;-112.03;-155.81@s3;66.99;-166.00 edges@s1;s2;a;0.05;-61.02;@s2;s3;a;2.93;117.91;@s3;s3;a;;;1.55@s2;s2;b;;;-2.42@initAngle:3.140@t:1.000;457.562;296.987";
+    }
     editor = new AutomataEditor(div.id, type, textArea);
     editor.Graph.reconstruct(textArea.innerText);
 
@@ -3376,6 +3480,8 @@ function windowKeyUp(event) {
   }
 }
 
+
+/* ------------------------------ Utils ------------------------------ */
 
 /**
  * Helper methods concerning HTML elements.
@@ -3893,6 +3999,19 @@ class EditorUtils {
     return type == "NFA" || type == "EFA";
   }
 
+  static getInitialStateFromText(answer) {
+    let matches = answer.match(new RegExp(`init=${EditorSyntax.elems.stateId}`));
+    if (matches) {
+      return matches[0].substring(5);
+    }
+
+    matches = answer.match(new RegExp(`\\(${EditorSyntax.elems.stateId}`));
+    if (matches) {
+      return matches[0].substring(1);
+    }
+    return null;
+  }
+
   /**
    * Returns the k, x, y parameters as a d3.transform object.
    * @param   {Number} k  Zoom level.
@@ -3938,112 +4057,135 @@ class EditorUtils {
   }
 }
 
-/* ------------------------------ Syntax functions ------------------------------ */
+
+/* ------------------------------ Syntax ------------------------------ */
 
 /**
- * non-empty sequence of a-Z and 0-9 characters
+ * Represents basic syntax rules for editor.
  */
-const STATE_ID_SYNTAX = "[a-zA-Z0-9]+";
+class EditorSyntax {
+  static get elems() {
+    return {
+      stateId: `[a-zA-Z0-9]+`,
+      QUOT_SEQ: "\"[^\\s\"]+\"",
+      //  \"[^\\s\"]+\"  - defines any non-empty sequence of symbols that are not white-space or "", 
+      //                   enclosed in ""; e.g. "aaa" or "79878"
+      inputSymbol: `([a-zA-Z0-9])|(\"[^\\s\"]+\")`,
+      inputSymbol_EFA: `([a-zA-Z0-9])|(\"[^\\s\"]+\")|(ε)|(\\e)`,
+    };
+  }
 
-/**
- * defines any non-empty sequence of symbols that are not white space or "", enclosed in ""; eg. "aaa", "79878"
- */
-const QUOT_SEQ = "\"[^\\s\"]+\"";
+  /**
+  * Syntax of automaton's state names.
+  * @return {RegExp} Regular expression.
+  */
+  static stateSyntax() {
+    return new RegExp(`^${EditorSyntax.elems.stateId}$`);
+  }
 
-/**
- * Syntax of automaton's state names.
- * @return {RegExp} Regular expression.
- */
-function stateSyntax() {
-  return new RegExp(`^${STATE_ID_SYNTAX}$`);
+  /**
+   * Decides if value is incorrect state name.
+   * @param   {string}  value State name to check.
+   * @return  {boolean}       True if value is incorrect state name, false otherwise.
+   */
+  static incorrectStateSyntax(value) {
+    return !this.stateSyntax().test(value);
+  }
 }
 
 /**
- * Holds regular expressions that define syntax of elements in Graph mode.
+ * Class that defines syntax of elements in Graph mode and contains functions for syntax checking.
  */
-const graphSyntax = {
+class GraphSyntax extends EditorSyntax {
   /**
    * Syntax of DFA and NFA transitions (allows more input symbols divided by commas).
    * @return {RegExp} Regular expression.
    */
-  transition: function () {
-    return new RegExp(`^(([a-zA-Z0-9])|(${QUOT_SEQ}))(,((${QUOT_SEQ})|([a-zA-Z0-9])))*$`);
-  },
+  static transition() {
+    return new RegExp(`^(${this.elems.inputSymbol})(,(${this.elems.inputSymbol}))*$`);
+  }
 
   /**
    * Syntax of EFA transitions (allows more input symbols divided by commas).
    * @return {RegExp} Regular expression.
    */
-  transition_EFA: function () {
-    return new RegExp(`^(([a-zA-Z0-9])|(${QUOT_SEQ})|(${epsSymbol})|(\\e))(,(([a-zA-Z0-9])|(${QUOT_SEQ})|(${epsSymbol})|(\\e)))*$`);
-  },
+  static transition_EFA() {
+    return new RegExp(`^(${this.elems.inputSymbol_EFA})(,(${this.elems.inputSymbol_EFA}))*$`);
+  }
 
+  /**
+   * Checks if syntax of transition is incorrect.
+   * @param   {String}  type  Editor's type {DFA, NFA, EFA}.
+   * @param   {String}  value Input symbol(s).
+   * @returns {Boolean}       True if syntax is incorrect, false otherwise.
+   */
+  static incorrectTransition(type, value) {
+    return ((type == "DFA" || type == "NFA") && !this.transition().test(value)) ||
+      (type == "EFA" && !this.transition_EFA().test(value));
+  }
 }
 
 /**
- * Holds regular expressions that define syntax of elements in Table mode.
+ * Class that defines syntax of elements in Table mode and contains functions for syntax checking.
  */
-const tableSyntax = {
+class TableSyntax extends EditorSyntax {
   /**
    * Syntax of one input symbol - table column header (DFA and NFA).
    * @returns {RegExp} Regular expression.
    */
-  transition: function () {
-    return new RegExp(`^[a-zA-Z0-9]$|^${QUOT_SEQ}$`);
-  },
+  static transition() {
+    return new RegExp(`^(${this.elems.inputSymbol})$`);
+  }
 
   /**
-   * Syntax of one input symbol - table column header (EFA).
+   * Syntax of  table column header - one input symbol - (EFA).
    * @returns {RegExp} Regular expression.
    */
-  transition_EFA: function () {
-    return new RegExp(`^${epsSymbol}$|^\\e$|^[a-zA-Z0-9]$|^${QUOT_SEQ}$`);
-  },
+  static transition_EFA() {
+    return new RegExp(`^(${this.elems.inputSymbol_EFA})$`);
+  }
 
   /**
-   * Syntax of result of transition function (= one state name).
+   * Syntax of a result of transition function (= one state name).
    * @returns {RegExp} Regular expression.
    */
-  innerCell_DFA: function () {
-    return new RegExp(`^$|^${STATE_ID_SYNTAX}$`);
-  },
+  static innerCell_DFA() {
+    return new RegExp(`^$|^${this.elems.stateId}$`);
+  }
 
   /**
    * Syntax of result of transition function (= set of state names).
    * @returns {RegExp} Regular expression.
    */
-  innerCell_Nondeterm: function () {
-    return new RegExp(`^{}$|^{${STATE_ID_SYNTAX}(,${STATE_ID_SYNTAX})*}$`);
+  static innerCell_Nondeterm() {
+    return new RegExp(`^{}$|^{${this.elems.stateId}(,${this.elems.stateId})*}$`);
   }
 
-}
+  /**
+   * Checks if syntax of table inner cell - result of transition function - is incorrect.
+   * @param   {String}  type  Editor's type {DFA, NFA, EFA}.
+   * @param   {String}  value 
+   * @returns {Boolean}       True if syntax is incorrect, false otherwise.
+   */
+  static incorrectInnerCell(type, value) {
+    return (type == "DFA" && !this.innerCell_DFA().test(value)) ||
+      (EditorUtils.typeIsNondeterministic(type) && !this.innerCell_Nondeterm().test(value));
+  }
 
-/**
- * Decides if value is incorrect state name.
- * @param   {string}  value State name to check.
- * @return  {boolean}       True if value is incorrect state name, false otherwise.
- */
-function incorrectStateSyntax(value) {
-  return !stateSyntax().test(value);
-}
-
-function incorrectGraphTransitionsSyntax(type, value) {
-  return ((type == "DFA" || type == "NFA") && !graphSyntax.transition().test(value)) ||
-    (type == "EFA" && !graphSyntax.transition_EFA().test(value));
-}
-
-function incorrectTableInnerCellSyntax(type, value) {
-  return (type == "DFA" && !tableSyntax.innerCell_DFA().test(value)) ||
-    (EditorUtils.typeIsNondeterministic(type) && !tableSyntax.innerCell_Nondeterm().test(value));
-}
-
-function incorrectTableColumnHeaderSyntax(type, value) {
-  return ((type == "DFA" || type == "NFA") && !tableSyntax.transition().test(value)) ||
-    (type == "EFA" && !tableSyntax.transition_EFA().test(value));
+  /**
+   * Checks if syntax of table column header - one input symbol - is incorrect.
+   * @param   {String}  type  Editor's type {DFA, NFA, EFA}.
+   * @param   {String}  value Input symbol.
+   * @returns {Boolean}       True if syntax is incorrect, false otherwise.
+   */
+  static incorrectColumnHeader(type, value) {
+    return ((type == "DFA" || type == "NFA") && !this.transition().test(value)) || (
+      type == "EFA" && !this.transition_EFA().test(value));
+  }
 }
 
 
-/* ------------------------------ IS helper functions ------------------------------ */
+/* ------------------------------ IS MUNI helper functions ------------------------------ */
 
 /**
  * Registers function to element with correct question id.
