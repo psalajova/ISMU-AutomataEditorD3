@@ -189,24 +189,25 @@ Starter function that can take 4 command line arguments:
 """
 def setup(args):
     strip = False
-    ext = ""
-
+    ext = "_new"
+    dirExt = ""
+    
     if (len(args) < 2):
-        print("Directory path not specified")
+        print("Directory path not specified.")
         return
-    if len(args)  > 2 and args[2] != "-s":
-        ext = args[2]
+    if len(args) > 2 and args[2] != "-s":
+        ext = dirExt = args[2]
     if "-s" in args:
         strip = True
     if os.path.isfile(args[1]):
         if args[1].lower().endswith('.qdef') == False:
-            print("The file doesn't have .qdef extension")
+            print("Unable to convert, the file needs to have .qdef extension.")
             return
         convertOnefile(args[1], "", ext, strip)
     elif os.path.isdir(args[1]):
-        convert(args[1], ext, strip)
+        convert(args[1], dirExt, strip)
     else:
-        print("couldn't find file/dir {}".format(args[1]))
+        print("Unable to convert, could not find {}.".format(args[1]))
     
 
 setup(sys.argv)
