@@ -27,9 +27,9 @@ var tableAcceptingButtonName = "Accepting state"; //label - table button to togg
 //state
 var renameStateText = "Rename";
 var deleteStateText = "Delete";
-var setAsInitialText = "Set as initial";
-var setStateAsAcceptingText = "Set as accepting";
-var setStateAsNonAcceptingText ="Set as not accepting";
+var setAsInitialText = "Make initial";
+var setStateAsAcceptingText = "Make accepting";
+var setStateAsNonAcceptingText ="Make non-accepting";
 
 //edge
 var deleteEdgeText = "Delete";
