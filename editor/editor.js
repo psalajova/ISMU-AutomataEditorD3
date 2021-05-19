@@ -36,34 +36,42 @@ var SELECTED_ELEM_GROUP, maxZoomout = 0.5;
 
 setupLanguage();
 
-if (typeof editor_init !== 'function') {
-  /*
-    najprv sa iba generuju ids a napla sa otazky{} - robi sa editor_init(type)
-    potom window.onload - zoberu sa vsetky textareas a postupne sa k nim vytvara div, initialise...
+/**
+ * This section of code ensured the initialisation of editor(s) when the page is loading.
  */
-  var otazky = {};
+if (typeof editor_init !== 'function') {
+  var editorQuestions = {};
 
   var onl = window.onload || function () { };
+  /**
+   * Second, after the editorQuestions object is filled, we iterate over it,
+   * creating the editor for the appropriate textareas.
+   */
   window.onload = function () {
     onl();
     var textAreas = document.getElementsByTagName('textarea');
-    for (var n in otazky) {
+    for (var n in editorQuestions) {
       var txa = textAreas[n];
-      if (otazky[n] != null) {
+      if (editorQuestions[n] != null) {
         var div = document.createElement("div");
-        div.setAttribute("id", otazky[n]);
+        div.setAttribute("id", editorQuestions[n]);
         txa.parentNode.insertBefore(div, txa.nextSibling);
         createEditor(div, txa);
       }
     }
   }
+  /**
+   * First, this method is called from the individual questions in a ROPOT,
+   * filling the editorQuestions object as {1: "id1", 2: "id2", ...}. 
+   * The first number is an index of that textarea, marking it from all textareas on page,
+   * so that the editor is created only for the according textareas.
+   */
   editor_init = function (type) {
     var id = EditorUtils.generateEditorId(type);
-    //if element with id already exists, generate a new id
     while (document.getElementById(id) != null) {
       id = EditorUtils.generateEditorId(type);
     }
-    otazky[document.getElementsByTagName('textarea').length] = id;
+    editorQuestions[document.getElementsByTagName('textarea').length] = id;
   };
   upload = function () { editor_init(null); };
 }
@@ -244,6 +252,9 @@ class GraphMode extends AutomataEditorMode {
     };
   }
 
+  /**
+   * Creates graph hint and syntax hint elements for graph mode.
+   */
   initHints() {
     var hintDiv = document.createElement("div");
     hintDiv.setAttribute("class", "hintDiv");
@@ -511,7 +522,7 @@ class GraphMode extends AutomataEditorMode {
           this.setNewStateAsInitial(data);
         }
         if (finalStates.includes(id)) {
-          this.toggleAcceptingState(data, this.getStateGroupById(data.id));
+          this.toggleAcceptingState(data);
         }
       }
     }
@@ -572,40 +583,62 @@ class GraphMode extends AutomataEditorMode {
 
   }
 
+  /**
+   * Creates elements of the state context menu.
+   */
   createStateContextMenu() {
     var menu = document.createElement("div");
     menu.setAttribute("class", AutomataEditor.CONSTS.CONTEXT_MENU);
 
     var a = HtmlUtils.createContextMenuButton(renameStateText);
-    a.addEventListener("click", () => this.renameStateHandler());
+    a.addEventListener("click", () => {
+      HtmlUtils.hideElem(this.stateContextMenuDiv);
+      this.startRenaming(graphStateEnum.renamingState, this.graphState.selectedState.id);
+    });
 
     var b = HtmlUtils.createContextMenuButton(deleteStateText);
-    b.addEventListener("click", () => this.deleteStateHandler());
+    b.addEventListener("click", () => {
+      this.deleteState(this.graphState.selectedState);
+      HtmlUtils.hideElem(this.stateContextMenuDiv);
+    });
 
     var c = HtmlUtils.createContextMenuButton(setStateAsAcceptingText);
-    c.addEventListener("click", () => this.toggleAcceptingStateHandler());
+    c.addEventListener("click", () => {
+      this.toggleAcceptingState(this.graphState.selectedState);
+      HtmlUtils.hideElem(this.stateContextMenuDiv);
+    });
 
     var d = HtmlUtils.createContextMenuButton(setAsInitialText);
-    d.addEventListener("click", () => this.setStateAsInitialHandler());
+    d.addEventListener("click", () => {
+      this.setNewStateAsInitial(this.graphState.selectedState);
+      HtmlUtils.hideElem(this.stateContextMenuDiv);
+    });
 
     HtmlUtils.appendChildren(menu, [a, b, c, d]);
-
     this.acceptingButton = c;
     this.initialButton = d;
-
     this.graphDiv.appendChild(menu);
     this.stateContextMenuDiv = menu;
   }
 
+  /**
+   * Creates elements of the edge (transition) context menu
+   */
   createEdgeContextMenu() {
     let menu = document.createElement("div");
     menu.setAttribute("class", "context-menu");
 
     let renameButton = HtmlUtils.createContextMenuButton(renameEdgeText);
-    renameButton.addEventListener("click", () => this.renameEdgeHandler());
+    renameButton.addEventListener("click", () => {
+      HtmlUtils.hideElem(this.edgeContextMenuDiv);
+      this.startRenaming(graphStateEnum.renamingEdge, this.graphState.selectedEdge.symbols);
+    });
 
     let deleteButton = HtmlUtils.createContextMenuButton(deleteEdgeText);
-    deleteButton.addEventListener("click", () => this.deleteEdgeHandler());
+    deleteButton.addEventListener("click", () => {
+      this.deleteEdge(this.graphState.selectedEdge);
+      HtmlUtils.hideElem(this.edgeContextMenuDiv);
+    });
 
     HtmlUtils.appendChildren(menu, [renameButton, deleteButton]);
 
@@ -613,6 +646,9 @@ class GraphMode extends AutomataEditorMode {
     this.edgeContextMenuDiv = menu;
   }
 
+  /**
+   * Creates the "new state" context menu, shown when right-clicking on canvas.
+   */
   createAddStateMenu() {
     var menu = document.createElement("div");
     menu.setAttribute("class", AutomataEditor.CONSTS.CONTEXT_MENU);
@@ -631,6 +667,9 @@ class GraphMode extends AutomataEditorMode {
     this.addStateContextMenu = menu;
   }
 
+  /**
+   * Creates the error message shown when renaming state/editing transition.
+   */
   createRenameError() {
     var p = document.createElement("p");
     p.setAttribute("class", "rename-error-p");
@@ -641,6 +680,10 @@ class GraphMode extends AutomataEditorMode {
 
   /* ------------------------------ event handlers ------------------------------ */
 
+  /**
+   * Handles clicks on canvas.
+   * @param {MouseEvent} e 
+   */
   canvasOnClick(e) {
     e.preventDefault();
     var classes = e.target.classList;
@@ -665,6 +708,10 @@ class GraphMode extends AutomataEditorMode {
     EditorManager.deselectAll();
   }
 
+  /**
+   * Handles double-clicks on canvas.
+   * @param {MouseEvent} e 
+   */
   canvasOnDblclick(e) {
     if (e.target.tagName == "rect") {
       var p = EditorUtils.getPointWithoutTransform(d3.pointer(e), this.svgGroup);
@@ -678,9 +725,14 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
-  canvasOnContextmenu(event) {
-    event.preventDefault();
-    var classes = event.target.classList;
+  /**
+   * Handles the context-menu event (right-clicks) on canvas.
+   * @param {*} e 
+   * @returns 
+   */
+  canvasOnContextmenu(e) {
+    e.preventDefault();
+    var classes = e.target.classList;
     var isState = classes.contains(GraphMode.CONSTS.stateElem);
     var isEdge = classes.contains(GraphMode.CONSTS.edgeElem);
     var state = this.getCurrentState();
@@ -704,10 +756,14 @@ class GraphMode extends AutomataEditorMode {
       EditorManager.deselectAll();
       elem = this.addStateContextMenu;
     }
-    HtmlUtils.setElemPosition(elem, d3.pointer(event)[1], d3.pointer(event)[0]);
+    HtmlUtils.setElemPosition(elem, d3.pointer(e)[1], d3.pointer(e)[0]);
     HtmlUtils.showElem(elem);
   }
 
+  /**
+   * Defines the behaviour when moving the mouse.
+   * @param {MouseEvent} e 
+   */
   canvasOnMousemove(e) {
     if (this.graphState.currentState == graphStateEnum.creatingEdge) {
       this.initCreatingTransition(e);
@@ -716,8 +772,8 @@ class GraphMode extends AutomataEditorMode {
 
   /**
    * According to where mouse is pointing decides the shape of the new edge.
-   * @param {MouseEvent} e 
-   * @param {Boolean} hide 
+   * @param {MouseEvent}  e 
+   * @param {Boolean}     hide 
    */
   initCreatingTransition(e, hide = false) {
     var path = this.temporaryEdgeG.select("." + GraphMode.CONSTS.edgePath);
@@ -748,68 +804,46 @@ class GraphMode extends AutomataEditorMode {
     this.disableAllDragging();
   }
 
-  renameStateHandler() {
-    HtmlUtils.hideElem(this.stateContextMenuDiv);
-    this.startRenaming(graphStateEnum.renamingState, this.graphState.selectedState.id);
-  }
-
-  deleteStateHandler() {
-    this.deleteState(this.graphState.selectedState);
-    HtmlUtils.hideElem(this.stateContextMenuDiv);
-  }
-
-  setStateAsInitialHandler() {
-    this.setNewStateAsInitial(this.graphState.selectedState);
-    HtmlUtils.hideElem(this.stateContextMenuDiv);
-  }
-
-  toggleAcceptingStateHandler() {
-    var d = this.graphState.selectedState;
-    this.toggleAcceptingState(d, this.getStateGroupById(d.id));
-    HtmlUtils.hideElem(this.stateContextMenuDiv);
-  }
-
-  deleteEdgeHandler() {
-    this.deleteEdge(this.graphState.selectedEdge);
-    HtmlUtils.hideElem(this.edgeContextMenuDiv);
-  }
-
-  renameEdgeHandler() {
-    HtmlUtils.hideElem(this.edgeContextMenuDiv);
-    this.startRenaming(graphStateEnum.renamingEdge, this.graphState.selectedEdge.symbols);
-  }
-
   /* ------------------------------ pan & zoom ------------------------------ */
 
+  /**
+   * Defines editor's behaviour at the start of the zooming.
+   */
   svgZoomStart() {
     EditorManager.deselectAll(this.editorId);
     this.hideAllContextMenus();
   }
 
+  /**
+   * Defines editor's behaviour during the zooming.
+   * @param {Object} e d3 zoom event object.
+   */
   svgZoomed(e) {
     this.svgGroup.attr("transform", e.transform);
   }
 
+  /**
+   * Defines editor's behaviour at the end of the zooming.
+   */
   svgZoomEnd() {
     if (!jeProhlizeciStranka_new()) {
       this.updateText();
     }
   }
 
+  /**
+   * Sets the view of the canvas to its middle.
+   */
   setViewToMiddle() {
     this.setTransform(1, params.width / 2, params.height / 2);
   }
 
-  setViewToState(div, x, y) {
-    div.graphDiv.svg.transition().duration(1).call(
-      div.zoom.transform,
-      d3.zoomIdentity.translate(params.width / 2, params.height / 2)
-        .scale(1)
-        .translate(-x - (div.graphDiv.offsetWidth / 3), -y - (div.graphDiv.offsetHeight / 3))
-    );
-    generateQuestionResult(div);
-  }
-
+  /**
+   * Sets the zoom&pan of the canvas - its scale and position.
+   * @param {Number} k Scale.
+   * @param {Number} x X coordinate.
+   * @param {Number} y Y coordinate.
+   */
   setTransform(k, x, y) {
     this.svg.call(
       this.zoom.transform,
@@ -840,16 +874,26 @@ class GraphMode extends AutomataEditorMode {
     this.graphState.currentState = graphStateEnum.default;
   }
 
+  /**
+   * Hides the arrow marking the initial state.
+   */
   hideInitArrow() {
-    d3.select(this.graphDiv)
-      .select(".init-arrow")
-      .classed("hidden", true);
+    this.svgGroup.initArrow.classed("hidden", true);
   }
 
+  /**
+   * Returns the current state of the editor.
+   * @returns {Number} One number of graphStateEnum.
+   */
   getCurrentState() {
     return this.graphState.currentState;
   }
 
+  /**
+   * Checks if the editor is in the middle of renaming of a state/editing of a edge.
+   * @param   {Number}  state The current editor's state.
+   * @returns {Boolean}       True if is in renamind/editing state, false otherwise.
+   */
   isRenamingState(state) {
     return state == graphStateEnum.renamingState ||
       state == graphStateEnum.renamingEdge ||
@@ -857,10 +901,17 @@ class GraphMode extends AutomataEditorMode {
       state == graphStateEnum.mergingEdge;
   }
 
+  /**
+   * Sets the state of the editor.
+   * @param {Number} state One element of graphStateEnum.
+   */
   setCurrentState(state) {
     this.graphState.currentState = state;
   }
 
+  /**
+   * Hides all context menus.
+   */
   hideAllContextMenus() {
     HtmlUtils.hideElem(this.stateContextMenuDiv);
     HtmlUtils.hideElem(this.edgeContextMenuDiv);
@@ -876,6 +927,9 @@ class GraphMode extends AutomataEditorMode {
     EdgeUtils.hide(this.temporaryEdgeG);
   }
 
+  /**
+   * Enables dragging of elements and canvas.
+   */
   enableAllDragging() {
     if (!jeProhlizeciStranka_new()) {
       this.svgGroup.selectAll("." + GraphMode.CONSTS.stateGroup).call(this.dragState);
@@ -884,6 +938,9 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Disables dragging of elements and canvas.
+   */
   disableAllDragging() {
     var limitedDrag = d3.drag()
       .on("start", this.stateDragstart)
@@ -928,6 +985,9 @@ class GraphMode extends AutomataEditorMode {
     errMsg != null ? this.showRenameError(errMsg) : HtmlUtils.hideElem(this.renameError);
   }
 
+  /**
+   * Ends renaming/editing of an element.
+   */
   endRenaming() {
     if (SELECTED_ELEM_GROUP) {
       SELECTED_ELEM_GROUP.select("input").node().blur();
@@ -937,6 +997,11 @@ class GraphMode extends AutomataEditorMode {
     this.enableAllDragging();
   }
 
+  /**
+   * Sets the position of the error message.
+   * @param {Number}      graphState   An element of graphStateEnum.
+   * @param {HTMLElement} activeElemG  A state or an edge that is currently selected.
+   */
   setRenameErrorPosition(graphState, activeElemG) {
     var x, y;
     if (graphState == graphStateEnum.renamingState) {
@@ -944,7 +1009,7 @@ class GraphMode extends AutomataEditorMode {
       x = p.x;
       y = p.y;
     }
-    else {
+    else { 
       var input = activeElemG.select("input");
       var inputWidth = parseInt((input.node().style.width).substring(0, input.node().style.width.length - 2));
 
@@ -959,10 +1024,13 @@ class GraphMode extends AutomataEditorMode {
     HtmlUtils.setElemPosition(this.renameError, y, x);
   }
 
+  /**
+   * Shows the error message.
+   * @param {String} msg The text of the error message.
+   */
   showRenameError(msg) {
-    var p = this.renameError;
-    p.innerHTML = msg;
-    HtmlUtils.showElem(p);
+    this.renameError.innerHTML = msg;
+    HtmlUtils.showElem(this.renameError);
   }
 
 
@@ -988,6 +1056,11 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Creates the svg elements of a state.
+   * @param {SVGElement}  state   A svg <g> element.
+   * @param {Number}      origin  A memebr of elemOrigin enum.
+   */
   addStateSvg(state, origin = elemOrigin.default) {
     state
       .classed(GraphMode.CONSTS.stateGroup, true)
@@ -1023,6 +1096,10 @@ class GraphMode extends AutomataEditorMode {
     StateUtils.setInputValue(input.node(), state.datum().id);
   }
 
+  /**
+   * Adds event handlers for a state.
+   * @param {SVGElement} state A svg <g> element.
+   */
   addStateEvents(state) {
     var g = this;
     state
@@ -1121,6 +1198,11 @@ class GraphMode extends AutomataEditorMode {
       });
   }
 
+  /**
+   * Creates a new state with position [x,y] and sets it as initial state.
+   * @param {Number} x X coordinate.
+   * @param {Number} y Y coordinate.
+   */
   initInitialState(x, y) {
     var initialData = this.getNewStateData(null, x, y, true, false);
     this.createState(initialData);
@@ -1128,10 +1210,17 @@ class GraphMode extends AutomataEditorMode {
     this.graphState.initialState = initialData;
   }
 
+  /**
+   * Updates the graph d3 selection of state svg groups.
+   */
   updateStateGroups() {
     this.stateGroups = this.svgGroup.select(".states").selectAll("g");
   }
 
+  /**
+   * Delets the state.
+   * @param {Object} stateData 
+   */
   deleteState(stateData) {
     if (stateData.initial == true) {
       this.hideInitArrow();
@@ -1152,6 +1241,12 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Tries to rename the state if the new name is valid.
+   * @param {Object} stateData  State data.
+   * @param {String} newId      Possible new name.
+   * @param {String} prompt     Error message to show.
+   */
   tryToRenameState(stateData, newId, prompt = null) {
     if (prompt != null) {
       this.showRenameError(prompt);
@@ -1169,6 +1264,11 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Renames the state.
+   * @param {Object} stateData  State data.
+   * @param {String} newId      New name.
+   */
   renameState(stateData, newId) {
     this.statesData
       .filter(function (d) { return d.id == stateData.id; })
@@ -1181,20 +1281,30 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Deletes the svg elements of a state.
+   * @param {String} stateId State ID.
+   */
   deleteStateSvg(stateId) {
     this.svgGroup
       .select(".states")
       .selectAll("g")
-      .filter(function (d) {
-        return d.id == stateId;
-      })
+      .filter(function (d) { return d.id == stateId; })
       .remove();
   }
 
+  /**
+   * Deletes the @param stateData from graph's collection of states' data.
+   * @param {Object} stateData State data.
+   */
   deleteStateData(stateData) {
     this.statesData.splice(this.statesData.indexOf(stateData), 1);
   }
 
+  /**
+   * Delets all edges associated with a state.
+   * @param {String} stateData State data.
+   */
   deleteStateEdges(stateData) {
     //delete edges' SVG
     this.edgeGroups
@@ -1216,12 +1326,17 @@ class GraphMode extends AutomataEditorMode {
     this.updateEdgeGroups();
   }
 
+  /**
+   * Sets a new state as initial.
+   * @param {Object} stateData Data of the new initial state.
+   */
   setNewStateAsInitial(stateData) {
     this.setInitStateAsNotInitial();
 
     this.statesData
       .filter(function (d) { return d.id == stateData.id; })
       .map(function (d) { d.initial = true; });
+
 
     this.graphState.initialState = stateData;
     this.repositionInitArrow(stateData, 3.14);
@@ -1231,16 +1346,22 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Removes the initial status of the current initial state.
+   */
   setInitStateAsNotInitial() {
-    //TODO this.graphState.initial.initial = false ???
     this.statesData
       .filter(function (d) { return d.initial == true; })
       .map(function (d) { d.initial = false; });
-
     this.hideInitArrow();
   }
 
-  toggleAcceptingState(stateData, stateG) {
+  /**
+   * Toggles the accepting status of a state.
+   * @param {Object} stateData 
+   */
+  toggleAcceptingState(stateData) {
+    let stateG = this.getStateGroupById(stateData.id);
     if (stateData.accepting) {
       stateG.select("." + GraphMode.CONSTS.stateAccCircle).remove();
     } else {
@@ -1253,6 +1374,10 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Adds the svg circle marking accepting status of a state.
+   * @param {SVGElement} stateG A svg <g> element.
+   */
   addAcceptingCircle(stateG) {
     stateG
       .append("circle")
@@ -1262,17 +1387,24 @@ class GraphMode extends AutomataEditorMode {
     stateG.select("foreignObject").raise();
   }
 
-  selectState(stateGroup) {
+  /**
+   * Selects the state.
+   * @param {SVGElement} stateG A svg <g> element.
+   */
+  selectState(stateG) {
     this.removeSelectionFromEdge();
 
-    if (this.graphState.selectedState != stateGroup.datum()) { // another state was selected
+    if (this.graphState.selectedState != stateG.datum()) { // another state was selected
       this.removeSelectionFromState();
-      this.graphState.selectedState = stateGroup.datum();
-      SELECTED_ELEM_GROUP = stateGroup;
-      stateGroup.classed(GraphMode.CONSTS.selected, true);
+      this.graphState.selectedState = stateG.datum();
+      SELECTED_ELEM_GROUP = stateG;
+      stateG.classed(GraphMode.CONSTS.selected, true);
     }
   }
 
+  /**
+   * Deselects the currently selected state.
+   */
   removeSelectionFromState() {
     if (this.graphState.selectedState == null) {
       return;
@@ -1286,6 +1418,10 @@ class GraphMode extends AutomataEditorMode {
     this.graphState.selectedState = null;
   }
 
+  /**
+   * Defines the state's behaviour in the beginning of dragging.
+   * @param {Object} e D3 drag event object.
+   */
   stateDragstart(e) {
     var node = d3.select(this).node();
     var g = node.parentGraph;
@@ -1307,16 +1443,21 @@ class GraphMode extends AutomataEditorMode {
     g.selectState(d3.select(this));
   }
 
-  stateDragmove(event, d) {
+  /**
+   * Defines the state's behaviour during dragging.
+   * @param {Object} e D3 drag event object.
+   * @param {Object} d State data.
+   */
+  stateDragmove(e, d) {
     var g = d3.select(this).node().parentGraph;
     StateUtils.toggleFullNameVisibitity(g.svgGroup.stateFullnameRect);
 
-    var p = EditorUtils.applyTransformationToPoint([event.x, event.y], g.svgGroup);
+    var p = EditorUtils.applyTransformationToPoint([e.x, e.y], g.svgGroup);
     if (p.x < (params.width - GraphMode.CONSTS.nodeRadius) && p.x >= GraphMode.CONSTS.nodeRadius) {
-      d.x = event.x;
+      d.x = e.x;
     }
     if (p.y < (params.height - GraphMode.CONSTS.nodeRadius) && p.y >= GraphMode.CONSTS.nodeRadius) {
-      d.y = event.y;
+      d.y = e.y;
     }
 
     d3.select(this).attr("transform", "translate(" + d.x + "," + d.y + ")");
@@ -1326,9 +1467,14 @@ class GraphMode extends AutomataEditorMode {
     }
 
     g.updateOutgoingEdges(d);
-    g.updateIncommingEdges(d);
+    g.updateIncomingEdges(d);
   }
 
+  /**
+   * Defines the state's behaviour at the end of dragging.
+   * @param {Object} e D3 drag event object.
+   * @param {Object} d State data.
+   */
   stateDragend(e, d) {
     e.stopPropagation;
 
@@ -1369,6 +1515,10 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Updates positions of state's outgoing edges.
+   * @param {Object} stateData State data.
+   */
   updateOutgoingEdges(stateData) {
     var g = this;
     this.edgeGroups
@@ -1405,7 +1555,11 @@ class GraphMode extends AutomataEditorMode {
       });
   }
 
-  updateIncommingEdges(stateData) {
+  /**
+   * Updates positions of state's incoming edges.
+   * @param {Object} stateData State data.
+   */
+  updateIncomingEdges(stateData) {
     var g = this;
     this.edgeGroups
       .filter(function (ed) {
@@ -1428,12 +1582,14 @@ class GraphMode extends AutomataEditorMode {
         EdgeUtils.repositionInputTo(d3.select(this).select("foreignObject"), tx, ty);
         g.repositionMarker(d3.select(this));
       });
-
   }
 
 
   /* ------------------------------ EDGE ------------------------------ */
 
+  /**
+   * Defines the editor's behaviour in the beginning of edge dragging.
+   */
   edgeDragstart() {
     var g = d3.select(this).node().parentGraph;
     EditorManager.deselectAll(g.editorId);
@@ -1449,6 +1605,11 @@ class GraphMode extends AutomataEditorMode {
     HtmlUtils.hideElem(g.renameError);
   }
 
+  /**
+   * Defines the edge's behaviour during dragging.
+   * @param {Object} e D3 drag event object.
+   * @param {Object} d Edge data.
+   */
   edgeDragmove(e, d) {
     var edgeG = d3.select(this);
     var g = edgeG.node().parentGraph;
@@ -1463,12 +1624,21 @@ class GraphMode extends AutomataEditorMode {
     g.repositionMarker(edgeG);
   }
 
+  /**
+   * Defines the editors's behaviour at the end of edge dragging.
+   */
   edgeDragend() {
     if (!jeProhlizeciStranka_new()) {
       d3.select(this).node().parentGraph.updateText();
     }
   }
 
+  /**
+   * Creates a new edge.
+   * @param   {Object}      data    Edge data.
+   * @param   {Number}      origin  A member of elemOrigin enum.
+   * @returns {SVGELement}          The svg <g> element representing the new edge.
+   */
   createEdge(data, origin = elemOrigin.default) {
     var temporaryEdgePath = this.temporaryEdgeG.select("." + GraphMode.CONSTS.edgePath);
 
@@ -1503,6 +1673,12 @@ class GraphMode extends AutomataEditorMode {
     return newEdge;
   }
 
+  /**
+   * Creates svg elements for the new edge.
+   * @param {SVGELement} edge The svg <g> element representing the edge.
+   * @param {Number}     origin  A member of elemOrigin enum.
+   * @param {String}     tempEdgeDef The definition attribute of the temporary edge.
+   */
   addEdgeSvg(edge, origin, tempEdgeDef) {
     edge
       .append("svg:path")
@@ -1555,6 +1731,10 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Adds event handlers for edge.
+   * @param {SVGELement} edge The svg <g> element representing the edge.
+   */
   addEdgeEvents(edge) {
     var g = this;
     edge
@@ -1609,6 +1789,11 @@ class GraphMode extends AutomataEditorMode {
       });
   }
 
+  /**
+   * Handles edge's behaviour when the input housing its input symbols goes out of focus.
+   * @param {Object}      d     Edge data.
+   * @param {HTMLElement} input HTML <input> element.
+   */
   edgeOnBlur(d, input) {
     var g = input.parentGraph;
     g.getEdgeGroupById(d.id).classed("activeRenaming", false);
@@ -1640,6 +1825,13 @@ class GraphMode extends AutomataEditorMode {
     g.enableAllDragging();
   }
 
+  /**
+   * Handles edge's input on keydown.
+   * @param {KeyboardEvent} e 
+   * @param {Object}        d     Edge data.
+   * @param {HTMLElement}   input HTML <input> element.
+   * @returns 
+   */
   edgeInputOnKeyDown(e, d, input) {
     if (input.getAttribute("readonly") == "readonly") return;
     var g = input.parentGraph;
@@ -1656,6 +1848,12 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Tries to edit transiton's input symbols if the new symbols are valid.
+   * @param {Object} edgeData Edge data.
+   * @param {String} newSymbols Possible new input symbols.
+   * @param {String} prompt Error message to show.
+   */
   tryToRenameEdge(edgeData, newSymbols, prompt = null) {
     var edgeG = this.getEdgeGroupById(edgeData.id);
     this.setRenameErrorPosition(this.getCurrentState(), edgeG);
@@ -1683,6 +1881,11 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Renames the edge.
+   * @param {Object} edgeData Edge data.
+   * @param {String} symbols  New inpu symbols.
+   */
   renameEdge(edgeData, symbols) {
     this.edgesData
       .filter(function (ed) { return ed.id == edgeData.id; })
@@ -1698,7 +1901,10 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
-
+  /**
+   * Deletes the edge.
+   * @param {Object} edgeData Edge data.
+   */
   deleteEdge(edgeData) {
     this.deleteEdgeSvg(edgeData);
     this.updateEdgeGroups();
@@ -1708,6 +1914,10 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Deletes the edge's svg elements.
+   * @param {Object} edgeData Edge data.
+   */
   deleteEdgeSvg(edgeData) {
     this.svgGroup
       .select(".edges")
@@ -1718,10 +1928,18 @@ class GraphMode extends AutomataEditorMode {
       .remove();
   }
 
+  /**
+   * Deletes the @param edgeData from graph's collection of edges' data.
+   * @param {Object} edgeData Edge data.
+   */
   deleteEdgeData(edgeData) {
     this.edgesData.splice(this.edgesData.indexOf(edgeData), 1);
   }
 
+  /**
+   * Selects the edge.
+   * @param {SVGElement} edgeGroup A svg <g> representing the edge.
+   */
   selectEdge(edgeGroup) {
     this.removeSelectionFromState();
 
@@ -1734,6 +1952,9 @@ class GraphMode extends AutomataEditorMode {
     }
   }
 
+  /**
+   * Deselects the currently selected edge.
+   */
   removeSelectionFromEdge() {
     if (this.graphState.selectedEdge == null) {
       return;
@@ -1747,29 +1968,39 @@ class GraphMode extends AutomataEditorMode {
     this.graphState.selectedEdge = null;
   }
 
+  /**
+   * Updates the graph d3 selection of edge svg groups.
+   */
   updateEdgeGroups() {
     this.edgeGroups = this.svgGroup.select(".edges").selectAll("g");
   }
 
   /* ------------------------------ repostion utils ------------------------------ */
 
+  /**
+   * Updates the edge's arrow marker position and angle.
+   * @param {SVGElement} edgeGroup A svg <g> representing the edge.
+   */
   repositionMarker(edgeGroup) {
-    this.repositionMarkerTo(
-      edgeGroup.select("." + GraphMode.CONSTS.edgePath),
-      edgeGroup.select("." + GraphMode.CONSTS.edgeMarker),
-      GraphMode.CONSTS.nodeRadius + 11); // distance
+    let path = edgeGroup.select("." + GraphMode.CONSTS.edgePath);
+    let distance = GraphMode.CONSTS.nodeRadius + 11;
+
+    let pathLength = path.node().getTotalLength();
+    let pathPoint = path.node().getPointAtLength(pathLength - distance);
+    let pathPoint2 = path.node().getPointAtLength(pathLength - distance - 0.01);
+
+    edgeGroup
+      .select("." + GraphMode.CONSTS.edgeMarker)
+      .attr("d", `M ${pathPoint2.x} ${pathPoint2.y} L ${pathPoint.x} ${pathPoint.y}`);
   }
 
-  repositionMarkerTo(path, markerPath, distance) {
-    var pathLength = path.node().getTotalLength();
-    var pathPoint = path.node().getPointAtLength(pathLength - distance);
-    var pathPoint2 = path.node().getPointAtLength(pathLength - distance - 0.01);
-    markerPath.attr("d", `M ${pathPoint2.x} ${pathPoint2.y} L ${pathPoint.x} ${pathPoint.y}`);
-  }
-
+  /**
+   * Repositions the arrow marking the initial state to the state @param stateData .
+   * @param {Object} stateData State data.
+   * @param {Number} angle     Angle of the arrow.
+   */
   repositionInitArrow(stateData, angle) {
     var arrow = this.svgGroup.initArrow;
-
     arrow
       .classed("hidden", false) //if it was hidden after deleting previous initial state, show it
       .attr("d",
@@ -1779,10 +2010,6 @@ class GraphMode extends AutomataEditorMode {
       );
 
     arrow.node().angle = angle;
-  }
-
-  hideInitArrow() {
-    this.svgGroup.initArrow.classed("hidden", true);
   }
 
 
@@ -2385,8 +2612,7 @@ class TableMode extends AutomataEditorMode {
     var stateId = this.table.rows[acceptDiv.parentNode.parentNode.rowIndex].cells[TableMode.CONSTS.STATE_INDEX].myDiv.value;
 
     //edit state in graph
-    var stateG = this.getEditor().Graph.getStateGroupById(stateId);
-    this.getEditor().Graph.toggleAcceptingState(stateG.datum(), stateG);
+    this.getEditor().Graph.toggleAcceptingState(this.getStateDataById(stateId));
   }
 
   /**
@@ -3253,7 +3479,6 @@ class AutomataEditor extends Editor {
       result += "@initAngle:" + this.Graph.svgGroup.initArrow.node().angle.toFixed(3);
     }
     var t = d3.zoomTransform(this.Graph.svgGroup.node());
-    //t = Object { k: 1.148698354997035, x: 500.950304961033, y: 446.2509705696626 }
     result += `@t:${t.k.toFixed(3)};${t.x.toFixed(3)};${t.y.toFixed(3)}`;
     return result;
   }
