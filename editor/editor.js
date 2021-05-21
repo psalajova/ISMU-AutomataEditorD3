@@ -95,7 +95,6 @@ const EditorManager = {
   deselectAll: function (exceptionId = null) {
     for (let [id, editor] of this.editors) {
       if (id !== exceptionId && !EditorUtils.typeIsRegOrGram(editor.type)) {
-        //TODO
         if (SELECTED_ELEM_GROUP && SELECTED_ELEM_GROUP.node().parentGraph == editor.Graph) {
           SELECTED_ELEM_GROUP.select("input").node().blur();
         }
@@ -1131,7 +1130,6 @@ class GraphMode extends AutomataEditorMode {
         g.hideAllExtras();
         g.selectState(d3.select(this));
 
-        //TODO separate function
         if (data.initial) {
           HtmlUtils.hideElem(g.initialButton);
         }
@@ -1657,7 +1655,6 @@ class GraphMode extends AutomataEditorMode {
     this.addEdgeSvg(newEdge, origin, temporaryEdgePath.attr("d"));
 
     this.repositionMarker(newEdge);
-    //TODO
     EdgeUtils.updateInputPosition(newEdge);
     this.updateEdgeGroups();
 
@@ -3648,9 +3645,6 @@ function createEditor(id, textArea) {
     }
   }
   else {
-    if (type == "DFA") {
-      textArea.innerText = "(s1,a)=s2 (s2,a)=s3 (s3,a)=s3 (s2,b)=s2 final={s444,s2} #states@s1;-307.98;-157.00@s2;-112.03;-155.81@s3;66.99;-166.00 edges@s1;s2;a;0.05;-61.02;@s2;s3;a;2.93;117.91;@s3;s3;a;;;1.55@s2;s2;b;;;-2.42@initAngle:3.140@t:1.000;457.562;296.987";
-    }
     editor = new AutomataEditor(div.id, type, textArea);
     editor.Graph.reconstruct(textArea.innerText);
 
