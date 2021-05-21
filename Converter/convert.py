@@ -13,7 +13,7 @@ def getScript(src):
 
 
 def getStyle(path):
-   return "<style type=\"text/css\">@import \"" + path + "\";</style>"
+   return "<style>@import \"" + path + "\";</style>"
 
 
 """
@@ -41,16 +41,16 @@ Adds header to the file.
 """
 def addHeader(questions, types):
     res = "++\n"
-    res += noScript
-    res += getScript(ISpath + "jquery-ui.js")
-    res += getStyle(ISpath + "jquery-ui.css")
-    res += "\n<script>\n"
+    res += "<script>\n"
     res += "var ISpath = \"" + ISpath + "\";\n"
-    res += "var langDirPath = ISpath;"
+    res += "var langDirPath = ISpath;\n"
+    res += "if (typeof jQuery.ui == \"undefined\") {\n"
+    res += "\tdocument.write(`\<script src=\\\"${ISpath}" + "jquery-ui.js\\\"><\/script>`);\n"
+    res += "\tdocument.write(`\<style>@import \\\"${ISpath}jquery-ui.css\\\";<\/style>`);\n}"
     res += "\nif ($(`script[src=\\\"${ISpath}editor2.js\\\"]`).length === 0) {\n\t[\"editor2.js\", \"utilIS.js\", \"d3.v6.min.js\"].forEach(src => {"
-    res += "\n\t\tdocument.write(`\<script src=\\\"${ISpath}" +"${src}\"\\\"><\/script>`);"
+    res += "\n\t\tdocument.write(`\<script src=\\\"${ISpath}" +"${src}\\\"><\/script>`);"
     res += "\n\t});"
-    res += "\n\tdocument.write(`\<style type=\\\"text/css\\\">@import \\\"${ISpath}editorStyle.css\\\";<\/style>`);"
+    res += "\n\tdocument.write(`\<style>@import \\\"${ISpath}editorStyle.css\\\";<\/style>`);"
     res += "\n}"
     res += addParsers(types)
     res += "\n</script>\n"
