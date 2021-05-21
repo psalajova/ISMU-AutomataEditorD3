@@ -53,10 +53,7 @@ if (typeof editor_init !== 'function') {
     for (var n in editorQuestions) {
       var txa = textAreas[n];
       if (editorQuestions[n] != null) {
-        var div = document.createElement("div");
-        div.setAttribute("id", editorQuestions[n]);
-        txa.parentNode.insertBefore(div, txa.nextSibling);
-        createEditor(div, txa);
+        createEditor(editorQuestions[n], txa);
       }
     }
   }
@@ -3634,8 +3631,13 @@ function setupLanguage() {
  * @param {HTMLElement} div       HTML div element where the editor will be placed.
  * @param {HTMLElement} textArea  HTML textarea element (created automatically by IS).
  */
-function createEditor(div, textArea) {
+function createEditor(id, textArea) {
+  var div = document.createElement("div");
+  div.setAttribute("id", id);
   div.setAttribute("class", "editor-content");
+  
+  textArea.parentNode.insertBefore(div, textArea.nextSibling);
+
   var type = div.getAttribute("id").substring(0, 3);
   var editor;
 
