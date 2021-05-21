@@ -4,9 +4,7 @@
 <head>
     <meta charset="utf-8">
     <script src="../Libs/jquery.min.js"></script>
-    <script src="../Libs/jquery-ui.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="../Libs/jquery-ui.css">
-
+    
     <style>
         body {
             font-family: "Open Sans", Arial, sans-serif;
@@ -41,35 +39,25 @@
     </style>
 
     <script>
-        //var ISpath = "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/";
         var ISpath = "../";
         var langDirPath = "../Languages/";
-
+        if (typeof jQuery.ui == "undefined") {
+            document.write(`\<script src=\"${ISpath}jquery-ui.js\"><\/script>`);
+            document.write(`\<style>@import \"${ISpath}jquery-ui.css\";<\/style>`);
+        }
         if ($(`script[src=\"${ISpath}editor.js\"]`).length === 0) {
-            
             ["editor.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
                 document.write(`\<script src=\"${ISpath}${src}"\"><\/script>`);
             });
-            document.write(`\<style type=\"text/css\">@import \"${ISpath}editorStyle.css\";<\/style>`);
+            document.write(`\<style >@import \"${ISpath}editorStyle.css\";<\/style>`);
         }
         ["DFA", "NFA", "EFA", "GRA", "REG"].forEach(type => {
             if ($(`script[src=\"${ISpath}Parsers/${type}Parser.js\"]`).length === 0) {
-                document.write(`\<script src="${ISpath}Parsers/${type}Parser.js\"><\/script>`);
+                document.write(`\<script src=\"${ISpath}Parsers/${type}Parser.js\"><\/script>`);
             }
         });
         
     </script>
-    <!--
-    <script src="https://ajax.googleapis.com/ajax/libs/d3js/6.2.0/d3.min.js"></script>
-    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/jquery-ui.js"></script>
-    <style type="text/css">@import "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/jquery-ui.css";</style>
-    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editor2.js"></script>
-    <style type="text/css">@import "//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/editorStyle.css";</style>
-    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/GRAParser.js"></script>
-    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/REGParser.js"></script>
-    <script src="//is.muni.cz/auth/el/fi/jaro2021/IB005/odp/support/v2/utilIS.js"></script>
--->
-
 
 </head>
 
