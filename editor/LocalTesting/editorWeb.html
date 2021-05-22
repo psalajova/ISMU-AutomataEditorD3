@@ -42,8 +42,8 @@
         var ISpath = "../";
         var langDirPath = "../Languages/";
         if (typeof jQuery.ui == "undefined") {
-            document.write(`\<script src=\"${ISpath}jquery-ui.js\"><\/script>`);
-            document.write(`\<style>@import \"${ISpath}jquery-ui.css\";<\/style>`);
+            document.write(`\<script src=\"${ISpath}Libs/jquery-ui.min.js\"><\/script>`);
+            document.write(`\<style>@import \"${ISpath}Libs/jquery-ui.css\";<\/style>`);
         }
         if ($(`script[src=\"${ISpath}editor.js\"]`).length === 0) {
             ["editor.js", "utilIS.js", "Libs/d3.v6.min.js"].forEach(src => {
