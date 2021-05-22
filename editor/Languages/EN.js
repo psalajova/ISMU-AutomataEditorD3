@@ -48,7 +48,7 @@ var graphHints = {
   addState : "<b>Create state:</b> double click on canvas or right click on canvas + New state.",
   addTransition : "<b>Create transition:</b> click on a state + click on another state (or the same state to create a selfloop).",
   drag : "You can drag both states and transitions.",
-  stateMenu: "Right clicking on a state will open a menu where you can <b>rename</b> or <b>delete</b> state, <b>set state as initial</b>, <b>set state as accepting/not accepting</b>.",
+  stateMenu: "Right clicking on a state will open a menu where you can <b>rename</b> or <b>delete</b> state, <b>make state initial</b>, <b>make state accepting/non-accepting</b>.",
   transitionMenu: "Right clicking on a transition will open a menu where you can <b>edit symbols</b> or <b>delete</b> transition.",
   rename : "Transitions and states can also be edited by double clicking. To save changes press ENTER.",
   delete : "Deleting a state or a transition is also possible by selecting the element and pressing DEL.",
@@ -77,14 +77,14 @@ var errors = {
 
   //table row headers (state names) errors
   incorrectStateSyntax : "<strong>Error!</strong> Wrong state name syntax. Expecting a string of characters from "+ STATE_SYNTAX + ". ",
-  duplicitState : "<strong>Error!</strong> Duplicit state name.",
+  duplicitState : "<strong>Error!</strong> A state with this name already exists.",
   emptyState: "<strong>Error!</strong> Empty state name.",
 
   //table header cells (transition symbols) errors
   EFA_incorrectTransitionSymbol : "<strong>Error!</strong> Wrong transition symbol syntax.",
   incorrectTransitionSymbol : "<strong>Error!</strong> Wrong transition symbol syntax.",
   emptyTransition: "<strong>Error!</strong> The transition cannot be empty.",
-  duplicitTransitionSymbol : "<strong>Error!</strong> Duplicit transition symbol.",
+  duplicitTransitionSymbol : "<strong>Error!</strong> Duplicate transition symbol.",
 
   // table inner cell errors
   innerCellIncorrectSyntaxBase: "<strong>Error!</strong> Wrong syntax of the result of the transition function.",
@@ -99,6 +99,7 @@ var stateNameAlreadyExists = "<strong>Error:</strong> A state with this name alr
 var edgeAlreadyExistsAlert = "A transition between these two states already exists.<br>Edit the existing transition to add more symbols.";
 var DFAInvalidTransition = "<strong>Error:</strong> The automaton has to be <b>deterministic</b> (a transition from this state with at least one of these symbols to another state already exists).";
 
+//Titles shown upon mouse hover over table elements.
 var tableDelSymbolHover = "Delete column (deletes the symbol from all transitions)";
 var tableDelRowHover = "Delete row (deletes the state and all its transitions)";
 var tableAddRowHover = "New state";
@@ -107,7 +108,6 @@ var tableAddSymbolHover = "New symbol";
 var emptyGraphText = "Double click to create the first state.";
 
 /* ------------------------------ syntax check div ------------------------------ */
-//currently unused
 var syntaxDivTitle = "Syntax help.";
 var syntaxDefaultText = "Syntax help is displayed here. ";
 var syntaxIsCorrect = "Syntax is correct.";
