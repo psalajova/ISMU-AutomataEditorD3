@@ -547,8 +547,6 @@ class GraphMode extends AutomataEditorMode {
 
     /**
      * TODO:
-     * parse init arrow angle
-     * 
      * when syntax check is working and textarea is not readonly, 
      * take into consideration how will textarea with wrong syntax affect editor
      */
