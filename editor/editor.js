@@ -4225,7 +4225,7 @@ class EditorUtils {
     if (matches) {
       return matches[0].substring(5);
     }
-
+    //finds the first state in transition function
     matches = answer.match(new RegExp(`\\(${EditorSyntax.elems.stateId}`));
     if (matches) {
       return matches[0].substring(1);
