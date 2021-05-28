@@ -281,7 +281,6 @@ class GraphMode extends AutomataEditorMode {
    */
   initialise() {
     this.graphDiv.setAttribute("class", "graph-div");
-
     this.graphState = {
       selectedState: null,
       selectedEdge: null,
@@ -457,7 +456,6 @@ class GraphMode extends AutomataEditorMode {
     this.createAddStateMenu();
     this.createRenameError();
 
-
     if (!jeProhlizeciStranka_new()) {
       this.zoom.scaleExtent([maxZoomout, 3])
         .translateExtent([[-(params.width), -(params.height)], [params.width, params.height]]);
@@ -465,7 +463,8 @@ class GraphMode extends AutomataEditorMode {
       //add event listeners if page is not in inspection mode
       svg.on("mousemove", (e) => this.canvasOnMousemove(e))
         .on("click", (e) => this.canvasOnClick(e))
-        .on("contextmenu", (e) => this.canvasOnContextmenu(e));
+        .on("contextmenu", (e) => this.canvasOnContextmenu(e))
+        ;
 
       rect.on("contextmenu", (e) => this.canvasOnContextmenu(e))
         .on("dblclick", (e) => this.canvasOnDblclick(e));
@@ -498,22 +497,23 @@ class GraphMode extends AutomataEditorMode {
     var finalStates = matches ? matches[0].substring(7, matches[0].length - 1).split(',') : [];
 
     let initial = EditorUtils.getInitialStateFromText(answer);
-    var data = splitted[1].split(" edges");
+    var data = splitted[1].split("edges@");
     var states = data[0];
-    var rest = data[1];
+    var rest = "@" + data[1];
     var editor = this.getEditor();
 
     if (states != null && states != "") {
       states = states.split("@");
       for (var d of states) {
         var stateParts = d.split(';');
-        if (stateParts.length != 3) continue;
         let id = stateParts[0];
         let x = parseInt(stateParts[1]);
         let y = parseInt(stateParts[2]);
+        if (EditorSyntax.incorrectStateSyntax(id)) continue;
+        this.checkStatePosData(data);
         var data = this.getNewStateData(id, x, y);
+        
         this.createState(data);
-
         if (initial != null && initial === data.id) {
           this.setNewStateAsInitial(data);
         }
@@ -804,7 +804,7 @@ class GraphMode extends AutomataEditorMode {
    * Defines editor's behaviour at the start of the zooming.
    */
   svgZoomStart() {
-    EditorManager.deselectAll(this.editorId);
+    EditorManager.deselectAll();
     this.hideAllContextMenus();
   }
 
@@ -1048,6 +1048,18 @@ class GraphMode extends AutomataEditorMode {
       this.addStateEvents(newStateG);
       this.updateText();
     }
+    else {
+      let g = this;
+      newStateG
+        .on("mouseover", function(_, d) {
+          if (d.id != d3.select(this).select("input").node().value) {
+            StateUtils.showFullName(g.svgGroup.stateFullnameRect, d);
+          }
+        })
+        .on("mouseout", function() {
+          StateUtils.toggleFullNameVisibitity(g.svgGroup.stateFullnameRect);
+        });
+    }
   }
 
   /**
@@ -1098,10 +1110,10 @@ class GraphMode extends AutomataEditorMode {
     var g = this;
     state
       .call(g.dragState)
-      .on("mouseover", function (_, d) {
+      .on("mouseover", function(_, d) {
         g.graphState.mouseOverState = d;
         d3.select(this).classed(GraphMode.CONSTS.mouseOver, true);
-
+  
         if (d.id != d3.select(this).select("input").node().value) {
           StateUtils.showFullName(g.svgGroup.stateFullnameRect, d);
         }
@@ -1228,7 +1240,7 @@ class GraphMode extends AutomataEditorMode {
       this.updateText();
       var editor = this.getEditor();
       if (editor.isEmpty()) {
-        editor.resetStateIds();
+        //editor.resetStateIds();
         this.initEmptyState();
       }
     }
@@ -1577,6 +1589,11 @@ class GraphMode extends AutomataEditorMode {
       });
   }
 
+  checkStatePosData(data) {
+    if (!data.x || !data.y) {
+      data = this.findStatePlacement(data);
+    }
+  }
 
   /* ------------------------------ EDGE ------------------------------ */
 
@@ -2880,7 +2897,6 @@ class TableMode extends AutomataEditorMode {
    * Resets all incorrect cells to their previous correct value and unblocks the table.
    */
   rollback() {
-    console.log("rollback");
     this.incorrectInputs.forEach(input => {
       input.value = input.prevValue;
       $(input).removeClass(TableMode.CONSTS.incorrectCell);
@@ -3658,13 +3674,30 @@ function createEditor(id, textArea) {
 document.addEventListener('keyup', windowKeyUp);
 
 /**
+ * if a state or edge is selected and we interact with something 
+ * that's not a part of the editor, we deselect the editor
+ */
+$(document).on('click touchstart input drag contextmenu', (e) => {
+  if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka_new()) {
+    return;
+  }
+  var graph = SELECTED_ELEM_GROUP.node().parentGraph;
+  if (!graph.getEditor().div.contains(e.target)) {
+    EditorManager.deselectAll();
+    SELECTED_ELEM_GROUP = null;
+  }
+});
+
+/**
  * Handles editor's key up events.
  * @param {KeyboardEvent} event
  */
 function windowKeyUp(event) {
   //SELECTED_ELEM_GROUP is either null, or a d3 selection - stateGroup or an edgeGroup
-  if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka_new()) return;
-
+  //when renaming a state or edge, that stateGroup/edgeGroup has a class "activeRenaming"
+  if (SELECTED_ELEM_GROUP == null || jeProhlizeciStranka_new()) {
+    return;
+  }
   var g = SELECTED_ELEM_GROUP.node().parentGraph;
   var data = SELECTED_ELEM_GROUP.datum();
 
@@ -3677,9 +3710,17 @@ function windowKeyUp(event) {
     }
   }
   if (event.key.toLowerCase() == "delete") {
-    if (SELECTED_ELEM_GROUP.classed("activeRenaming")) return; //allow delete while renaming
-
-    if (SELECTED_ELEM_GROUP.node().classList.contains(GraphMode.CONSTS.stateElem)) { // if selected element is state
+    //when renaming a state/an edge allow deleting
+    if (SELECTED_ELEM_GROUP.classed("activeRenaming")) {
+      return;
+    }
+    //when typing into an element that is not a part of the editor
+    if ((event.target.type == "textarea" || event.target.type == "input") && !g.graphDiv.contains(event.target)) {
+      EditorManager.deselectAll();
+      return;
+    }
+    // if selected element is state
+    if (SELECTED_ELEM_GROUP.node().classList.contains(GraphMode.CONSTS.stateElem)) {
       g.deleteState(data);
       g.graphState.selectedState = null;
     }
@@ -3854,7 +3895,7 @@ class StateUtils {
     rect.FullnameText.style("visibility", function () {
       return visible == true ? "visible" : "hidden";
     });
-  }
+  } 
 
 }
 
